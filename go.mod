@@ -1,6 +1,6 @@
 module github.com/lazarev-a-auca-2022/vpn-setup-server
 
-go 1.23.3
+go 1.20
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
@@ -10,3 +10,4 @@ require (
 )
 
 require golang.org/x/sys v0.29.0 // indirect
+

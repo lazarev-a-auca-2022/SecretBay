@@ -1,4 +1,3 @@
-# Use official Golang image as build stage
 FROM golang:1.20-alpine AS builder
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
@@ -14,5 +13,6 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 COPY --from=builder /app/vpn-setup-server .
-EXPOSE 8080
+EXPOSE 8081
+STOPSIGNAL SIGTERM
 CMD ["./vpn-setup-server"]

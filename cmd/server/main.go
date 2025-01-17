@@ -17,6 +17,10 @@ func main() {
 	router := mux.NewRouter()
 	api.SetupRoutes(router, cfg)
 	router.Use(api.JWTAuthenticationMiddleware(cfg))
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("VPN Setup Server is running"))
+	}).Methods("GET")
 	log.Printf("Server is running on port %s", cfg.Server.Port)
 	if err := http.ListenAndServe(":"+cfg.Server.Port, router); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
