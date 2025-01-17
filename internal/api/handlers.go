@@ -1,9 +1,12 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -103,11 +106,17 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 }
 
 func generatePassword() string {
-	// TODO: Implement password generation
-	return "NewSecurePassword123!" // placeholder
+	const passwordLength = 12
+	bytes := make([]byte, passwordLength)
+	if _, err := rand.Read(bytes); err != nil {
+		// backup pass incase stuff goes wrong
+		return "backuppassword12213131231!"
+	}
+	return base64.URLEncoding.EncodeToString(bytes)[:passwordLength]
 }
 
 func generateVPNConfigPath(vpnType, setupID string) string {
-	// TODO: Implement VPN config path generation
-	return fmt.Sprintf("/configs/%s/%s.ovpn", vpnType, setupID)
+	configDir := "/etc/vpn-configs"
+	filename := fmt.Sprintf("%s_%s.ovpn", vpnType, setupID)
+	return filepath.Join(configDir, filename)
 }

@@ -3,10 +3,12 @@ package sshclient
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type SSHClient struct {
@@ -18,7 +20,7 @@ func NewSSHClient(serverIP, username, authMethod, authCredential string) (*SSHCl
 	if authMethod == "password" {
 		auth = ssh.Password(authCredential)
 	} else if authMethod == "key" {
-		key, err := ioutil.ReadFile(authCredential)
+		key, err := os.ReadFile(authCredential)
 		if err != nil {
 			return nil, fmt.Errorf("unable to read SSH key: %v", err)
 		}
@@ -31,10 +33,16 @@ func NewSSHClient(serverIP, username, authMethod, authCredential string) (*SSHCl
 		return nil, fmt.Errorf("unsupported auth method")
 	}
 
+	knownHostsFile := filepath.Join(os.Getenv("HOME"), ".ssh", "known_hosts")
+	hostKeyCallback, err := knownhosts.New(knownHostsFile)
+	if err != nil {
+		return nil, fmt.Errorf("could not create hostkeycallback function: %v", err)
+	}
+
 	config := &ssh.ClientConfig{
 		User:            username,
 		Auth:            []ssh.AuthMethod{auth},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Change this to a secure callback
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 	}
 
