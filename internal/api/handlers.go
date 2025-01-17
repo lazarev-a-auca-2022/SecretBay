@@ -17,7 +17,7 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/models"
 )
 
-func setupVPNHandler(cfg *config.Config) http.HandlerFunc {
+func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req models.VPNSetupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -102,7 +102,7 @@ func setupVPNHandler(cfg *config.Config) http.HandlerFunc {
 }
 
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
-	router.HandleFunc("/setup", setupVPNHandler(cfg)).Methods("POST")
+	router.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
 }
 
 func generatePassword() string {
