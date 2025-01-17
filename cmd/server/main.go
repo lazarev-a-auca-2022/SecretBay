@@ -10,19 +10,19 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// config loader
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}
 
-	// Initialize router
+	// router init
 	router := mux.NewRouter()
 
-	// Setup API routes
+	// api route setup
 	api.SetupRoutes(router, cfg)
 
-	// Start server
+	// start the server
 	log.Printf("Server is running on port %s", cfg.Server.Port)
 	if err := http.ListenAndServe(":"+cfg.Server.Port, router); err != nil {
 		log.Fatalf("Server failed to start: %v", err)

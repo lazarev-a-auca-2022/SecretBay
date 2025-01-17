@@ -34,7 +34,7 @@ func NewSSHClient(serverIP, username, authMethod, authCredential string) (*SSHCl
 	config := &ssh.ClientConfig{
 		User:            username,
 		Auth:            []ssh.AuthMethod{auth},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Consider using a proper host key callback
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Change this to a secure callback
 		Timeout:         10 * time.Second,
 	}
 

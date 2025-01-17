@@ -11,14 +11,14 @@ type SecuritySetup struct {
 }
 
 func (s *SecuritySetup) SetupFail2Ban() error {
-	// Install Fail2Ban
+	// fail2ban installation
 	cmd := "sudo apt install -y fail2ban"
 	_, err := s.SSHClient.RunCommand(cmd)
 	if err != nil {
 		return err
 	}
 
-	// Configure Fail2Ban for SSH
+	// create a custom jail for SSH
 	fail2banConfig := `
 [sshd]
 enabled = true
@@ -34,7 +34,7 @@ maxretry = 5
 		return err
 	}
 
-	// Restart Fail2Ban service
+	// restart and enable fail2ban
 	cmds := []string{
 		"sudo systemctl restart fail2ban",
 		"sudo systemctl enable fail2ban",
@@ -51,7 +51,7 @@ maxretry = 5
 }
 
 func (s *SecuritySetup) DisableUnnecessaryServices() error {
-	// Example: Disable Apache if installed
+	// extra security measure
 	cmds := []string{
 		"sudo systemctl stop apache2",
 		"sudo systemctl disable apache2",
@@ -60,7 +60,7 @@ func (s *SecuritySetup) DisableUnnecessaryServices() error {
 	for _, cmd := range cmds {
 		_, err := s.SSHClient.RunCommand(cmd)
 		if err != nil {
-			// It's okay if the service is not installed
+			// do not fail
 			continue
 		}
 	}

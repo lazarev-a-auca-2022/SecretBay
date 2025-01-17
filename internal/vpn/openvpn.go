@@ -12,7 +12,7 @@ type OpenVPNSetup struct {
 }
 
 func (o *OpenVPNSetup) Setup() error {
-	// Update and install OpenVPN and EasyRSA
+	// upd and install required packages
 	cmds := []string{
 		"sudo apt update && sudo apt upgrade -y",
 		"sudo apt install -y openvpn easy-rsa fail2ban ufw",
@@ -25,7 +25,7 @@ func (o *OpenVPNSetup) Setup() error {
 		}
 	}
 
-	// Setup EasyRSA
+	// easy-rsa setup
 	cmds = []string{
 		"make-cadir ~/easy-rsa",
 		"cd ~/easy-rsa && ./easyrsa init-pki",
@@ -46,7 +46,7 @@ func (o *OpenVPNSetup) Setup() error {
 		}
 	}
 
-	// Configure OpenVPN server
+	// configure OpenVPN server
 	serverConfig := `
 port 1194
 proto udp
@@ -68,14 +68,14 @@ status openvpn-status.log
 verb 3
 `
 
-	// Write server configuration
+	// Write server config to /etc/openvpn/server.conf
 	cmd := fmt.Sprintf("echo \"%s\" | sudo tee /etc/openvpn/server.conf", serverConfig)
 	_, err := o.SSHClient.RunCommand(cmd)
 	if err != nil {
 		return err
 	}
 
-	// Enable IP forwarding
+	// enable IP forwarding
 	cmds = []string{
 		"sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf",
 		"sudo sysctl -p",
@@ -88,7 +88,7 @@ verb 3
 		}
 	}
 
-	// Configure UFW
+	// configure UFW
 	cmds = []string{
 		"sudo ufw allow 1194/udp",
 		"sudo ufw allow OpenSSH",
@@ -103,7 +103,7 @@ verb 3
 		}
 	}
 
-	// Start OpenVPN service
+	// start and enable OpenVPN service
 	cmds = []string{
 		"sudo systemctl start openvpn@server",
 		"sudo systemctl enable openvpn@server",
@@ -119,4 +119,4 @@ verb 3
 	return nil
 }
 
-// Add more methods for generating client configs, etc.
+// TODO: idk

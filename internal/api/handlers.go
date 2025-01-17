@@ -22,16 +22,16 @@ func setupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Validate request
+		// request validation
 		if err := req.Validate(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// Generate a unique identifier for the setup process
+		// unique id verification for the setup
 		setupID := uuid.New().String()
 
-		// Initialize SSH client
+		// ssh client initialization
 		sshClient, err := sshclient.NewSSHClient(req.ServerIP, req.Username, req.AuthMethod, req.AuthCredential)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
@@ -39,7 +39,7 @@ func setupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		}
 		defer sshClient.Close()
 
-		// Start VPN setup based on VPN type
+		// start vpn setup based on type
 		switch req.VPNType {
 		case "openvpn":
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
@@ -58,41 +58,41 @@ func setupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Apply security measures
+		// security application
 		security := vpn.SecuritySetup{SSHClient: sshClient}
 		if err := security.SetupFail2Ban(); err != nil {
 			http.Error(w, fmt.Sprintf("Fail2Ban setup failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 		if err := security.DisableUnnecessaryServices(); err != nil {
-			// Log but do not fail
+			// log no fail
 		}
 
-		// Generate new root password
+		// generate password
 		newPassword := generatePassword()
 
-		// Change root password
+		// change root password
 		if err := security.ChangeRootPassword(newPassword); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to change root password: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		// Clean up client data
+		// client data cleanup
 		cleanup := utils.DataCleanup{SSHClient: sshClient}
 		if err := cleanup.RemoveClientData(); err != nil {
-			// Log but do not fail
+			// log no fail
 		}
 
-		// Generate VPN configuration file path
+		// generate vpn config path
 		vpnConfigPath := generateVPNConfigPath(req.VPNType, setupID)
 
-		// Example: Generate response
+		// response
 		response := models.VPNSetupResponse{
 			VPNConfig:   vpnConfigPath,
 			NewPassword: newPassword,
 		}
 
-		// Respond to client
+		// response
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
@@ -103,11 +103,11 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 }
 
 func generatePassword() string {
-	// Implement password generation logic
-	return "NewSecurePassword123!" // Replace with actual generation
+	// TODO: Implement password generation
+	return "NewSecurePassword123!" // placeholder
 }
 
 func generateVPNConfigPath(vpnType, setupID string) string {
-	// Generate the path or URL to the VPN config file
+	// TODO: Implement VPN config path generation
 	return fmt.Sprintf("/configs/%s/%s.ovpn", vpnType, setupID)
 }

@@ -15,13 +15,13 @@ type VPNSetupResponse struct {
 	NewPassword string `json:"new_password"`
 }
 
-// Validate validates the VPNSetupRequest fields
+// validation
 func (r *VPNSetupRequest) Validate() error {
 	if r.ServerIP == "" {
 		return fmt.Errorf("server_ip is required")
 	}
 	if r.Username == "" {
-		r.Username = "root" // Default username
+		r.Username = "root" // default username
 	}
 	if r.AuthMethod != "password" && r.AuthMethod != "key" {
 		return fmt.Errorf("auth_method must be 'password' or 'key'")

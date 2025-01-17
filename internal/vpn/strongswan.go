@@ -12,7 +12,7 @@ type StrongSwanSetup struct {
 }
 
 func (s *StrongSwanSetup) Setup() error {
-	// Update and install StrongSwan
+	// strongSwan installation
 	cmds := []string{
 		"sudo apt update && sudo apt upgrade -y",
 		"sudo apt install -y strongswan strongswan-pki libcharon-extra-plugins fail2ban ufw",
@@ -25,7 +25,7 @@ func (s *StrongSwanSetup) Setup() error {
 		}
 	}
 
-	// Generate certificates and keys
+	// generate certificates
 	cmds = []string{
 		"mkdir -p ~/pki/{cacerts,certs,private}",
 		"ipsec pki --gen --outform pem > ~/pki/private/ca.key.pem",
@@ -41,7 +41,7 @@ func (s *StrongSwanSetup) Setup() error {
 		}
 	}
 
-	// Configure StrongSwan
+	// strongSwan configuration
 	strongswanConf := `
 config setup
     charondebug="all"
@@ -71,14 +71,14 @@ conn ios_vpn
     auto=add
 `
 
-	// Write StrongSwan configuration
+	// write strongSwan configuration to file
 	cmd := fmt.Sprintf("echo \"%s\" | sudo tee /etc/ipsec.conf", strongswanConf)
 	_, err := s.SSHClient.RunCommand(cmd)
 	if err != nil {
 		return err
 	}
 
-	// Restart StrongSwan service
+	// restart and enable strongSwan
 	cmds = []string{
 		"sudo systemctl restart strongswan",
 		"sudo systemctl enable strongswan",
@@ -94,4 +94,4 @@ conn ios_vpn
 	return nil
 }
 
-// Add more methods for generating client configs, etc.
+// TODO: ???

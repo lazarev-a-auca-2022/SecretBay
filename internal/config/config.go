@@ -8,7 +8,7 @@ import (
 type ServerConfig struct {
 	Port         string
 	JWTSecret    string
-	DBConnection string // If using a database
+	DBConnection string // if we ar using a db
 }
 
 type Config struct {
