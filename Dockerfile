@@ -13,6 +13,6 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 COPY --from=builder /app/vpn-setup-server .
-EXPOSE 8081
+EXPOSE 9983
 STOPSIGNAL SIGTERM
 CMD ["./vpn-setup-server"]
