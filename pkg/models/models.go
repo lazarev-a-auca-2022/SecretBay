@@ -3,11 +3,11 @@ package models
 import "fmt"
 
 type VPNSetupRequest struct {
-	ServerIP       string `json:"server_ip"`
-	Username       string `json:"username"`
-	AuthMethod     string `json:"auth_method"`
-	AuthCredential string `json:"auth_credential"`
-	VPNType        string `json:"vpn_type"`
+    ServerIP       string `json:"server_ip"`
+    Username       string `json:"username"`
+    AuthMethod     string `json:"auth_method"`
+    AuthCredential string `json:"auth_credential"`
+    VPNType        string `json:"vpn_type"`
 }
 
 type VPNSetupResponse struct {

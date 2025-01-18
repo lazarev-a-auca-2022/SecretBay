@@ -16,7 +16,7 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	port := getEnv("SERVER_PORT", "8080")
+	port := getEnv("SERVER_PORT", "9999")
 	jwtSecret := getEnv("JWT_SECRET", "your-secret-key")
 	dbConn := getEnv("DB_CONNECTION", "")
 
