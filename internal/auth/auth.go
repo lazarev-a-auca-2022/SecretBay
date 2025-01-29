@@ -14,7 +14,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// craete a JWT token with the username as the payload
+// create a JWT token with the username as the payload
 func GenerateJWT(username string, cfg *config.Config) (string, error) {
     expirationTime := time.Now().Add(24 * time.Hour)
     claims := &Claims{
@@ -27,7 +27,7 @@ func GenerateJWT(username string, cfg *config.Config) (string, error) {
     }
 
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    return token.SignedString([]byte(cfg.Server.JWTSecret))
+    return token.SignedString([]byte(cfg.JWTSecret)) // Changed to cfg.JWTSecret
 }
 
 // validate the JWT token
@@ -39,7 +39,7 @@ func ValidateJWT(tokenStr string, cfg *config.Config) (*Claims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(cfg.Server.JWTSecret), nil
+		return []byte(cfg.JWTSecret), nil // Changed to cfg.JWTSecret
 	})
 
 	if err != nil {

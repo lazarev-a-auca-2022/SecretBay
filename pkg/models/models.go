@@ -1,6 +1,9 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type VPNSetupRequest struct {
     ServerIP       string `json:"server_ip"`
@@ -29,8 +32,11 @@ func (r *VPNSetupRequest) Validate() error {
 	if r.AuthCredential == "" {
 		return fmt.Errorf("auth_credential is required")
 	}
-	if r.VPNType != "openvpn" && r.VPNType != "ios_vpn" {
+	// Convert VPNType to lowercase for case-insensitive comparison
+	lowerVPNType := strings.ToLower(r.VPNType)
+	if lowerVPNType != "openvpn" && lowerVPNType != "ios_vpn" {
 		return fmt.Errorf("vpn_type must be 'openvpn' or 'ios_vpn'")
 	}
+	r.VPNType = lowerVPNType // Normalize to lowercase
 	return nil
 }

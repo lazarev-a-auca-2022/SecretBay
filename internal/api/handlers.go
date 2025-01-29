@@ -101,8 +101,25 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 	}
 }
 
+// StatusResponse defines the structure for status responses
+type StatusResponse struct {
+	Status string `json:"status"`
+}
+
+// StatusHandler handles the /api/vpn/status endpoint
+func StatusHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := StatusResponse{
+			Status: "VPN Setup Server is running",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	router.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
+	router.HandleFunc("/api/vpn/status", StatusHandler(cfg)).Methods("GET") // Added route
 }
 
 func generatePassword() string {

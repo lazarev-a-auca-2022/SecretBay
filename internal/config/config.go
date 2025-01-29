@@ -7,12 +7,12 @@ import (
 
 type ServerConfig struct {
 	Port         string
-	JWTSecret    string
-	DBConnection string // if we ar using a db
+	DBConnection string // if we are using a db
 }
 
 type Config struct {
-	Server ServerConfig
+	Server    ServerConfig
+	JWTSecret string
 }
 
 func LoadConfig() (*Config, error) {
@@ -27,9 +27,9 @@ func LoadConfig() (*Config, error) {
 	config := &Config{
 		Server: ServerConfig{
 			Port:         port,
-			JWTSecret:    jwtSecret,
 			DBConnection: dbConn,
 		},
+		JWTSecret: jwtSecret, // Ensure JWTSecret is set correctly
 	}
 
 	return config, nil
