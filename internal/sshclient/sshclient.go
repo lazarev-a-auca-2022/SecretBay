@@ -11,11 +11,20 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// SSHClient wraps an SSH client connection
 type SSHClient struct {
-	Client *ssh.Client
+	Client         *ssh.Client
+	RunCommandFunc func(string) (string, error)
+	CloseFunc      func()
 }
 
-func NewSSHClient(serverIP, username, authMethod, authCredential string) (*SSHClient, error) {
+type SSHClientInterface interface {
+	RunCommand(string) (string, error)
+	Close()
+}
+
+// NewSSHClient creates a new SSH client instance
+var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (*SSHClient, error) {
 	var auth ssh.AuthMethod
 	if authMethod == "password" {
 		auth = ssh.Password(authCredential)
@@ -55,23 +64,35 @@ func NewSSHClient(serverIP, username, authMethod, authCredential string) (*SSHCl
 }
 
 func (s *SSHClient) RunCommand(cmd string) (string, error) {
+	// Use custom implementation if provided
+	if s.RunCommandFunc != nil {
+		return s.RunCommandFunc(cmd)
+	}
+
+	// Create new session for the command
 	session, err := s.Client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("failed to create session: %v", err)
 	}
 	defer session.Close()
 
-	var stdoutBuf bytes.Buffer
-	session.Stdout = &stdoutBuf
+	// Set up output buffer
+	var output bytes.Buffer
+	session.Stdout = &output
+	session.Stderr = &output
 
+	// Run the command
 	if err := session.Run(cmd); err != nil {
-		return "", fmt.Errorf("failed to run command: %v", err)
+		return output.String(), fmt.Errorf("failed to run command '%s': %v", cmd, err)
 	}
 
-	return stdoutBuf.String(), nil
+	return output.String(), nil
 }
-
 func (s *SSHClient) Close() {
+	if s.CloseFunc != nil {
+		s.CloseFunc()
+		return
+	}
 	if s.Client != nil {
 		s.Client.Close()
 	}
