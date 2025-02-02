@@ -78,7 +78,7 @@ func TestVPNSetupRequest(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name: "Valid OpenVPN Setup",
+			name: "OpenVPN Setup",
 			payload: models.VPNSetupRequest{
 				ServerIP:       "192.168.1.1",
 				Username:       "root",
@@ -89,7 +89,7 @@ func TestVPNSetupRequest(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name: "Valid iOS VPN Setup",
+			name: "iOS VPN Setup",
 			payload: models.VPNSetupRequest{
 				ServerIP:       "192.168.1.1",
 				Username:       "root",
