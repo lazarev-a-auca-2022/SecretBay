@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -128,6 +129,74 @@ func TestVPNSetupRequest(t *testing.T) {
 				assert.NotEmpty(t, resp.VPNConfig)
 				assert.NotEmpty(t, resp.NewPassword)
 			}
+		})
+	}
+}
+
+func TestSSHClientRunCommand(t *testing.T) {
+	testCases := []struct {
+		name        string
+		command     string
+		mockOutput  string
+		mockError   error
+		expectError bool
+	}{
+		{
+			name:        "Successful Command",
+			command:     "ls -la",
+			mockOutput:  "total 0\ndrwxr-xr-x 2 root root 40 Jan 1 00:00 .",
+			mockError:   nil,
+			expectError: false,
+		},
+		{
+			name:        "Failed Command",
+			command:     "invalid-command",
+			mockOutput:  "",
+			mockError:   fmt.Errorf("command not found"),
+			expectError: true,
+		},
+		{
+			name:        "Empty Command",
+			command:     "",
+			mockOutput:  "",
+			mockError:   fmt.Errorf("empty command"),
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create mock SSH client
+			mockSSH := new(MockSSHClient)
+			mockSSH.On("RunCommand", tc.command).Return(tc.mockOutput, tc.mockError)
+			mockSSH.On("Close").Return()
+
+			// Create SSH client with mock
+			client := &sshclient.SSHClient{
+				RunCommandFunc: func(cmd string) (string, error) {
+					return mockSSH.RunCommand(cmd)
+				},
+				CloseFunc: func() {
+					mockSSH.Close()
+				},
+			}
+
+			// Run the command
+			output, err := client.RunCommand(tc.command)
+
+			// Call Close explicitly
+			client.Close()
+
+			// Verify expectations
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.mockOutput, output)
+			}
+
+			// Verify mock was called as expected
+			mockSSH.AssertExpectations(t)
 		})
 	}
 }
