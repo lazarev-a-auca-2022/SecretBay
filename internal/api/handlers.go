@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/sshclient"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/utils"
@@ -118,8 +120,9 @@ func StatusHandler(cfg *config.Config) http.HandlerFunc {
 }
 
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
+	router.HandleFunc("/api/auth/login", LoginHandler(cfg)).Methods("POST")
 	router.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-	router.HandleFunc("/api/vpn/status", StatusHandler(cfg)).Methods("GET") // Added route
+	router.HandleFunc("/api/vpn/status", StatusHandler(cfg)).Methods("GET")
 }
 
 func generatePassword() string {
@@ -132,6 +135,38 @@ func generatePassword() string {
 	return base64.URLEncoding.EncodeToString(bytes)[:passwordLength]
 }
 
+func LoginHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		// Verify credentials
+		if req.Username != os.Getenv("ADMIN_USERNAME") ||
+			req.Password != os.Getenv("ADMIN_PASSWORD") {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
+
+		// Generate JWT token
+		token, err := auth.GenerateJWT(req.Username, cfg)
+		if err != nil {
+			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"token": token,
+		})
+	}
+}
 func generateVPNConfigPath(vpnType, setupID string) string {
 	configDir := "/etc/vpn-configs"
 	filename := fmt.Sprintf("%s_%s.ovpn", vpnType, setupID)

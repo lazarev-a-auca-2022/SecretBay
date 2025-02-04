@@ -7,11 +7,13 @@ services:
       - "443:443"
       - "9999:9999"
     volumes:
-      - ./certs:/app/certs
+      - ./certs:/app/certs:ro
       - ./static:/app/static
     environment:
       - SERVER_PORT=9999
       - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
     restart: unless-stopped
 
   nginx:
@@ -22,7 +24,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./static:/usr/share/nginx/html
-      - ./certs:/etc/nginx/certs
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - vpn-server
     restart: unless-stopped

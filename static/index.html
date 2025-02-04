@@ -126,17 +126,89 @@
     </div>
 
     <script>
+        window.addEventListener('load', async () => {
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/vpn/status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login.html';
+            }
+        } catch (error) {
+            console.error('Error checking authentication:', error);
+            localStorage.removeItem('jwt');
+            window.location.href = '/login.html';
+        }
+    });
+        // Function to get JWT token - first tries localStorage, then generates new one
+        async function getJWTToken() {
+            let token = localStorage.getItem('jwt');
+            if (!token) {
+                try {
+                    const response = await fetch('/api/auth/token', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const data = await response.json();
+                    token = data.token;
+                    localStorage.setItem('jwt', token);
+                } catch (error) {
+                    console.error('Error getting JWT token:', error);
+                    return null;
+                }
+            }
+            return token;
+        }
+    
+        // Function to check if token is valid
+        async function isTokenValid(token) {
+            try {
+                const response = await fetch('/api/vpn/status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                return response.status === 200;
+            } catch (error) {
+                return false;
+            }
+        }
+    
+        // Function to handle form submission
         document.getElementById('vpnForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const resultDiv = document.getElementById('result');
             resultDiv.style.display = 'none';
-
+    
             try {
+                // Get and validate token
+                let token = await getJWTToken();
+                if (!token || !(await isTokenValid(token))) {
+                    // If token is invalid, try to get a new one
+                    localStorage.removeItem('jwt');
+                    token = await getJWTToken();
+                    if (!token) {
+                        throw new Error('Could not authenticate. Please try again.');
+                    }
+                }
+    
                 const response = await fetch('/api/setup', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + localStorage.getItem('jwt')
+                        'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
                         server_ip: document.getElementById('serverIp').value,
@@ -146,17 +218,55 @@
                         vpn_type: document.getElementById('vpnType').value
                     })
                 });
-
+    
+                if (response.status === 401) {
+                    // Token expired or invalid, try to get a new one
+                    localStorage.removeItem('jwt');
+                    token = await getJWTToken();
+                    if (token) {
+                        // Retry the request with new token
+                        response = await fetch('/api/setup', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                server_ip: document.getElementById('serverIp').value,
+                                username: document.getElementById('username').value,
+                                auth_method: document.getElementById('authMethod').value,
+                                auth_credential: document.getElementById('authCredential').value,
+                                vpn_type: document.getElementById('vpnType').value
+                            })
+                        });
+                    }
+                }
+    
                 const data = await response.json();
-                resultDiv.textContent = response.ok ? 
-                    `VPN setup successful! Config path: ${data.vpn_config}` : 
-                    `Error: ${data.error}`;
-                resultDiv.className = response.ok ? 'success' : 'error';
+                if (response.ok) {
+                    resultDiv.textContent = `VPN setup successful! Config path: ${data.vpn_config}\nNew root password: ${data.new_password}`;
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.textContent = `Error: ${data.error || 'Unknown error occurred'}`;
+                    resultDiv.className = 'error';
+                }
                 resultDiv.style.display = 'block';
             } catch (error) {
                 resultDiv.textContent = `Error: ${error.message}`;
                 resultDiv.className = 'error';
                 resultDiv.style.display = 'block';
+            }
+        });
+    
+        // Initialize by checking/getting token when page loads
+        window.addEventListener('load', async () => {
+            try {
+                const token = await getJWTToken();
+                if (token) {
+                    console.log('JWT token loaded successfully');
+                }
+            } catch (error) {
+                console.error('Error initializing JWT token:', error);
             }
         });
     </script>

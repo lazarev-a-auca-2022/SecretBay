@@ -16,6 +16,19 @@ func main() {
 	}
 	router := mux.NewRouter()
 
+	// API routes
+	apiRouter := router.PathPrefix("/").Subrouter()
+	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
+	api.SetupRoutes(apiRouter, cfg)
+
+	// Static files
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static")))
+
+	log.Printf("Server is running on port %s", cfg.Server.Port)
+	if err := http.ListenAndServe(":"+cfg.Server.Port, router); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
+	}
+
 	// serve static files
 	fs := http.FileServer(http.Dir("./static"))
 	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
