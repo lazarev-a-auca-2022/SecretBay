@@ -14,32 +14,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading config: %v", err)
 	}
+
 	router := mux.NewRouter()
 
-	// API routes
-	apiRouter := router.PathPrefix("/").Subrouter()
+	// Public routes (no auth required)
+	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST")
+
+	// Protected routes
+	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
 	api.SetupRoutes(apiRouter, cfg)
 
 	// Static files
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static")))
-
-	log.Printf("Server is running on port %s", cfg.Server.Port)
-	if err := http.ListenAndServe(":"+cfg.Server.Port, router); err != nil {
-		log.Fatalf("Server failed to start: %v", err)
-	}
-
-	// serve static files
 	fs := http.FileServer(http.Dir("./static"))
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./static/index.html")
-	}).Methods("GET")
-
-	// secured routes
-	secured := router.PathPrefix("/").Subrouter()
-	secured.Use(api.JWTAuthenticationMiddleware(cfg))
-	api.SetupRoutes(secured, cfg)
+	router.PathPrefix("/").Handler(fs)
 
 	log.Printf("Server is running on port %s", cfg.Server.Port)
 	if err := http.ListenAndServe(":"+cfg.Server.Port, router); err != nil {
