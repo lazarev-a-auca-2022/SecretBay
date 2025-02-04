@@ -260,15 +260,38 @@
     
         // Initialize by checking/getting token when page loads
         window.addEventListener('load', async () => {
-            try {
-                const token = await getJWTToken();
-                if (token) {
-                    console.log('JWT token loaded successfully');
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/vpn/status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
                 }
-            } catch (error) {
-                console.error('Error initializing JWT token:', error);
+            });
+            
+            // Update this section to properly handle the response
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login.html';
+                return;
             }
-        });
+
+            // Only redirect if we're not already on index.html
+            if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
+                window.location.href = '/';
+            }
+        } catch (error) {
+            console.error('Error checking authentication:', error);
+            if (window.location.pathname !== '/login.html') {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login.html';
+            }
+        }
+    });
     </script>
 </body>
 </html>

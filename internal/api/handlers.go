@@ -111,8 +111,15 @@ type StatusResponse struct {
 // StatusHandler handles the /api/vpn/status endpoint
 func StatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Get username from context (set by JWT middleware)
+		username := r.Context().Value("username")
+		if username == nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
 		response := StatusResponse{
-			Status: "VPN Setup Server is running",
+			Status: "authenticated",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
