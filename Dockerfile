@@ -9,10 +9,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN go build -o vpn-setup-server ./cmd/server
+
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-WORKDIR /root/
+WORKDIR /app
 COPY --from=builder /app/vpn-setup-server .
-EXPOSE 9983
-STOPSIGNAL SIGTERM
+COPY static/ /app/static/
+EXPOSE 9999 443
 CMD ["./vpn-setup-server"]
