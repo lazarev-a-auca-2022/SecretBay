@@ -17,14 +17,25 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "8443:443"
+      image: nginx:alpine
+      ports:
+        - "80:80"
+        - "8443:443"
+      volumes:
+        - ./nginx.conf:/etc/nginx/nginx.conf:ro
+        - ./static:/usr/share/nginx/html
+        - ./certs:/etc/nginx/certs:ro
+      depends_on:
+        - vpn-server
+      restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./static:/usr/share/nginx/html
-      - ./certs:/etc/nginx/certs:ro
-    depends_on:
-      - vpn-server
-    restart: unless-stopped
+      - ./certs:/etc/letsencrypt
+      - ./certbot-logs:/var/log/letsencrypt
+    entrypoint: >
+      sh -c "while :; do
+              certbot renew --quiet --deploy-hook 'nginx -s reload';
+              sleep 12h;
+            done"
