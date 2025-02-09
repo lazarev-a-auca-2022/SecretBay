@@ -17,6 +17,12 @@ func main() {
 
 	router := mux.NewRouter()
 
+	certFile := "server.crt"
+	keyFile := "server.key"
+	if err := http.ListenAndServeTLS(":8443", certFile, keyFile, router); err != nil {
+		log.Fatal(err)
+	}
+
 	// Public routes (no auth required)
 	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST")
 
