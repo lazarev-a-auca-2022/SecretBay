@@ -48,25 +48,25 @@ func (o *OpenVPNSetup) Setup() error {
 
 	// configure OpenVPN server
 	serverConfig := `
-port 1194
-proto udp
-dev tun
-ca ca.crt
-cert server.crt
-key server.key
-dh dh.pem
-server 10.8.0.0 255.255.255.0
-push "redirect-gateway def1 bypass-dhcp"
-push "dhcp-option DNS 8.8.8.8"
-keepalive 10 120
-cipher AES-256-CBC
-user nobody
-group nogroup
-persist-key
-persist-tun
-status openvpn-status.log
-verb 3
-`
+	port 1194
+	proto udp
+	dev tun
+	ca ca.crt
+	cert server.crt
+	key server.key
+	dh dh.pem
+	server 10.8.0.0 255.255.255.0
+	push "redirect-gateway def1 bypass-dhcp"
+	push "dhcp-option DNS 8.8.8.8"
+	keepalive 10 120
+	cipher AES-256-CBC
+	user nobody
+	group nogroup
+	persist-key
+	persist-tun
+	status openvpn-status.log
+	verb 3
+	`
 
 	// Write server config to /etc/openvpn/server.conf
 	cmd := fmt.Sprintf("echo \"%s\" | sudo tee /etc/openvpn/server.conf", serverConfig)
