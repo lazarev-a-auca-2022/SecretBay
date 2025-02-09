@@ -126,31 +126,32 @@
     </div>
 
     <script>
+        // Combined authentication check on page load
         window.addEventListener('load', async () => {
-        const token = localStorage.getItem('jwt');
-        if (!token) {
-            window.location.href = '/login.html';
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/vpn/status', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
+            const token = localStorage.getItem('jwt');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+            try {
+                const response = await fetch('/api/vpn/status', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!response.ok || response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('jwt');
+                    window.location.href = '/login.html';
+                    return;
                 }
-            });
-            
-            if (!response.ok) {
+            } catch (error) {
+                console.error('Error checking authentication:', error);
                 localStorage.removeItem('jwt');
                 window.location.href = '/login.html';
             }
-        } catch (error) {
-            console.error('Error checking authentication:', error);
-            localStorage.removeItem('jwt');
-            window.location.href = '/login.html';
-        }
-    });
-        // Function to get JWT token - first tries localStorage, then generates new one
+        });
+
+        // Function to get JWT token - first tries localStorage, then generates a new one
         async function getJWTToken() {
             let token = localStorage.getItem('jwt');
             if (!token) {
@@ -171,7 +172,7 @@
             }
             return token;
         }
-    
+
         // Function to check if token is valid
         async function isTokenValid(token) {
             try {
@@ -185,26 +186,25 @@
                 return false;
             }
         }
-    
+
         // Function to handle form submission
         document.getElementById('vpnForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const resultDiv = document.getElementById('result');
             resultDiv.style.display = 'none';
-    
+
             try {
                 // Get and validate token
                 let token = await getJWTToken();
                 if (!token || !(await isTokenValid(token))) {
-                    // If token is invalid, try to get a new one
                     localStorage.removeItem('jwt');
                     token = await getJWTToken();
                     if (!token) {
                         throw new Error('Could not authenticate. Please try again.');
                     }
                 }
-    
-                const response = await fetch('/api/setup', {
+
+                let response = await fetch('/api/setup', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -218,13 +218,12 @@
                         vpn_type: document.getElementById('vpnType').value
                     })
                 });
-    
+
                 if (response.status === 401) {
                     // Token expired or invalid, try to get a new one
                     localStorage.removeItem('jwt');
                     token = await getJWTToken();
                     if (token) {
-                        // Retry the request with new token
                         response = await fetch('/api/setup', {
                             method: 'POST',
                             headers: {
@@ -241,7 +240,7 @@
                         });
                     }
                 }
-    
+
                 const data = await response.json();
                 if (response.ok) {
                     resultDiv.textContent = `VPN setup successful! Config path: ${data.vpn_config}\nNew root password: ${data.new_password}`;
@@ -257,41 +256,6 @@
                 resultDiv.style.display = 'block';
             }
         });
-    
-        // Initialize by checking/getting token when page loads
-        window.addEventListener('load', async () => {
-        const token = localStorage.getItem('jwt');
-        if (!token) {
-            window.location.href = '/login.html';
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/vpn/status', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            // Update this section to properly handle the response
-            if (response.status === 401 || response.status === 403) {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login.html';
-                return;
-            }
-
-            // Only redirect if we're not already on index.html
-            if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') {
-                window.location.href = '/';
-            }
-        } catch (error) {
-            console.error('Error checking authentication:', error);
-            if (window.location.pathname !== '/login.html') {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login.html';
-            }
-        }
-    });
     </script>
 </body>
 </html>
