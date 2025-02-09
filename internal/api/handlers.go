@@ -127,9 +127,9 @@ func StatusHandler(cfg *config.Config) http.HandlerFunc {
 }
 
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
-	router.HandleFunc("/api/auth/login", LoginHandler(cfg)).Methods("POST")
+	router.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST")
 	router.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-	router.HandleFunc("/api/vpn/status", StatusHandler(cfg)).Methods("GET")
+	router.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
 }
 
 func generatePassword() string {
