@@ -128,6 +128,7 @@
     </div>
 
     <script>
+
         // Combined authentication check on page load
         window.addEventListener('load', async () => {
             const token = localStorage.getItem('jwt');
@@ -192,6 +193,57 @@
         document.getElementById('downloadConfigBtn').addEventListener('click', async () => {
             const errorDiv = document.getElementById('downloadError');
             errorDiv.style.display = 'none';
+
+            const serverIp = document.getElementById('serverIp') ? document.getElementById('serverIp').value : '';
+            const username = document.getElementById('username') ? document.getElementById('username').value : '';
+            const credential = document.getElementById('authCredential') ? document.getElementById('authCredential').value : '';
+
+            if (!serverIp || !credential) {
+            errorDiv.textContent = "Please specify the server IP and credential.";
+            errorDiv.style.display = "block";
+            return;
+            }
+            
+            try {
+            let token = localStorage.getItem('jwt');
+            if (!token) {
+                const jwtResponse = await fetch('/api/auth/token', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+                });
+                const jwtData = await jwtResponse.json();
+                token = jwtData.token;
+                localStorage.setItem('jwt', token);
+            }
+            
+            // Pass the token and new query parameters (username and credential)
+            const response = await fetch(`/api/config/download?server_ip=${serverIp}&username=${username}&credential=${encodeURIComponent(credential)}`, {
+                headers: {
+                'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(errText);
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = "openvpn_config.ovpn";
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            } catch (error) {
+            errorDiv.textContent = error.message || "No VPN detected on the remote host";
+            errorDiv.style.display = "block";
+            }
+        });
+            const errorDiv = document.getElementById('downloadError');
+            errorDiv.style.display = 'none';
             
             const serverIp = document.getElementById('serverIp') ? document.getElementById('serverIp').value : '';
             if (!serverIp) {
@@ -238,7 +290,7 @@
             errorDiv.textContent = error.message || "No VPN detected on the remote host";
             errorDiv.style.display = "block";
             }
-        });
+        
         // Function to handle form submission
         document.getElementById('vpnForm').addEventListener('submit', async (e) => {
             e.preventDefault();

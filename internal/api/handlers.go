@@ -168,16 +168,27 @@ func generatePassword() string {
 
 func DownloadConfigHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// get the server_ip parameter from query string
+		// Get required query parameters
 		serverIP := r.URL.Query().Get("server_ip")
 		if serverIP == "" {
 			http.Error(w, "Missing server_ip", http.StatusBadRequest)
 			return
 		}
 
-		// For demo purposes, assume root login with password is used.
-		// In production, you might extract credentials from the request or config.
-		sshClient, err := sshclient.NewSSHClient(serverIP, "root", "password", "dummy")
+		// Instead of using hardcoded credentials, extract them from the query.
+		// In production you may extract these securely (e.g., from JWT claims).
+		username := r.URL.Query().Get("username")
+		if username == "" {
+			username = "root"
+		}
+		authCredential := r.URL.Query().Get("credential")
+		if authCredential == "" {
+			http.Error(w, "Missing credential", http.StatusBadRequest)
+			return
+		}
+
+		// Initialize SSH client with the provided credentials.
+		sshClient, err := sshclient.NewSSHClient(serverIP, username, "password", authCredential)
 		if err != nil {
 			logger.Log.Printf("DownloadConfigHandler: SSH connection failed: %v", err)
 			http.Error(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
@@ -186,7 +197,6 @@ func DownloadConfigHandler() http.HandlerFunc {
 		defer sshClient.Close()
 
 		// Check whether a VPN config file exists.
-		// This command returns 'exists' if the file is found.
 		out, err := sshClient.RunCommand("test -f /etc/vpn-configs/openvpn_config.ovpn && echo exists || echo notfound")
 		if err != nil {
 			logger.Log.Printf("DownloadConfigHandler: error checking VPN config: %v", err)
@@ -206,13 +216,11 @@ func DownloadConfigHandler() http.HandlerFunc {
 			return
 		}
 
-		// Send the config as an attachment.
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("Content-Disposition", "attachment; filename=openvpn_config.ovpn")
 		w.Write([]byte(configContent))
 	}
 }
-
 func LoginHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Println("LoginHandler: Request received")
