@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec" // added import
 	"path/filepath"
+	"strings" // added import
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -23,7 +25,7 @@ type SSHClientInterface interface {
 	Close()
 }
 
-// NewSSHClient creates a new SSH client instance
+// NewSSHClient creates a new SSH client instance and auto-adds unknown hosts.
 var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (*SSHClient, error) {
 	var auth ssh.AuthMethod
 	if authMethod == "password" {
@@ -39,13 +41,13 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 		}
 		auth = ssh.PublicKeys(signer)
 	} else {
-		return nil, fmt.Errorf("unsupported auth method")
+		return nil, fmt.Errorf("unsupported auth method: %s", authMethod)
 	}
 
 	knownHostsFile := filepath.Join(os.Getenv("HOME"), ".ssh", "known_hosts")
 	hostKeyCallback, err := knownhosts.New(knownHostsFile)
 	if err != nil {
-		return nil, fmt.Errorf("could not create hostkeycallback function: %v", err)
+		return nil, fmt.Errorf("could not create hostkey callback: %v", err)
 	}
 
 	config := &ssh.ClientConfig{
@@ -55,12 +57,52 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 		Timeout:         10 * time.Second,
 	}
 
-	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", serverIP), config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial SSH: %v", err)
+	addr := fmt.Sprintf("%s:22", serverIP)
+	client, err := ssh.Dial("tcp", addr, config)
+	// If the error is due to an unknown host key, scan and add it.
+	if err != nil && strings.Contains(err.Error(), "knownhosts: key is unknown") {
+		keyScan, scanErr := scanHostKey(serverIP)
+		if scanErr != nil {
+			return nil, fmt.Errorf("failed to scan host key: %v", scanErr)
+		}
+		appendErr := appendToKnownHosts(knownHostsFile, keyScan)
+		if appendErr != nil {
+			return nil, fmt.Errorf("failed to update known_hosts: %v", appendErr)
+		}
+		// Rebuild the callback after updating known_hosts.
+		hostKeyCallback, err = knownhosts.New(knownHostsFile)
+		if err != nil {
+			return nil, fmt.Errorf("could not rebuild hostkey callback: %v", err)
+		}
+		config.HostKeyCallback = hostKeyCallback
+
+		// Retry connection after key update.
+		client, err = ssh.Dial("tcp", addr, config)
 	}
 
-	return &SSHClient{Client: client}, nil
+	if err != nil {
+		return nil, fmt.Errorf("unable to dial: %v", err)
+	}
+
+	return &SSHClient{
+		Client: client,
+		RunCommandFunc: func(cmd string) (string, error) {
+			session, err := client.NewSession()
+			if err != nil {
+				return "", err
+			}
+			defer session.Close()
+			var b bytes.Buffer
+			session.Stdout = &b
+			if err := session.Run(cmd); err != nil {
+				return "", err
+			}
+			return b.String(), nil
+		},
+		CloseFunc: func() {
+			client.Close()
+		},
+	}, nil
 }
 
 func (s *SSHClient) RunCommand(cmd string) (string, error) {
@@ -96,4 +138,25 @@ func (s *SSHClient) Close() {
 	if s.Client != nil {
 		s.Client.Close()
 	}
+}
+
+func scanHostKey(host string) (string, error) {
+	// Use ssh-keyscan to retrieve the host key.
+	out, err := exec.Command("ssh-keyscan", "-H", host).Output()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func appendToKnownHosts(file, hostKey string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if _, err := f.WriteString(hostKey); err != nil {
+		return err
+	}
+	return nil
 }

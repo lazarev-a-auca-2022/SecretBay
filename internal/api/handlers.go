@@ -20,6 +20,12 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/models"
 )
 
+func jsonError(w http.ResponseWriter, message string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
 func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Println("SetupVPNHandler: Processing request")
