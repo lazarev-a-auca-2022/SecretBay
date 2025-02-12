@@ -14,8 +14,8 @@ type OpenVPNSetup struct {
 func (o *OpenVPNSetup) Setup() error {
 	// upd and install required packages
 	cmds := []string{
-		"sudo apt update && sudo apt upgrade -y",
-		"sudo apt install -y openvpn easy-rsa fail2ban ufw",
+		"sudo apk update && sudo apk upgrade -y",
+		"sudo apk install -y openvpn easy-rsa fail2ban ufw",
 	}
 
 	for _, cmd := range cmds {
