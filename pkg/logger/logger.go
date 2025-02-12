@@ -8,6 +8,5 @@ import (
 var Log *log.Logger
 
 func init() {
-	// Log to STDOUT with standard flags (date, time, etc.)
-	Log = log.New(os.Stdout, "", log.LstdFlags)
+	Log = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
