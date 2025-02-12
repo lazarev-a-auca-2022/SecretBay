@@ -12,6 +12,7 @@ services:
       - ./certs/server.crt:/app/server.crt:ro    
       - ./certs/server.key:/app/server.key:ro    
       - ./static:/app/static
+      - ./.env:/app/.env:ro
     environment:
       - SERVER_PORT=9999
       - JWT_SECRET=${JWT_SECRET}
