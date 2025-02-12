@@ -168,34 +168,31 @@ func LoginHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			logger.Log.Printf("LoginHandler: Invalid payload: %v", err)
+			logger.Log.Printf("LoginHandler: Error decoding request: %v", err)
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
 
-		// Verify credentials
-		if req.Username != os.Getenv("ADMIN_USERNAME") ||
-			req.Password != os.Getenv("ADMIN_PASSWORD") {
+		if req.Username != os.Getenv("ADMIN_USERNAME") || req.Password != os.Getenv("ADMIN_PASSWORD") {
 			logger.Log.Println("LoginHandler: Invalid credentials")
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
-		// Generate JWT token
 		token, err := auth.GenerateJWT(req.Username, cfg)
 		if err != nil {
-			logger.Log.Printf("LoginHandler: Token generation failed: %v", err)
-			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			logger.Log.Printf("LoginHandler: Error generating token: %v", err)
+			http.Error(w, "Error generating token", http.StatusInternalServerError)
 			return
 		}
 
-		logger.Log.Println("LoginHandler: Login successful")
+		// Successful login, send back the token
+		response := map[string]string{"token": token}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"token": token,
-		})
+		json.NewEncoder(w).Encode(response)
 	}
 }
+
 func generateVPNConfigPath(vpnType, setupID string) string {
 	logger.Log.Println("generateVPNConfigPath: Generating VPN config path")
 	configDir := "/etc/vpn-configs"
