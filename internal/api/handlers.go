@@ -149,6 +149,7 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	router.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST")
 	router.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
 	router.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
+	router.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
 }
 
 func generatePassword() string {
@@ -163,6 +164,53 @@ func generatePassword() string {
 	password := base64.URLEncoding.EncodeToString(bytes)[:passwordLength]
 	logger.Log.Println("generatePassword: Password generated")
 	return password
+}
+
+func DownloadConfigHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// get the server_ip parameter from query string
+		serverIP := r.URL.Query().Get("server_ip")
+		if serverIP == "" {
+			http.Error(w, "Missing server_ip", http.StatusBadRequest)
+			return
+		}
+
+		// For demo purposes, assume root login with password is used.
+		// In production, you might extract credentials from the request or config.
+		sshClient, err := sshclient.NewSSHClient(serverIP, "root", "password", "dummy")
+		if err != nil {
+			logger.Log.Printf("DownloadConfigHandler: SSH connection failed: %v", err)
+			http.Error(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer sshClient.Close()
+
+		// Check whether a VPN config file exists.
+		// This command returns 'exists' if the file is found.
+		out, err := sshClient.RunCommand("test -f /etc/vpn-configs/openvpn_config.ovpn && echo exists || echo notfound")
+		if err != nil {
+			logger.Log.Printf("DownloadConfigHandler: error checking VPN config: %v", err)
+			http.Error(w, fmt.Sprintf("Error checking VPN config: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if out != "exists\n" {
+			http.Error(w, "No VPN detected on the remote host", http.StatusNotFound)
+			return
+		}
+
+		// If found, read the configuration file.
+		configContent, err := sshClient.RunCommand("cat /etc/vpn-configs/openvpn_config.ovpn")
+		if err != nil {
+			logger.Log.Printf("DownloadConfigHandler: failed to read config file: %v", err)
+			http.Error(w, fmt.Sprintf("Failed to read config file: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Send the config as an attachment.
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", "attachment; filename=openvpn_config.ovpn")
+		w.Write([]byte(configContent))
+	}
 }
 
 func LoginHandler(cfg *config.Config) http.HandlerFunc {
