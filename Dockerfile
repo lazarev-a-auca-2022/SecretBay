@@ -12,6 +12,10 @@ RUN go build -o vpn-setup-server ./cmd/server
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
+
+# Ensure /root/.ssh exists and create a blank known_hosts file
+RUN mkdir -p /root/.ssh && touch /root/.ssh/known_hosts
+
 WORKDIR /app
 COPY --from=builder /app/vpn-setup-server .
 COPY static/ /app/static/
