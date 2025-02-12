@@ -193,39 +193,52 @@
             const errorDiv = document.getElementById('downloadError');
             errorDiv.style.display = 'none';
             
-            // Get remote server ip from an input or set a default.
-            // For example, assume an input with id "serverIp" exists:
             const serverIp = document.getElementById('serverIp') ? document.getElementById('serverIp').value : '';
             if (!serverIp) {
-                errorDiv.textContent = "Please specify a server IP.";
-                errorDiv.style.display = "block";
-                return;
+            errorDiv.textContent = "Please specify a server IP.";
+            errorDiv.style.display = "block";
+            return;
             }
             
             try {
-                // Fetch the configuration file from the remote host.
-                const response = await fetch(`/api/config/download?server_ip=${serverIp}`);
-                
-                if (!response.ok) {
+            // Get JWT token from localStorage (or via getJWTToken if not present)
+            let token = localStorage.getItem('jwt');
+            if (!token) {
+                const jwtResponse = await fetch('/api/auth/token', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+                });
+                const jwtData = await jwtResponse.json();
+                token = jwtData.token;
+                localStorage.setItem('jwt', token);
+            }
+            
+            // Pass the token in the Authorization header
+            const response = await fetch(`/api/config/download?server_ip=${serverIp}`, {
+                headers: {
+                'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
                 const errText = await response.text();
                 throw new Error(errText);
-                }
-                
-                // Convert response to blob and create a download link.
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = "openvpn_config.ovpn";
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-            } catch (error) {
-                errorDiv.textContent = error.message || "No VPN detected on the remote host";
-                errorDiv.style.display = "block";
             }
-            });
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = "openvpn_config.ovpn";
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            } catch (error) {
+            errorDiv.textContent = error.message || "No VPN detected on the remote host";
+            errorDiv.style.display = "block";
+            }
+        });
         // Function to handle form submission
         document.getElementById('vpnForm').addEventListener('submit', async (e) => {
             e.preventDefault();
