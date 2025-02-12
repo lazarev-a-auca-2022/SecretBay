@@ -20,4 +20,5 @@ WORKDIR /app
 COPY --from=builder /app/vpn-setup-server .
 COPY static/ /app/static/
 EXPOSE 9999 443
+RUN apk --no-cache add ca-certificates openssh-client
 CMD ["./vpn-setup-server"]
