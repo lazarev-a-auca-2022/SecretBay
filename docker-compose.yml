@@ -47,6 +47,7 @@ services:
     # Add dhparam generation on container start if file doesn't exist
     entrypoint: >
       /bin/sh -c "
+      apk add --no-cache openssl &&
       if [ ! -f /etc/nginx/certs/dhparam.pem ]; then
         echo 'Generating DHParam file...'
         openssl dhparam -out /etc/nginx/certs/dhparam.pem 2048
