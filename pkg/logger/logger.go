@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -32,22 +33,28 @@ var sensitivePatterns = []*regexp.Regexp{
 }
 
 func init() {
-	if err := os.MkdirAll(logDirectory, 0755); err != nil {
-		log.Printf("Failed to create log directory: %v", err)
-		return
+	// Create multi-writer to write to both file and stdout
+	writers := []io.Writer{os.Stdout}
+
+	// Only write to file if not in Docker
+	if os.Getenv("DOCKER_CONTAINER") != "true" {
+		if err := os.MkdirAll(logDirectory, 0755); err != nil {
+			log.Printf("Failed to create log directory: %v", err)
+		} else {
+			logPath := filepath.Join(logDirectory, logFile)
+			file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
+			if err != nil {
+				log.Printf("Failed to open log file: %v", err)
+			} else {
+				writers = append(writers, file)
+				go rotateLogFiles()
+			}
+		}
 	}
 
-	logPath := filepath.Join(logDirectory, logFile)
-	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
-	if err != nil {
-		log.Printf("Failed to open log file: %v", err)
-		return
-	}
-
-	Log = log.New(file, "", log.Ldate|log.Ltime|log.Lshortfile)
-
-	// Start log rotation goroutine
-	go rotateLogFiles()
+	// Create multi-writer
+	multiWriter := io.MultiWriter(writers...)
+	Log = log.New(multiWriter, "", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func sanitizeMessage(message string) string {

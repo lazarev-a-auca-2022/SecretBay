@@ -12,6 +12,7 @@ services:
       - ./.env:/app/.env:ro
     environment:
       - ENV=production
+      - DOCKER_CONTAINER=true
       - SERVER_PORT=9999
       - JWT_SECRET=${JWT_SECRET:-please-change-this-secret-in-production}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
@@ -24,6 +25,11 @@ services:
       - MAX_CONN_AGE=3600
       - READ_TIMEOUT=30
       - WRITE_TIMEOUT=30
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   nginx:
