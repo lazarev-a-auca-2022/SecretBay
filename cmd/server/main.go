@@ -29,7 +29,7 @@ func main() {
 	}
 
 	var envLoaded bool
-	for _, path := range envPaths {
+	for _, path := envPaths {
 		if err := godotenv.Load(path); err == nil {
 			logger.Log.Printf("Loaded environment from: %s", path)
 			envLoaded = true
@@ -93,8 +93,8 @@ func main() {
 		Addr:         ":" + serverPort,
 		Handler:      router,
 		TLSConfig:    tlsConfig,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  15 * time.Second,  // Increased from 5
+		WriteTimeout:  15 * time.Second,  // Increased from 10
 		IdleTimeout:  120 * time.Second,
 	}
 
