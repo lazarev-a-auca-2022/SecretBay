@@ -64,8 +64,13 @@ func main() {
 		PreferServerCipherSuites: true,
 	}
 
+	serverPort := os.Getenv("SERVER_PORT")
+	if serverPort == "" {
+		serverPort = "9999" // default port if not set
+	}
+
 	srv := &http.Server{
-		Addr:         ":8443",
+		Addr:         ":" + serverPort,
 		Handler:      router,
 		TLSConfig:    tlsConfig,
 		ReadTimeout:  5 * time.Second,
@@ -76,7 +81,7 @@ func main() {
 	// Start server in a goroutine
 	go func() {
 		logger.Log.Printf("Server main: Starting HTTPS server on %s", srv.Addr)
-		if err := srv.ListenAndServeTLS("server.crt", "server.key"); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServeTLS("/app/certs/server.crt", "/app/certs/server.key"); err != nil && err != http.ErrServerClosed {
 			logger.Log.Fatalf("Server main: Failed to start HTTPS server: %v", err)
 		}
 	}()

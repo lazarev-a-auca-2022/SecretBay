@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   vpn-server:
     hostname: Secretbay.me
@@ -13,10 +11,19 @@ services:
       - ./static:/app/static
       - ./.env:/app/.env:ro
     environment:
+      - ENV=production
       - SERVER_PORT=9999
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-please-change-this-secret-in-production}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - ALLOWED_ORIGINS=https://secretbay.me,https://www.secretbay.me
+      - TLS_MIN_VERSION=1.2
+      - MAX_REQUEST_SIZE=1048576
+      - RATE_LIMIT_REQUESTS=100
+      - RATE_LIMIT_DURATION=60
+      - MAX_CONN_AGE=3600
+      - READ_TIMEOUT=30
+      - WRITE_TIMEOUT=30
     restart: unless-stopped
 
   nginx:
