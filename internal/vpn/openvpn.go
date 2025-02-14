@@ -30,23 +30,26 @@ func (o *OpenVPNSetup) Setup() error {
 		}
 	}
 
-	// Generate strong DH parameters and improved PKI setup
+	// Clean up any existing easy-rsa directory and create new setup
 	setupCmds := []string{
+		"sudo rm -rf ~/easy-rsa",           // Remove existing directory
+		"sudo rm -rf /etc/openvpn/certs/*", // Clean up existing certs
 		"make-cadir ~/easy-rsa",
 		"cd ~/easy-rsa && ./easyrsa init-pki",
 		"cd ~/easy-rsa && echo 'set_var EASYRSA_KEY_SIZE 4096' > vars",
 		"cd ~/easy-rsa && echo 'set_var EASYRSA_DIGEST \"sha512\"' >> vars",
-		"cd ~/easy-rsa && source vars && echo yes | ./easyrsa build-ca nopass",
-		"cd ~/easy-rsa && ./easyrsa gen-req server nopass",
-		"cd ~/easy-rsa && ./easyrsa sign-req server server",
-		"cd ~/easy-rsa && openssl dhparam -out dh.pem 4096", // Stronger DH params
+		// Use the full path to easyrsa and export the vars
+		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch build-ca nopass",
+		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch gen-req server nopass",
+		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch sign-req server server",
+		"cd ~/easy-rsa && openssl dhparam -out dh.pem 2048", // Reduced to 2048 for faster generation while still secure
 		"sudo mkdir -p /etc/openvpn/certs",
-		"sudo chmod 700 /etc/openvpn/certs",
+		"sudo chmod -R 700 /etc/openvpn/certs",
 		"sudo cp ~/easy-rsa/pki/ca.crt /etc/openvpn/certs/",
 		"sudo cp ~/easy-rsa/pki/issued/server.crt /etc/openvpn/certs/",
 		"sudo cp ~/easy-rsa/pki/private/server.key /etc/openvpn/certs/",
 		"sudo cp ~/easy-rsa/dh.pem /etc/openvpn/certs/",
-		"sudo chmod 600 /etc/openvpn/certs/*",
+		"sudo chmod -R 600 /etc/openvpn/certs/*",
 	}
 
 	for _, cmd := range setupCmds {
