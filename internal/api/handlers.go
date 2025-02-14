@@ -231,24 +231,40 @@ func LoginHandler(cfg *config.Config) http.HandlerFunc {
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Log.Printf("LoginHandler: Error decoding request: %v", err)
-			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			utils.JSONError(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
 
-		if req.Username != os.Getenv("ADMIN_USERNAME") || req.Password != os.Getenv("ADMIN_PASSWORD") {
-			logger.Log.Println("LoginHandler: Invalid credentials")
-			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		// Log the attempted username to help with debugging
+		logger.Log.printf("LoginHandler: Login attempt for user: %s", req.Username)
+
+		// Get credentials from environment
+		adminUser := os.Getenv("ADMIN_USERNAME")
+		adminPass := os.Getenv("ADMIN_PASSWORD")
+
+		// Log if environment variables are empty (but not their values)
+		if adminUser == "" || adminPass == "" {
+			logger.Log.Println("LoginHandler: Warning - ADMIN_USERNAME or ADMIN_PASSWORD environment variables are empty")
+			utils.JSONError(w, "Server configuration error", http.StatusInternalServerError)
+			return
+		}
+
+		// Compare credentials
+		if req.Username != adminUser || req.Password != adminPass {
+			logger.Log.Printf("LoginHandler: Invalid credentials for user: %s", req.Username)
+			utils.JSONError(w, "Invalid credentials", http.StatusUnauthorized)
 			return
 		}
 
 		token, err := auth.GenerateJWT(req.Username, cfg)
 		if err != nil {
 			logger.Log.Printf("LoginHandler: Error generating token: %v", err)
-			http.Error(w, "Error generating token", http.StatusInternalServerError)
+			utils.JSONError(w, "Error generating token", http.StatusInternalServerError)
 			return
 		}
 
-		// Successful login, send back the token
+		// Successful login
+		logger.Log.Printf("LoginHandler: Successful login for user: %s", req.Username)
 		response := map[string]string{"token": token}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
