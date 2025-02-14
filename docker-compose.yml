@@ -61,10 +61,13 @@ services:
     entrypoint: "/bin/sh -c"
     command: >
       'trap exit TERM; while :; do
-        certbot certonly --webroot --webroot-path /var/www/certbot
-          --email admin@secretbay.me --agree-tos --no-eff-email
-          -d secretbay.me -d www.secretbay.me
-          --deploy-hook "docker kill -s HUP nginx"
-          || true;
-        sleep 12h & wait $${!};
+        certbot certonly --webroot \
+          --webroot-path /var/www/certbot \
+          --email admin@secretbay.me \
+          --agree-tos \
+          --no-eff-email \
+          -d secretbay.me \
+          -d www.secretbay.me \
+          --deploy-hook "docker kill -s HUP nginx"; \
+        sleep 12h & wait $${!}; \
       done;'
