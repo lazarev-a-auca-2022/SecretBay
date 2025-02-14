@@ -14,7 +14,7 @@ services:
       - ENV=production
       - DOCKER_CONTAINER=true
       - SERVER_PORT=9999
-      - JWT_SECRET=${JWT_SECRET:-please-change-this-secret-in-production}
+      - JWT_SECRET=${JWT_SECRET:-YourSuperSecretKey-ThisIsAVeryLongSecretKeyForDevelopment-2024}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
       - ALLOWED_ORIGINS=https://secretbay.me,https://www.secretbay.me
