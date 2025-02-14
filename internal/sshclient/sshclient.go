@@ -216,37 +216,23 @@ func (s *SSHClient) Close() {
 }
 
 func handleUnknownHost(host, knownHostsFile string) error {
-	keyScan, err := scanHostKey(host)
+	// Use ssh-keyscan to get the host key
+	cmd := exec.Command("ssh-keyscan", "-H", "-t", "rsa,ecdsa,ed25519", host)
+	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to scan host key: %v", err)
 	}
 
-	// Validate the key format before adding
-	if !strings.HasPrefix(keyScan, host) {
-		return fmt.Errorf("invalid host key format")
-	}
-
-	return appendToKnownHosts(knownHostsFile, keyScan)
-}
-
-func scanHostKey(host string) (string, error) {
-	cmd := exec.Command("ssh-keyscan", "-H", "-t", "rsa,ecdsa,ed25519", host)
-	out, err := cmd.Output()
+	// Append the host key to known_hosts file
+	f, err := os.OpenFile(knownHostsFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
-		return "", fmt.Errorf("ssh-keyscan failed: %v", err)
-	}
-	return string(out), nil
-}
-
-func appendToKnownHosts(file, hostKey string) error {
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	if err != nil {
-		return fmt.Errorf("failed to open known_hosts: %v", err)
+		return fmt.Errorf("failed to open known_hosts file: %v", err)
 	}
 	defer f.Close()
 
-	if _, err := f.WriteString(hostKey + "\n"); err != nil {
-		return fmt.Errorf("failed to write to known_hosts: %v", err)
+	if _, err := f.Write(output); err != nil {
+		return fmt.Errorf("failed to write to known_hosts file: %v", err)
 	}
+
 	return nil
 }
