@@ -38,7 +38,19 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 
 		setupID := uuid.New().String()
 
-		sshClient, err := sshclient.NewSSHClient(req.ServerIP, req.Username, req.AuthMethod, req.AuthCredential)
+		// Determine the authentication method
+		var authMethod string
+		if req.AuthMethod == "password" {
+			authMethod = "password"
+		} else if req.AuthMethod == "key" {
+			authMethod = "key"
+		} else {
+			logger.Log.Printf("SetupVPNHandler: Unsupported auth method: %s", req.AuthMethod)
+			utils.JSONError(w, "Unsupported auth method", http.StatusBadRequest)
+			return
+		}
+
+		sshClient, err := sshclient.NewSSHClient(req.ServerIP, req.Username, authMethod, req.AuthCredential)
 		if err != nil {
 			logger.Log.Printf("SetupVPNHandler: SSH connection failed: %v", err)
 			utils.JSONError(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
