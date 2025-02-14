@@ -2,8 +2,10 @@ package vpn
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/sshclient"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
 
 type StrongSwanSetup struct {
@@ -12,86 +14,122 @@ type StrongSwanSetup struct {
 }
 
 func (s *StrongSwanSetup) Setup() error {
-	// strongSwan installation
+	logger.Log.Println("Starting StrongSwan setup")
+
+	// Package installation with enhanced security packages
 	cmds := []string{
 		"sudo apt update && sudo apt upgrade -y",
-		"sudo apt install -y strongswan strongswan-pki libcharon-extra-plugins fail2ban ufw",
+		"sudo apt install -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl",
 	}
 
 	for _, cmd := range cmds {
-		_, err := s.SSHClient.RunCommand(cmd)
-		if err != nil {
-			return err
+		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+			return fmt.Errorf("package installation failed: %v", err)
 		}
 	}
 
-	// generate certificates
-	cmds = []string{
-		"mkdir -p ~/pki/{cacerts,certs,private}",
-		"ipsec pki --gen --outform pem > ~/pki/private/ca.key.pem",
-		"ipsec pki --self --ca --lifetime 3650 --in ~/pki/private/ca.key.pem --type rsa --dn \"CN=VPN CA\" --outform pem > ~/pki/cacerts/ca.cert.pem",
-		"ipsec pki --gen --outform pem > ~/pki/private/server.key.pem",
-		"ipsec pki --pub --in ~/pki/private/server.key.pem | ipsec pki --issue --lifetime 1825 --cacert ~/pki/cacerts/ca.cert.pem --cakey ~/pki/private/ca.key.pem --dn \"CN=server.vpn\" --san server.vpn --flag serverAuth --flag ikeIntermediate --outform pem > ~/pki/certs/server.cert.pem",
+	// Secure certificate generation with stronger parameters
+	certSetup := []string{
+		"sudo mkdir -p /etc/ipsec.d/{cacerts,certs,private}",
+		"sudo chmod 700 /etc/ipsec.d/{cacerts,certs,private}",
+		"cd /etc/ipsec.d && sudo ipsec pki --gen --type rsa --size 4096 --outform pem > private/ca.key.pem",
+		"sudo chmod 600 /etc/ipsec.d/private/ca.key.pem",
+		fmt.Sprintf("cd /etc/ipsec.d && sudo ipsec pki --self --ca --lifetime 3650 --in private/ca.key.pem --type rsa --dn 'CN=VPN CA' --outform pem > cacerts/ca.cert.pem"),
+		"cd /etc/ipsec.d && sudo ipsec pki --gen --type rsa --size 4096 --outform pem > private/server.key.pem",
+		"sudo chmod 600 /etc/ipsec.d/private/server.key.pem",
+		fmt.Sprintf("cd /etc/ipsec.d && sudo ipsec pki --pub --in private/server.key.pem | sudo ipsec pki --issue --lifetime 1825 --cacert cacerts/ca.cert.pem --cakey private/ca.key.pem --dn 'CN=%s' --san '%s' --flag serverAuth --flag ikeIntermediate --outform pem > certs/server.cert.pem", s.ServerIP, s.ServerIP),
 	}
 
-	for _, cmd := range cmds {
-		_, err := s.SSHClient.RunCommand(cmd)
-		if err != nil {
-			return err
+	for _, cmd := range certSetup {
+		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+			return fmt.Errorf("certificate generation failed: %v", err)
 		}
 	}
 
-	// strongSwan configuration
-	strongswanConf := `
-config setup
-    charondebug="all"
+	// Enhanced StrongSwan configuration with modern crypto
+	strongswanConf := fmt.Sprintf(`config setup
+    charondebug="ike 2, knl 2, cfg 2"
+    uniqueids=no
 
 conn %default
+    compress=no
+    type=tunnel
     keyexchange=ikev2
-    ike=aes256-sha256-modp2048!
-    esp=aes256-sha256!
+    fragmentation=yes
+    forceencaps=yes
     dpdaction=clear
     dpddelay=300s
-    dpdtimeout=1h
     rekey=no
+    
+    # Strong crypto settings
+    ike=aes256gcm16-prfsha384-ecp384!
+    esp=aes256gcm16-ecp384!
+    
     left=%any
-    leftid=@server.vpn
+    leftid=%s
     leftcert=server.cert.pem
     leftsendcert=always
     leftsubnet=0.0.0.0/0
+    
     right=%any
-    rightid=%any
+    rightid=%%any
     rightauth=eap-mschapv2
     rightsourceip=10.10.10.0/24
-    rightdns=8.8.8.8
-    eap_identity=%identity
+    rightdns=1.1.1.1,1.0.0.1
+    rightsendcert=never
+    eap_identity=%%identity
 
-conn ios_vpn
-    also=%default
-    auto=add
-`
+conn ikev2-vpn
+    also=%%default
+    auto=add`, s.ServerIP)
 
-	// write strongSwan configuration to file
-	cmd := fmt.Sprintf("echo \"%s\" | sudo tee /etc/ipsec.conf", strongswanConf)
-	_, err := s.SSHClient.RunCommand(cmd)
-	if err != nil {
-		return err
+	// Write main config
+	if _, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.conf", strongswanConf)); err != nil {
+		return fmt.Errorf("failed to write ipsec.conf: %v", err)
 	}
 
-	// restart and enable strongSwan
-	cmds = []string{
-		"sudo systemctl restart strongswan",
-		"sudo systemctl enable strongswan",
+	// Secure secrets configuration
+	secretsConf := `: RSA "server.key.pem"
+%any : EAP "VpnSecretPass123!"` // This should be replaced with a generated password
+
+	if _, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.secrets", secretsConf)); err != nil {
+		return fmt.Errorf("failed to write ipsec.secrets: %v", err)
 	}
 
-	for _, cmd := range cmds {
-		_, err := s.SSHClient.RunCommand(cmd)
-		if err != nil {
-			return err
+	// Secure permissions
+	securityCmds := []string{
+		"sudo chmod 600 /etc/ipsec.secrets",
+		"sudo chmod 644 /etc/ipsec.conf",
+		"sudo sysctl -w net.ipv4.ip_forward=1",
+		"sudo sysctl -w net.ipv4.conf.all.accept_redirects=0",
+		"sudo sysctl -w net.ipv4.conf.all.send_redirects=0",
+		"sudo sysctl -p",
+	}
+
+	for _, cmd := range securityCmds {
+		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+			logger.Log.Printf("Warning: Security command failed: %v", err)
 		}
 	}
 
+	// Configure and start service
+	serviceCmds := []string{
+		"sudo systemctl restart strongswan-starter",
+		"sudo systemctl enable strongswan-starter",
+	}
+
+	for _, cmd := range serviceCmds {
+		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+			return fmt.Errorf("service configuration failed: %v", err)
+		}
+	}
+
+	// Verify service status
+	status, err := s.SSHClient.RunCommand("sudo systemctl is-active strongswan-starter")
+	if err != nil || !strings.Contains(strings.TrimSpace(status), "active") {
+		return fmt.Errorf("StrongSwan service failed to start properly")
+	}
+
+	logger.Log.Println("StrongSwan setup completed successfully")
 	return nil
 }
-
-// TODO: ???

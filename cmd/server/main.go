@@ -1,58 +1,98 @@
 package main
 
 import (
-	"log"
+	"context"
+	"crypto/tls"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	// Import the os package
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/api"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
 	logger.Log.Println("Server main: Loading configuration")
 
-	// Load .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file")
+	if err := godotenv.Load(); err != nil {
+		logger.Log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Error loading config: %v", err)
+		logger.Log.Fatalf("Error loading config: %v", err)
 	}
+
 	router := mux.NewRouter()
 
-	// Public routes (no auth required)
-	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST")
+	// Initialize rate limiter (100 requests per minute per IP)
+	rateLimiter := api.NewRateLimiter(time.Minute, 100)
+
+	// Add middlewares in order: rate limiting, security headers
+	router.Use(api.RateLimitMiddleware(rateLimiter))
+	router.Use(api.SecurityHeadersMiddleware)
+
+	// Public routes
+	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
 
 	// Protected routes
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
 	api.SetupRoutes(apiRouter, cfg)
 
-	// Static files
+	// Static files with caching headers
 	fs := http.FileServer(http.Dir("./static"))
-	router.PathPrefix("/").Handler(fs)
+	router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		fs.ServeHTTP(w, r)
+	}))
 
-	// Start HTTPS server in a goroutine
+	// TLS Configuration
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		},
+		PreferServerCipherSuites: true,
+	}
+
+	srv := &http.Server{
+		Addr:         ":8443",
+		Handler:      router,
+		TLSConfig:    tlsConfig,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// Start server in a goroutine
 	go func() {
-		certFile := "server.crt"
-		keyFile := "server.key"
-		logger.Log.Println("Server main: Starting HTTPS server on port 8443")
-		if err := http.ListenAndServeTLS(":8443", certFile, keyFile, router); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("HTTPS server failed to start: %v", err)
+		logger.Log.Printf("Server main: Starting HTTPS server on %s", srv.Addr)
+		if err := srv.ListenAndServeTLS("server.crt", "server.key"); err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatalf("Server main: Failed to start HTTPS server: %v", err)
 		}
 	}()
 
-	// Start HTTP server
-	logger.Log.Printf("Server main: Server is running on port %s", cfg.Server.Port)
-	if err := http.ListenAndServe(":"+cfg.Server.Port, router); err != nil {
-		log.Fatalf("HTTP server failed to start: %v", err)
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Log.Println("Server main: Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Log.Fatalf("Server main: Server forced to shutdown: %v", err)
 	}
+
+	logger.Log.Println("Server main: Server gracefully stopped")
 }
