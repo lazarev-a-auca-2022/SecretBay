@@ -236,7 +236,7 @@ func LoginHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		// Log the attempted username to help with debugging
-		logger.Log.printf("LoginHandler: Login attempt for user: %s", req.Username)
+		logger.Log.Printf("LoginHandler: Login attempt for user: %s", req.Username)
 
 		// Get credentials from environment
 		adminUser := os.Getenv("ADMIN_USERNAME")
