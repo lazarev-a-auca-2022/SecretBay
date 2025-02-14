@@ -36,23 +36,22 @@ services:
     image: nginx:alpine
     ports:
       - "80:80"
-      - "443:443"  
+      - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./static:/usr/share/nginx/html:ro
       - ./certs:/etc/nginx/certs:ro
-      - ./certbot/www:/var/www/certbot:ro
-      - ./certbot/conf:/etc/nginx/ssl:ro
     depends_on:
       - vpn-server
     restart: unless-stopped
-    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
 
   certbot:
     image: certbot/certbot
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./certbot/www:/var/www/certbot:rw
-      - ./certbot/conf:/etc/letsencrypt:rw
-    command: certonly --webroot --webroot-path=/var/www/certbot --email admin@secretbay.me --agree-tos --no-eff-email --staging -d secretbay.me -d www.secretbay.me
+      - ./certs:/etc/letsencrypt
+    command: certonly --standalone --preferred-challenges http --email admin@secretbay.me --agree-tos --no-eff-email --staging -d secretbay.me -d www.secretbay.me
     depends_on:
       - nginx
