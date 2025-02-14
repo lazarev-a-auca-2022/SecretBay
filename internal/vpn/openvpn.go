@@ -18,8 +18,8 @@ func (o *OpenVPNSetup) Setup() error {
 
 	// Update and install required packages
 	cmds := []string{
-		"sudo apk update && sudo apk upgrade -y",
-		"sudo apk install -y openvpn easy-rsa fail2ban ufw openssl",
+		"sudo apt update && sudo apt upgrade -y",
+		"sudo apt install -y openvpn easy-rsa fail2ban ufw openssl",
 	}
 
 	for _, cmd := range cmds {
