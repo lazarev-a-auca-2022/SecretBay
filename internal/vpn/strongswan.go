@@ -23,7 +23,9 @@ func (s *StrongSwanSetup) Setup() error {
 	}
 
 	for _, cmd := range cmds {
-		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+		output, err := s.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("package installation failed: %v", err)
 		}
 	}
@@ -34,14 +36,16 @@ func (s *StrongSwanSetup) Setup() error {
 		"sudo chmod 700 /etc/ipsec.d/{cacerts,certs,private}",
 		"cd /etc/ipsec.d && sudo ipsec pki --gen --type rsa --size 4096 --outform pem > private/ca.key.pem",
 		"sudo chmod 600 /etc/ipsec.d/private/ca.key.pem",
-		fmt.Sprintf("cd /etc/ipsec.d && sudo ipsec pki --self --ca --lifetime 3650 --in private/ca.key.pem --type rsa --dn 'CN=VPN CA' --outform pem > cacerts/ca.cert.pem"),
+		"cd /etc/ipsec.d && sudo ipsec pki --self --ca --lifetime 3650 --in private/ca.key.pem --type rsa --dn 'CN=VPN CA' --outform pem > cacerts/ca.cert.pem",
 		"cd /etc/ipsec.d && sudo ipsec pki --gen --type rsa --size 4096 --outform pem > private/server.key.pem",
 		"sudo chmod 600 /etc/ipsec.d/private/server.key.pem",
 		fmt.Sprintf("cd /etc/ipsec.d && sudo ipsec pki --pub --in private/server.key.pem | sudo ipsec pki --issue --lifetime 1825 --cacert cacerts/ca.cert.pem --cakey private/ca.key.pem --dn 'CN=%s' --san '%s' --flag serverAuth --flag ikeIntermediate --outform pem > certs/server.cert.pem", s.ServerIP, s.ServerIP),
 	}
 
 	for _, cmd := range certSetup {
-		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+		output, err := s.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("certificate generation failed: %v", err)
 		}
 	}
@@ -84,7 +88,9 @@ conn ikev2-vpn
     auto=add`, s.ServerIP)
 
 	// Write main config
-	if _, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.conf", strongswanConf)); err != nil {
+	output, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.conf", strongswanConf))
+	if err != nil {
+		logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", strongswanConf, output, err)
 		return fmt.Errorf("failed to write ipsec.conf: %v", err)
 	}
 
@@ -92,7 +98,9 @@ conn ikev2-vpn
 	secretsConf := `: RSA "server.key.pem"
 %any : EAP "VpnSecretPass123!"` // This should be replaced with a generated password
 
-	if _, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.secrets", secretsConf)); err != nil {
+	output, err = s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.secrets", secretsConf))
+	if err != nil {
+		logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", secretsConf, output, err)
 		return fmt.Errorf("failed to write ipsec.secrets: %v", err)
 	}
 
@@ -107,8 +115,9 @@ conn ikev2-vpn
 	}
 
 	for _, cmd := range securityCmds {
-		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
-			logger.Log.Printf("Warning: Security command failed: %v", err)
+		output, err := s.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Warning: Security command failed: %s, Output: %s, Error: %v", cmd, output, err)
 		}
 	}
 
@@ -119,7 +128,9 @@ conn ikev2-vpn
 	}
 
 	for _, cmd := range serviceCmds {
-		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+		output, err := s.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("service configuration failed: %v", err)
 		}
 	}
@@ -127,6 +138,7 @@ conn ikev2-vpn
 	// Verify service status
 	status, err := s.SSHClient.RunCommand("sudo systemctl is-active strongswan-starter")
 	if err != nil || !strings.Contains(strings.TrimSpace(status), "active") {
+		logger.Log.Printf("Service status check failed: Output: %s, Error: %v", status, err)
 		return fmt.Errorf("StrongSwan service failed to start properly")
 	}
 

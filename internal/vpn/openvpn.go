@@ -23,7 +23,9 @@ func (o *OpenVPNSetup) Setup() error {
 	}
 
 	for _, cmd := range cmds {
-		if _, err := o.SSHClient.RunCommand(cmd); err != nil {
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("package installation failed: %v", err)
 		}
 	}
@@ -48,7 +50,9 @@ func (o *OpenVPNSetup) Setup() error {
 	}
 
 	for _, cmd := range setupCmds {
-		if _, err := o.SSHClient.RunCommand(cmd); err != nil {
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("PKI setup failed: %v", err)
 		}
 	}
@@ -96,14 +100,17 @@ verify-client-cert require`
 	}
 
 	for _, cmd := range logSetupCmds {
-		if _, err := o.SSHClient.RunCommand(cmd); err != nil {
-			logger.Log.Printf("Warning: Log directory setup failed: %v", err)
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Warning: Log directory setup failed: %s, Output: %s, Error: %v", cmd, output, err)
 		}
 	}
 
 	// Write server config
 	cmd := fmt.Sprintf("echo '%s' | sudo tee /etc/openvpn/server.conf", serverConfig)
-	if _, err := o.SSHClient.RunCommand(cmd); err != nil {
+	output, err := o.SSHClient.RunCommand(cmd)
+	if err != nil {
+		logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", serverConfig, output, err)
 		return fmt.Errorf("failed to write server config: %v", err)
 	}
 
@@ -115,7 +122,9 @@ verify-client-cert require`
 	}
 
 	for _, cmd := range sysctlCmds {
-		if _, err := o.SSHClient.RunCommand(cmd); err != nil {
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("system configuration failed: %v", err)
 		}
 	}
@@ -128,7 +137,9 @@ verify-client-cert require`
 	}
 
 	for _, cmd := range serviceCmds {
-		if _, err := o.SSHClient.RunCommand(cmd); err != nil {
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("service activation failed: %v", err)
 		}
 	}
@@ -136,6 +147,7 @@ verify-client-cert require`
 	// Verify service status
 	status, err := o.SSHClient.RunCommand("sudo systemctl is-active openvpn@server")
 	if err != nil || !strings.Contains(strings.TrimSpace(status), "active") {
+		logger.Log.Printf("Service status check failed: Output: %s, Error: %v", status, err)
 		return fmt.Errorf("OpenVPN service failed to start")
 	}
 
