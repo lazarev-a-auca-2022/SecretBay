@@ -20,25 +20,19 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/models"
 )
 
-func jsonError(w http.ResponseWriter, message string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
-}
-
 func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Println("SetupVPNHandler: Processing request")
 		var req models.VPNSetupRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Log.Printf("SetupVPNHandler: Invalid payload: %v", err)
-			jsonError(w, "Invalid request payload", http.StatusBadRequest)
+			utils.JSONError(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
 
 		if err := req.Validate(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: Validation error: %v", err)
-			jsonError(w, err.Error(), http.StatusBadRequest)
+			utils.JSONError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -47,7 +41,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		sshClient, err := sshclient.NewSSHClient(req.ServerIP, req.Username, req.AuthMethod, req.AuthCredential)
 		if err != nil {
 			logger.Log.Printf("SetupVPNHandler: SSH connection failed: %v", err)
-			jsonError(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
+			utils.JSONError(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 		defer sshClient.Close()
@@ -57,26 +51,26 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := openvpn.Setup(); err != nil {
 				logger.Log.Printf("SetupVPNHandler: OpenVPN setup failed: %v", err)
-				jsonError(w, fmt.Sprintf("OpenVPN setup failed: %v", err), http.StatusInternalServerError)
+				utils.JSONError(w, fmt.Sprintf("OpenVPN setup failed: %v", err), http.StatusInternalServerError)
 				return
 			}
 		case "ios_vpn":
 			strongswan := vpn.StrongSwanSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := strongswan.Setup(); err != nil {
 				logger.Log.Printf("SetupVPNHandler: StrongSwan setup failed: %v", err)
-				jsonError(w, fmt.Sprintf("StrongSwan setup failed: %v", err), http.StatusInternalServerError)
+				utils.JSONError(w, fmt.Sprintf("StrongSwan setup failed: %v", err), http.StatusInternalServerError)
 				return
 			}
 		default:
 			logger.Log.Printf("SetupVPNHandler: Unsupported VPN type: %s", req.VPNType)
-			jsonError(w, "Unsupported VPN type", http.StatusBadRequest)
+			utils.JSONError(w, "Unsupported VPN type", http.StatusBadRequest)
 			return
 		}
 
 		security := vpn.SecuritySetup{SSHClient: sshClient}
 		if err := security.SetupFail2Ban(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: Fail2Ban setup failed: %v", err)
-			jsonError(w, fmt.Sprintf("Fail2Ban setup failed: %v", err), http.StatusInternalServerError)
+			utils.JSONError(w, fmt.Sprintf("Fail2Ban setup failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -88,13 +82,13 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		newPassword, err := generatePassword()
 		if err != nil {
 			logger.Log.Printf("SetupVPNHandler: Password generation failed: %v", err)
-			jsonError(w, "Failed to generate secure password", http.StatusInternalServerError)
+			utils.JSONError(w, "Failed to generate secure password", http.StatusInternalServerError)
 			return
 		}
 
 		if err := security.ChangeRootPassword(newPassword); err != nil {
 			logger.Log.Printf("SetupVPNHandler: ChangeRootPassword failed: %v", err)
-			jsonError(w, fmt.Sprintf("Failed to change root password: %v", err), http.StatusInternalServerError)
+			utils.JSONError(w, fmt.Sprintf("Failed to change root password: %v", err), http.StatusInternalServerError)
 			return
 		}
 

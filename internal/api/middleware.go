@@ -9,6 +9,7 @@ import (
 
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/utils"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
 
@@ -31,21 +32,21 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				logger.Log.Println("JWTAuthenticationMiddleware: Missing Authorization Header")
-				jsonError(w, "Missing Authorization Header", http.StatusUnauthorized)
+				utils.JSONError(w, "Missing Authorization Header", http.StatusUnauthorized)
 				return
 			}
 
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 				logger.Log.Println("JWTAuthenticationMiddleware: Invalid Authorization Header format")
-				jsonError(w, "Invalid Authorization Header format", http.StatusUnauthorized)
+				utils.JSONError(w, "Invalid Authorization Header format", http.StatusUnauthorized)
 				return
 			}
 
 			claims, err := auth.ValidateJWT(parts[1], cfg)
 			if err != nil {
 				logger.Log.Printf("JWTAuthenticationMiddleware: Invalid Token: %v", err)
-				jsonError(w, "Invalid or expired token", http.StatusUnauthorized)
+				utils.JSONError(w, "Invalid or expired token", http.StatusUnauthorized)
 				return
 			}
 
@@ -53,12 +54,6 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
-}
-
-func jsonError(w http.ResponseWriter, message string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	http.Error(w, message, code)
 }
 
 // RateLimiter implements a simple token bucket algorithm
@@ -111,7 +106,7 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 
 			if !limiter.Allow(ip) {
 				logger.Log.Printf("Rate limit exceeded for IP: %s", ip)
-				jsonError(w, "Rate limit exceeded", http.StatusTooManyRequests)
+				utils.JSONError(w, "Rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
 

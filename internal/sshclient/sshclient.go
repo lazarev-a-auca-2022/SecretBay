@@ -99,17 +99,19 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 		HostKeyCallback: hostKeyCallback,
 		Timeout:         10 * time.Second,
 		ClientVersion:   "SSH-2.0-SecretBayVPN", // Custom version string
-		KeyExchanges: []string{
-			"curve25519-sha256@libssh.org",
-			"ecdh-sha2-nistp384",
-		},
-		Ciphers: []string{
-			"chacha20-poly1305@openssh.com",
-			"aes256-gcm@openssh.com",
-		},
-		MACs: []string{
-			"hmac-sha2-512-etm@openssh.com",
-			"hmac-sha2-256-etm@openssh.com",
+		Config: ssh.Config{
+			KeyExchanges: []string{
+				"curve25519-sha256@libssh.org",
+				"ecdh-sha2-nistp384",
+			},
+			Ciphers: []string{
+				"chacha20-poly1305@openssh.com",
+				"aes256-gcm@openssh.com",
+			},
+			MACs: []string{
+				"hmac-sha2-512-etm@openssh.com",
+				"hmac-sha2-256-etm@openssh.com",
+			},
 		},
 	}
 
