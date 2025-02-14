@@ -1,12 +1,11 @@
-# version: '3.8'
+version: '3.8'
 
 services:
   vpn-server:
     hostname: Secretbay.me
     build: .
     ports:
-      - "443:443"
-      - "9999:9999"
+      - "9999:9999"  # Removed 443 since nginx handles SSL
     volumes:
       - ./certs:/app/certs:ro
       - ./certs/server.crt:/app/server.crt:ro    
@@ -24,14 +23,22 @@ services:
     image: nginx:alpine
     ports:
       - "80:80"
-      - "8443:443"
+      - "443:443"  # Changed from 8443 to 443
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./static:/usr/share/nginx/html
-      - ./certs:/etc/nginx/certs:ro   # Ensure certs/live/Secretbay.me/fullchain.pem exists
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - vpn-server
     restart: unless-stopped
+    # Add dhparam generation on container start if file doesn't exist
+    entrypoint: >
+      /bin/sh -c "
+      if [ ! -f /etc/nginx/certs/dhparam.pem ]; then
+        echo 'Generating DHParam file...'
+        openssl dhparam -out /etc/nginx/certs/dhparam.pem 2048
+      fi &&
+      nginx -g 'daemon off;'"
 
   certbot:
     image: certbot/certbot
