@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -19,8 +20,25 @@ import (
 func main() {
 	logger.Log.Println("Server main: Loading configuration")
 
-	if err := godotenv.Load(); err != nil {
-		logger.Log.Printf("Warning: Error loading .env file: %v", err)
+	// Try to load .env from multiple possible locations
+	envPaths := []string{
+		".env",
+		"/app/.env",
+		filepath.Join("..", ".env"),
+		filepath.Join("..", "..", ".env"),
+	}
+
+	var envLoaded bool
+	for _, path := range envPaths {
+		if err := godotenv.Load(path); err == nil {
+			logger.Log.Printf("Loaded environment from: %s", path)
+			envLoaded = true
+			break
+		}
+	}
+
+	if !envLoaded {
+		logger.Log.Println("Warning: No .env file found, using environment variables")
 	}
 
 	cfg, err := config.LoadConfig()
