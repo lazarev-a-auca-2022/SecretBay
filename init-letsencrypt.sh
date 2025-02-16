@@ -58,16 +58,6 @@ if ! check_dns ${DOMAIN}; then
     exit 1
 fi
 
-# Check www subdomain
-if ! check_dns www.${DOMAIN}; then
-    echo -e "${RED}Error: No DNS A record found for www.${DOMAIN}${NC}"
-    echo "Please ensure:"
-    echo "1. You have created an A record for www subdomain pointing to your server IP"
-    echo "2. DNS propagation has completed (may take up to 48 hours)"
-    echo "3. Your DNS provider is functioning correctly"
-    exit 1
-fi
-#1
 # Start nginx with temporary config
 echo "Creating temporary nginx config for initial certificate request..."
 cat > nginx.temp.conf <<EOF
@@ -78,7 +68,7 @@ http {
     server {
         listen 80;
         listen [::]:80;
-        server_name ${DOMAIN} www.${DOMAIN};
+        server_name ${DOMAIN};
         
         location /.well-known/acme-challenge/ {
             allow all;
@@ -117,6 +107,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo -e "${GREEN}Requesting Let's Encrypt certificate for ${DOMAIN}...${NC}"
+
 # Request the certificate
 docker run --rm \
     -v $(pwd)/certbot/conf:/etc/letsencrypt \
@@ -127,8 +118,7 @@ docker run --rm \
     --email ${EMAIL} \
     --agree-tos \
     --no-eff-email \
-    -d ${DOMAIN} \
-    -d www.${DOMAIN}
+    -d ${DOMAIN}
 
 # Stop temporary nginx
 docker stop nginx-temp

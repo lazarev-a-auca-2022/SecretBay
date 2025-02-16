@@ -20,7 +20,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-YourSuperSecretKey-ThisIsAVeryLongSecretKeyForDevelopment-2024123123213}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
-      - ALLOWED_ORIGINS=https://secretbay.me,https://www.secretbay.me
+      - ALLOWED_ORIGINS=https://secretbay.me
       - TLS_MIN_VERSION=1.3
       - MAX_REQUEST_SIZE=1048576
       - RATE_LIMIT_REQUESTS=100
