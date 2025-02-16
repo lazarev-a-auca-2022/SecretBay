@@ -6,7 +6,10 @@ services:
     ports:
       - "9999:9999"
     volumes:
-      - ./certs:/app/certs:ro
+      - type: bind
+        source: ./certs
+        target: /app/certs
+        read_only: true
       - ./static:/app/static
       - ./.env:/app/.env:ro
       - ./logs:/app/logs:rw

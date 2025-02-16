@@ -13,31 +13,33 @@ RUN go build -o vpn-setup-server ./cmd/server
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates openssh-client curl
 
-# Create non-root user
-RUN adduser -D -H -s /sbin/nologin appuser
+# Create non-root user with specific UID/GID
+RUN addgroup -g 1000 appgroup && \
+    adduser -D -u 1000 -G appgroup -s /sbin/nologin appuser
 
 # Ensure required directories exist with proper permissions
 RUN mkdir -p /app/static /app/certs /app/logs /app/metrics && \
-    chown -R appuser:appuser /app && \
+    chown -R appuser:appgroup /app && \
     mkdir -p /home/appuser/.ssh && \
     touch /home/appuser/.ssh/known_hosts && \
-    chown -R appuser:appuser /home/appuser/.ssh && \
-    chmod 700 /home/appuser/.ssh
+    chown -R appuser:appgroup /home/appuser/.ssh && \
+    chmod 700 /home/appuser/.ssh && \
+    chmod -R 755 /app/static && \
+    chmod -R 644 /app/certs/* || true && \
+    chmod 755 /app/certs && \
+    chmod 755 /app/logs && \
+    chmod 755 /app/metrics
 
 WORKDIR /app
 COPY --from=builder /app/vpn-setup-server .
 COPY static/ /app/static/
 
-# Set proper permissions for all directories and files
-RUN chown -R appuser:appuser /app && \
-    chmod -R 755 /app/static && \
-    chmod 755 vpn-setup-server && \
-    chmod -R 755 /app/certs && \
-    chmod 755 /app/logs && \
-    chmod 755 /app/metrics
+# Set final permissions
+RUN chown -R appuser:appgroup /app && \
+    chmod 755 vpn-setup-server
 
 # Switch to non-root user
-USER appuser
+USER appuser:appgroup
 
 EXPOSE 9999 443
 
