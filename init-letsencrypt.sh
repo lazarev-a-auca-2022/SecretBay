@@ -60,7 +60,7 @@ if ! check_dns www.${DOMAIN}; then
     echo "3. Your DNS provider is functioning correctly"
     exit 1
 fi
-
+#1
 # Start nginx with temporary config
 echo "Creating temporary nginx config for initial certificate request..."
 cat > nginx.temp.conf <<EOF

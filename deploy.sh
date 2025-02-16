@@ -85,7 +85,7 @@ docker-compose up -d
 # Wait for services to start
 print_step "Waiting for services to start..."
 sleep 10
-
+#1
 # Verify deployment
 print_step "Verifying deployment..."
 if curl -sk https://localhost:9999/health | grep -q "healthy"; then
