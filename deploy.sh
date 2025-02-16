@@ -72,6 +72,7 @@ chmod -R 700 certbot
 chmod -R 755 logs
 chmod -R 755 metrics
 chmod -R 700 backups
+chown -R 1000:1000 certs
 
 # Using fixed domain for Let's Encrypt setup
 print_step "Setting up Let's Encrypt for domain: secretbay.me"

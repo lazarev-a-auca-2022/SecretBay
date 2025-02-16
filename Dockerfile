@@ -25,7 +25,8 @@ RUN mkdir -p /app/static /app/certs /app/logs /app/metrics && \
     chown -R appuser:appgroup /home/appuser/.ssh && \
     chmod 700 /home/appuser/.ssh && \
     chmod -R 755 /app/static && \
-    chmod -R 644 /app/certs/* || true && \
+    chmod -R 644 /app/certs/* && \
+    chown -R appuser:appgroup /app/certs && \
     chmod 755 /app/certs && \
     chmod 755 /app/logs && \
     chmod 755 /app/metrics
