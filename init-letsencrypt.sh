@@ -9,7 +9,14 @@ NC='\033[0m'
 
 # Load environment variables
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ $key =~ ^#.*$ ]] || [[ -z $key ]] && continue
+        # Remove any leading/trailing whitespace and quotes
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs)
+        export "$key=$value"
+    done < .env
 fi
 
 # Use DOMAIN from .env or fall back to default
