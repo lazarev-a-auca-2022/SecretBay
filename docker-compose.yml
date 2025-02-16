@@ -1,14 +1,12 @@
 services:
   vpn-server:
-    container_name: vpn-server  # Added explicit container name
+    container_name: vpn-server
     hostname: secretbay.me
     build: .
     ports:
       - "9999:9999"
     volumes:
-      - ./certs:/app/certs
-      - ./certs/server.crt:/app/server.crt:ro
-      - ./certs/server.key:/app/server.key:ro
+      - ./certs:/app/certs:ro
       - ./static:/app/static
       - ./.env:/app/.env:ro
       - ./logs:/app/logs:rw
