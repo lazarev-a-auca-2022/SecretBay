@@ -29,10 +29,16 @@ events {
 http {
     server {
         listen 80;
+        listen [::]:80;
         server_name ${DOMAIN} www.${DOMAIN};
+        
+        # Disable all restrictions for ACME challenge
         location /.well-known/acme-challenge/ {
+            allow all;
             root /var/www/certbot;
+            try_files \$uri =404;
         }
+        
         location / {
             return 301 https://\$host\$request_uri;
         }
