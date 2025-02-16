@@ -2,10 +2,7 @@
 
 ## Quick Start
 ```bash
-# With domain (recommended)
-./deploy.sh secretbay.me
-
-# Without domain (development/testing)
+# Simply run the deployment script
 ./deploy.sh
 ```
 

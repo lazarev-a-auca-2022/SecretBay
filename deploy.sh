@@ -73,15 +73,9 @@ chmod -R 755 logs
 chmod -R 755 metrics
 chmod -R 700 backups
 
-# Check if domain is provided
-if [ -z "$1" ]; then
-    print_warning "No domain provided. Using self-signed certificates."
-    print_step "Generating self-signed certificates..."
-    ./generate-certs.sh localhost
-else
-    print_step "Setting up Let's Encrypt for domain: $1"
-    ./init-letsencrypt.sh "$1"
-fi
+# Using fixed domain for Let's Encrypt setup
+print_step "Setting up Let's Encrypt for domain: secretbay.me"
+./init-letsencrypt.sh
 
 # Build and start services
 print_step "Building and starting services..."

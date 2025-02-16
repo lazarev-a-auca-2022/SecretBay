@@ -1,6 +1,6 @@
 services:
   vpn-server:
-    hostname: Secretbay.me
+    hostname: secretbay.me
     build: .
     ports:
       - "9999:9999"

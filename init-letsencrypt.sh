@@ -6,14 +6,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Check if domain name is provided
-if [ -z "$1" ]; then
-    echo "Usage: $0 <domain>"
-    echo "Example: $0 secretbay.me"
-    exit 1
-fi
-
-DOMAIN="$1"
+# Set domain name directly
+DOMAIN="secretbay.me"
 EMAIL="admin@${DOMAIN}"
 
 # Create required directories
