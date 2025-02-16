@@ -49,6 +49,8 @@ services:
       - no-new-privileges:true
     networks:
       - secretbay-net
+    stop_grace_period: 30s
+    depends_on: []
 
   nginx:
     container_name: nginx  # Added explicit container name
@@ -66,10 +68,12 @@ services:
       - ./certbot/conf/:/etc/letsencrypt/:ro
       - ./certbot/conf/live/${DOMAIN}/chain.pem:/etc/nginx/ssl/chain.pem:ro
     depends_on:
-      - vpn-server
+      vpn-server:
+        condition: service_started
     restart: unless-stopped
     networks:
       - secretbay-net
+    stop_grace_period: 10s
 
   certbot:
     image: certbot/certbot:latest
@@ -79,6 +83,7 @@ services:
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     networks:
       - secretbay-net
+    stop_grace_period: 10s
 
   backup-cron:
     image: alpine:latest 
@@ -92,7 +97,9 @@ services:
     restart: unless-stopped
     networks:
       - secretbay-net
+    stop_grace_period: 5s
 
 networks:
   secretbay-net:
     driver: bridge
+    name: secretbay-net
