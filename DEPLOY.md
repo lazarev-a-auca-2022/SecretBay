@@ -3,7 +3,7 @@
 ## Quick Start
 ```bash
 # With domain (recommended)
-./deploy.sh yourdomain.com
+./deploy.sh secretbay.me
 
 # Without domain (development/testing)
 ./deploy.sh
