@@ -10,9 +10,9 @@ services:
       - ./certs/server.key:/app/server.key:ro
       - ./static:/app/static
       - ./.env:/app/.env:ro
-      - ./logs:/app/logs
-      - ./metrics:/app/metrics
-      - ./backups:/var/backups/vpn-server
+      - ./logs:/app/logs:rw
+      - ./metrics:/app/metrics:rw
+      - ./backups:/var/backups/vpn-server:rw
     environment:
       - ENV=production
       - DOCKER_CONTAINER=true
@@ -79,10 +79,11 @@ services:
     image: alpine:latest 
     volumes:
       - ./backups:/var/backups/vpn-server
-      - ./scripts/backup-cron.sh:/backup.sh:ro
-    command: sh -c "chmod +x /backup.sh && crond -f"
+      - ./scripts/backup-cron.sh:/tmp/backup.sh:ro
+      - /tmp:/tmp
+    command: sh -c "cp /tmp/backup.sh /tmp/backup-exec.sh && chmod +x /tmp/backup-exec.sh && crond -f"
     environment:
-      - BACKUP_SCHEDULE=0 0 * * * /backup.sh
+      - BACKUP_SCHEDULE=0 0 * * * /tmp/backup-exec.sh
     restart: unless-stopped
     networks:
       - secretbay-net
