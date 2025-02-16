@@ -202,17 +202,28 @@ func GenerateCSRFToken() string {
 // CSRFTokenHandler returns a new CSRF token
 func CSRFTokenHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Log.Printf("CSRFTokenHandler: Received request from %s", r.RemoteAddr)
+		logger.Log.Printf("CSRFTokenHandler: Received %s request from %s with path %s", r.Method, r.RemoteAddr, r.URL.Path)
+
+		// Handle CORS preflight
+		if r.Method == "OPTIONS" {
+			logger.Log.Printf("CSRFTokenHandler: Handling OPTIONS preflight request")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
 		token := GenerateCSRFToken()
 		if token == "" {
-			logger.Log.Printf("CSRFTokenHandler: Failed to generate token")
+			logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
 			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
 			return
 		}
 
 		logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		json.NewEncoder(w).Encode(map[string]string{"token": token})
 	}
 }
