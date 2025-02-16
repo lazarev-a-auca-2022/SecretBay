@@ -50,7 +50,9 @@ services:
       - secretbay-net
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
     ports:
       - "80:80"
       - "443:443"
