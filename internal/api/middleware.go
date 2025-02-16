@@ -22,11 +22,32 @@ var csrfTokens sync.Map
 
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set security headers
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'")
+
+		// More permissive CSP
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'")
+
+		// Handle CORS for specific endpoints
+		if r.URL.Path == "/api/csrf-token" || r.URL.Path == "/api/auth/login" {
+			origin := r.Header.Get("Origin")
+			if origin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+
+			// Handle preflight requests
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -181,12 +202,16 @@ func GenerateCSRFToken() string {
 // CSRFTokenHandler returns a new CSRF token
 func CSRFTokenHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Log.Printf("CSRFTokenHandler: Received request from %s", r.RemoteAddr)
+
 		token := GenerateCSRFToken()
 		if token == "" {
+			logger.Log.Printf("CSRFTokenHandler: Failed to generate token")
 			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
 			return
 		}
 
+		logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"token": token})
 	}
