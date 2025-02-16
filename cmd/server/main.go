@@ -110,6 +110,7 @@ func main() {
 
 	// Public routes
 	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")  // Add CSRF token endpoint
 
 	// Protected routes
 	apiRouter := router.PathPrefix("/api").Subrouter()
