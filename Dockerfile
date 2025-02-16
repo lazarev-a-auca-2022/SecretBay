@@ -28,10 +28,11 @@ WORKDIR /app
 COPY --from=builder /app/vpn-setup-server .
 COPY static/ /app/static/
 
-# Set proper permissions
+# Set proper permissions for all directories and files
 RUN chown -R appuser:appuser /app && \
     chmod -R 755 /app/static && \
-    chmod 755 vpn-setup-server
+    chmod 755 vpn-setup-server && \
+    chmod 755 /app/certs  # Ensure certs directory is readable
 
 # Switch to non-root user
 USER appuser
