@@ -6,8 +6,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Set domain name from argument or default
-DOMAIN=${1:-"secretbay.me"}
+# Set fixed domain name
+DOMAIN="secretbay.me"
 EMAIL="admin@${DOMAIN}"
 
 # Create required directories with proper permissions
