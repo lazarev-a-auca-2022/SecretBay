@@ -32,7 +32,7 @@ COPY static/ /app/static/
 RUN chown -R appuser:appuser /app && \
     chmod -R 755 /app/static && \
     chmod 755 vpn-setup-server && \
-    chmod -R 755 /app/certs && \  # Ensure certs directory is readable
+    chmod -R 755 /app/certs && \
     chmod 755 /app/logs && \
     chmod 755 /app/metrics
 
