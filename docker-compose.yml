@@ -28,6 +28,7 @@ services:
       - MAX_CONN_AGE=3600
       - READ_TIMEOUT=30
       - WRITE_TIMEOUT=30
+    user: "1000:1000"  # Add this line to set proper permissions
     healthcheck:
       test: ["CMD", "curl", "-k", "https://localhost:9999/health"]
       interval: 30s

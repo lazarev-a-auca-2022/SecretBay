@@ -108,9 +108,10 @@ func main() {
 	router.Use(api.RateLimitMiddleware(rateLimiter))
 	router.Use(api.SecurityHeadersMiddleware)
 
-	// Public routes
-	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")  // Add CSRF token endpoint
+	// Public routes - ensure these are registered before the /api subrouter
+	publicRouter := router.PathPrefix("/api").Subrouter()
+	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	publicRouter.HandleFunc("/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
 
 	// Protected routes
 	apiRouter := router.PathPrefix("/api").Subrouter()
