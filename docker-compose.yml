@@ -6,8 +6,8 @@ services:
     ports:
       - "9999:9999"
     volumes:
-      - ./server.crt:/app/certs/server.crt:ro
-      - ./server.key:/app/certs/server.key:ro
+      - ./certbot/conf/live/${DOMAIN}/fullchain.pem:/app/certs/server.crt:ro
+      - ./certbot/conf/live/${DOMAIN}/privkey.pem:/app/certs/server.key:ro
       - ./static:/app/static
       - ./.env:/app/.env:ro
       - ./logs:/app/logs:rw
@@ -49,10 +49,11 @@ services:
     networks:
       - secretbay-net
     stop_grace_period: 30s
-    depends_on: []
+    depends_on:
+      - certbot
 
   nginx:
-    container_name: nginx  # Added explicit container name
+    container_name: nginx
     build:
       context: .
       dockerfile: nginx.Dockerfile
@@ -65,10 +66,9 @@ services:
       - ./certs:/etc/nginx/certs:ro
       - ./certbot/www:/var/www/certbot/:ro
       - ./certbot/conf/:/etc/letsencrypt/:ro
-      - ./certbot/conf/live/${DOMAIN}/chain.pem:/etc/nginx/ssl/chain.pem:ro
     depends_on:
-      vpn-server:
-        condition: service_started
+      - vpn-server
+      - certbot
     restart: unless-stopped
     networks:
       - secretbay-net
