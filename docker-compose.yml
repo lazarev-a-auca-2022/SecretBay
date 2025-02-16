@@ -9,7 +9,7 @@ services:
       - type: bind
         source: ./certs
         target: /app/certs
-        read_only: true
+        read_only: false
       - ./static:/app/static
       - ./.env:/app/.env:ro
       - ./logs:/app/logs:rw
