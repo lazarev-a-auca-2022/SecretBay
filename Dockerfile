@@ -11,14 +11,34 @@ COPY . .
 RUN go build -o vpn-setup-server ./cmd/server
 
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates openssh-client curl
 
-# Ensure /root/.ssh exists and create a blank known_hosts file
-RUN mkdir -p /root/.ssh && touch /root/.ssh/known_hosts
+# Create non-root user
+RUN adduser -D -H -s /sbin/nologin appuser
+
+# Ensure required directories exist with proper permissions
+RUN mkdir -p /app/static /app/certs /app/logs && \
+    chown -R appuser:appuser /app && \
+    mkdir -p /home/appuser/.ssh && \
+    touch /home/appuser/.ssh/known_hosts && \
+    chown -R appuser:appuser /home/appuser/.ssh && \
+    chmod 700 /home/appuser/.ssh
 
 WORKDIR /app
 COPY --from=builder /app/vpn-setup-server .
 COPY static/ /app/static/
+
+# Set proper permissions
+RUN chown -R appuser:appuser /app && \
+    chmod -R 755 /app/static && \
+    chmod 755 vpn-setup-server
+
+# Switch to non-root user
+USER appuser
+
 EXPOSE 9999 443
-RUN apk --no-cache add ca-certificates openssh-client
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -k https://localhost:9999/health || exit 1
+
 CMD ["./vpn-setup-server"]

@@ -2,16 +2,23 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/utils"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/monitoring"
 )
+
+var csrfTokens sync.Map
 
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -113,4 +120,81 @@ func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func MonitoringMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		duration := time.Since(start)
+
+		// Log request details
+		monitoring.LogRequest(r.URL.Path, r.Method, http.StatusOK, duration)
+	})
+}
+
+// CSRFMiddleware adds CSRF protection
+func CSRFMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip CSRF check for GET, HEAD, OPTIONS
+		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Verify CSRF token
+		token := r.Header.Get("X-CSRF-Token")
+		if token == "" {
+			utils.JSONError(w, "Missing CSRF token", http.StatusForbidden)
+			return
+		}
+
+		// Check if token exists and is valid
+		if _, ok := csrfTokens.Load(token); !ok {
+			utils.JSONError(w, "Invalid CSRF token", http.StatusForbidden)
+			return
+		}
+
+		// Token is valid, remove it from the map (one-time use)
+		csrfTokens.Delete(token)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// GenerateCSRFToken generates a new CSRF token
+func GenerateCSRFToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return ""
+	}
+	token := base64.URLEncoding.EncodeToString(b)
+	csrfTokens.Store(token, true)
+
+	// Cleanup old tokens after 1 hour
+	time.AfterFunc(1*time.Hour, func() {
+		csrfTokens.Delete(token)
+	})
+
+	return token
+}
+
+// CSRFTokenHandler returns a new CSRF token
+func CSRFTokenHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token := GenerateCSRFToken()
+		if token == "" {
+			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"token": token})
+	}
+}
+
+func SetupMiddleware(router *mux.Router) {
+	router.Use(MonitoringMiddleware)
+	router.Use(SecurityHeadersMiddleware)
+	router.Use(RateLimitMiddleware(NewRateLimiter(time.Minute, 100)))
+	router.Use(CSRFMiddleware)
 }

@@ -1,12 +1,27 @@
 #!/bin/bash
 
-# Check if IP address is provided
+# Check if hostname/IP is provided
 if [ -z "$1" ]; then
-    echo "Usage: $0 <ip_address>"
+    echo "Usage: $0 <hostname_or_ip>"
     exit 1
 fi
 
-IP_ADDRESS="$1"
+HOST="$1"
+
+# Create certs directory if it doesn't exist
+mkdir -p certs
+cd certs
+
+# Determine if input is IP or domain
+if [[ $HOST =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    ALT_NAMES="IP.1 = ${HOST}"
+else
+    ALT_NAMES="DNS.1 = ${HOST}\nDNS.2 = www.${HOST}"
+fi
+
+# Generate DH parameters (this may take a while)
+echo "Generating DH parameters (2048 bit) - this may take a few minutes..."
+openssl dhparam -out dhparam.pem 2048
 
 # Generate a strong private key
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out server.key
@@ -22,7 +37,7 @@ distinguished_name = dn
 x509_extensions   = v3_ca
 
 [ dn ]
-CN = ${IP_ADDRESS}
+CN = ${HOST}
 O = SecretBay VPN
 OU = Security
 C = US
@@ -34,7 +49,7 @@ keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
 
 [ alt_names ]
-IP.1 = ${IP_ADDRESS}
+${ALT_NAMES}
 
 [ v3_ca ]
 subjectKeyIdentifier = hash
@@ -52,8 +67,11 @@ openssl req -x509 -new -nodes \
     -config cert.cfg
 
 # Set secure permissions
-chmod 600 server.key
+chmod 600 server.key dhparam.pem
 chmod 644 server.crt
 
-echo "Certificate generated successfully for IP: ${IP_ADDRESS}"
-echo "Please make sure to keep server.key secure and private"
+echo "Certificate generation complete:"
+echo "- server.crt: SSL certificate"
+echo "- server.key: Private key (keep secure!)"
+echo "- dhparam.pem: DH parameters"
+echo "All files have been placed in the ./certs directory"

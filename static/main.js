@@ -23,17 +23,51 @@ window.addEventListener('load', async () => {
     }
 });
 
-// Function to get JWT token
+// Authentication and CSRF token management
+let csrfToken = null;
+
+async function getCsrfToken() {
+    try {
+        const response = await fetch('/api/csrf-token');
+        if (!response.ok) {
+            throw new Error('Failed to get CSRF token');
+        }
+        const data = await response.json();
+        csrfToken = data.token;
+        return csrfToken;
+    } catch (error) {
+        console.error('Error getting CSRF token:', error);
+        return null;
+    }
+}
+
+// Function to get JWT token with CSRF support
 async function getJWTToken() {
     let token = localStorage.getItem('jwt');
     if (!token) {
         try {
-            const response = await fetch('/api/auth/token', {
-                method: 'GET',
+            // Get CSRF token first
+            const csrfToken = await getCsrfToken();
+            if (!csrfToken) {
+                throw new Error('Failed to get CSRF token');
+            }
+
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                })
             });
+            
+            if (!response.ok) {
+                throw new Error('Authentication failed');
+            }
+            
             const data = await response.json();
             token = data.token;
             localStorage.setItem('jwt', token);
@@ -59,7 +93,7 @@ async function isTokenValid(token) {
     }
 }
 
-// Handle config download
+// Handle config download with CSRF protection
 document.getElementById('downloadConfigBtn').addEventListener('click', async () => {
     const errorDiv = document.getElementById('downloadError');
     errorDiv.style.display = 'none';
@@ -75,12 +109,19 @@ document.getElementById('downloadConfigBtn').addEventListener('click', async () 
     }
     
     try {
+        // Get fresh CSRF token for download
+        const csrfToken = await getCsrfToken();
+        if (!csrfToken) {
+            throw new Error('Could not get CSRF token');
+        }
+
         let token = await getJWTToken();
         if (!token) throw new Error('Authentication failed');
         
         const response = await fetch(`/api/config/download?server_ip=${serverIp}&username=${username}&credential=${encodeURIComponent(credential)}`, {
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'X-CSRF-Token': csrfToken
             }
         });
         
@@ -94,23 +135,29 @@ document.getElementById('downloadConfigBtn').addEventListener('click', async () 
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = "openvpn_config.ovpn";
+        a.download = "vpn_config";
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
     } catch (error) {
-        errorDiv.textContent = error.message || "No VPN detected on the remote host";
+        errorDiv.textContent = error.message || "Failed to download configuration";
         errorDiv.style.display = "block";
     }
 });
 
-// Handle form submission
+// Handle form submission with CSRF protection
 document.getElementById('vpnForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const resultDiv = document.getElementById('result');
     resultDiv.style.display = 'none';
 
     try {
+        // Get fresh CSRF token
+        const csrfToken = await getCsrfToken();
+        if (!csrfToken) {
+            throw new Error('Could not get CSRF token');
+        }
+
         let token = await getJWTToken();
         if (!token || !(await isTokenValid(token))) {
             localStorage.removeItem('jwt');
@@ -120,11 +167,12 @@ document.getElementById('vpnForm').addEventListener('submit', async (e) => {
             }
         }
 
-        let response = await fetch('/api/setup', {
+        const response = await fetch('/api/setup', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'X-CSRF-Token': csrfToken
             },
             body: JSON.stringify({
                 server_ip: document.getElementById('serverIp').value,
@@ -135,39 +183,19 @@ document.getElementById('vpnForm').addEventListener('submit', async (e) => {
             })
         });
 
-        if (response.status === 401) {
-            localStorage.removeItem('jwt');
-            token = await getJWTToken();
-            if (token) {
-                response = await fetch('/api/setup', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        server_ip: document.getElementById('serverIp').value,
-                        username: document.getElementById('username').value,
-                        auth_method: document.getElementById('authMethod').value,
-                        auth_credential: document.getElementById('authCredential').value,
-                        vpn_type: document.getElementById('vpnType').value
-                    })
-                });
-            }
-        }
-
         const data = await response.json();
         if (response.ok) {
-            resultDiv.textContent = `VPN setup successful! Config path: ${data.vpn_config}\nNew root password: ${data.new_password}`;
-            resultDiv.className = 'success';
+            resultDiv.textContent = `VPN setup successful!\nConfig path: ${data.vpn_config}\nNew root password: ${data.new_password}`;
+            if (data.backup_path) {
+                resultDiv.textContent += `\nBackup created at: ${data.backup_path}`;
+            }
+            resultDiv.style.color = 'green';
         } else {
-            resultDiv.textContent = `Error: ${data.error || 'Unknown error occurred'}`;
-            resultDiv.className = 'error';
+            throw new Error(data.error || 'Failed to setup VPN');
         }
-        resultDiv.style.display = 'block';
     } catch (error) {
         resultDiv.textContent = `Error: ${error.message}`;
-        resultDiv.className = 'error';
-        resultDiv.style.display = 'block';
+        resultDiv.style.color = 'red';
     }
+    resultDiv.style.display = 'block';
 });

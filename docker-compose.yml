@@ -3,13 +3,16 @@ services:
     hostname: Secretbay.me
     build: .
     ports:
-      - "9999:9999" 
+      - "9999:9999"
     volumes:
       - ./certs:/app/certs:ro
-      - ./certs/server.crt:/app/server.crt:ro    
-      - ./certs/server.key:/app/server.key:ro    
+      - ./certs/server.crt:/app/server.crt:ro
+      - ./certs/server.key:/app/server.key:ro
       - ./static:/app/static
       - ./.env:/app/.env:ro
+      - ./logs:/app/logs
+      - ./metrics:/app/metrics
+      - ./backups:/var/backups/vpn-server
     environment:
       - ENV=production
       - DOCKER_CONTAINER=true
@@ -18,19 +21,33 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
       - ALLOWED_ORIGINS=https://secretbay.me,https://www.secretbay.me
-      - TLS_MIN_VERSION=1.2
+      - TLS_MIN_VERSION=1.3
       - MAX_REQUEST_SIZE=1048576
       - RATE_LIMIT_REQUESTS=100
       - RATE_LIMIT_DURATION=60
       - MAX_CONN_AGE=3600
       - READ_TIMEOUT=30
       - WRITE_TIMEOUT=30
+    healthcheck:
+      test: ["CMD", "curl", "-k", "https://localhost:9999/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - secretbay-net
 
   nginx:
     image: nginx:alpine
@@ -41,33 +58,35 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./static:/usr/share/nginx/html:ro
       - ./certs:/etc/nginx/certs:ro
-      - ./certbot/www:/var/www/certbot:ro
+      - ./certbot/www:/var/www/certbot/:ro
+      - ./certbot/conf/:/etc/nginx/ssl/:ro
     depends_on:
       - vpn-server
     restart: unless-stopped
-    command: >
-      /bin/sh -c "
-      apk add --no-cache openssl &&
-      if [ ! -f /etc/nginx/certs/dhparam.pem ]; then
-        openssl dhparam -out /etc/nginx/certs/dhparam.pem 2048;
-      fi &&
-      nginx -g 'daemon off;'"
+    networks:
+      - secretbay-net
 
   certbot:
-    image: certbot/certbot
+    image: certbot/certbot:latest
     volumes:
-      - ./certbot/www:/var/www/certbot:rw
-      - ./certs:/etc/letsencrypt:rw
-    entrypoint: "/bin/sh -c"
-    command: >
-      'trap exit TERM; while :; do
-        certbot certonly --webroot \
-          --webroot-path /var/www/certbot \
-          --email admin@secretbay.me \
-          --agree-tos \
-          --no-eff-email \
-          -d secretbay.me \
-          -d www.secretbay.me \
-          --deploy-hook "docker kill -s HUP nginx"; \
-        sleep 12h & wait $${!}; \
-      done;'
+      - ./certbot/www/:/var/www/certbot/:rw
+      - ./certbot/conf/:/etc/letsencrypt/:rw
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - secretbay-net
+
+  backup-cron:
+    image: alpine:latest 
+    volumes:
+      - ./backups:/var/backups/vpn-server
+      - ./scripts/backup-cron.sh:/backup.sh:ro
+    command: sh -c "chmod +x /backup.sh && crond -f"
+    environment:
+      - BACKUP_SCHEDULE=0 0 * * * /backup.sh
+    restart: unless-stopped
+    networks:
+      - secretbay-net
+
+networks:
+  secretbay-net:
+    driver: bridge

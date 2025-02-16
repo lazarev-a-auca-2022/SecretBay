@@ -1,0 +1,17 @@
+[secretbay-vpn]
+enabled = true
+filter = secretbay-vpn
+action = iptables-multiport[name=secretbay-vpn, port="9999,443"]
+logpath = /app/logs/vpn-server.log
+maxretry = 5
+bantime = 3600
+findtime = 600
+
+[nginx-vpn]
+enabled = true
+filter = nginx-vpn
+action = iptables-multiport[name=nginx-vpn, port="80,443"]
+logpath = /var/log/nginx/access.log
+maxretry = 10
+bantime = 3600
+findtime = 600

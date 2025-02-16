@@ -5,9 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -18,6 +20,7 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/vpn"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/models"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/monitoring"
 )
 
 func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
@@ -37,6 +40,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		setupID := uuid.New().String()
+		configPath := generateVPNConfigPath(req.VPNType, setupID)
 
 		// Determine the authentication method
 		var authMethod string
@@ -63,14 +67,22 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := openvpn.Setup(); err != nil {
 				logger.Log.Printf("SetupVPNHandler: OpenVPN setup failed: %v", err)
-				utils.JSONError(w, fmt.Sprintf("OpenVPN setup failed: %v", err), http.StatusInternalServerError)
+				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 				return
 			}
 		case "ios_vpn":
 			strongswan := vpn.StrongSwanSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := strongswan.Setup(); err != nil {
 				logger.Log.Printf("SetupVPNHandler: StrongSwan setup failed: %v", err)
-				utils.JSONError(w, fmt.Sprintf("StrongSwan setup failed: %v", err), http.StatusInternalServerError)
+				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
+				return
+			}
+
+			// Generate mobile config
+			configPath, err = strongswan.GenerateMobileConfig(req.Username)
+			if err != nil {
+				logger.Log.Printf("SetupVPNHandler: Mobile config generation failed: %v", err)
+				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 				return
 			}
 		default:
@@ -82,26 +94,34 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		security := vpn.SecuritySetup{SSHClient: sshClient}
 		if err := security.SetupFail2Ban(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: Fail2Ban setup failed: %v", err)
-			utils.JSONError(w, fmt.Sprintf("Fail2Ban setup failed: %v", err), http.StatusInternalServerError)
+			utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 			return
 		}
 
 		if err := security.DisableUnnecessaryServices(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: DisableUnnecessaryServices failed: %v", err)
-			// Continue execution but log the error
+			monitoring.LogError(err)
 		}
 
 		newPassword, err := generatePassword()
 		if err != nil {
 			logger.Log.Printf("SetupVPNHandler: Password generation failed: %v", err)
-			utils.JSONError(w, "Failed to generate secure password", http.StatusInternalServerError)
+			utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 			return
 		}
 
 		if err := security.ChangeRootPassword(newPassword); err != nil {
 			logger.Log.Printf("SetupVPNHandler: ChangeRootPassword failed: %v", err)
-			utils.JSONError(w, fmt.Sprintf("Failed to change root password: %v", err), http.StatusInternalServerError)
+			utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 			return
+		}
+
+		// Create backup after successful setup
+		backupManager := utils.BackupManager{SSHClient: sshClient}
+		_, err = backupManager.CreateBackup()
+		if err != nil {
+			logger.Log.Printf("SetupVPNHandler: Backup creation failed: %v", err)
+			monitoring.LogError(err)
 		}
 
 		cleanup := utils.DataCleanup{SSHClient: sshClient}
@@ -110,10 +130,8 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			// Log but continue as this is not critical
 		}
 
-		vpnConfigPath := generateVPNConfigPath(req.VPNType, setupID)
-
 		response := models.VPNSetupResponse{
-			VPNConfig:   vpnConfigPath,
+			VPNConfig:   configPath,
 			NewPassword: newPassword,
 		}
 
@@ -149,11 +167,83 @@ func StatusHandler(cfg *config.Config) http.HandlerFunc {
 	}
 }
 
+// Add health check handler
+func HealthCheckHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+	}
+}
+
+// Add monitoring endpoint
+func MetricsHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Only allow metrics access from localhost or internal network
+		clientIP := r.Header.Get("X-Real-IP")
+		if clientIP == "" {
+			clientIP = r.RemoteAddr
+		}
+
+		if !isInternalIP(clientIP) {
+			utils.JSONError(w, "Access denied", http.StatusForbidden)
+			return
+		}
+
+		metrics := monitoring.GetMetrics()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(metrics)
+	}
+}
+
+func isInternalIP(ip string) bool {
+	// Remove port if present
+	if strings.Contains(ip, ":") {
+		ip = strings.Split(ip, ":")[0]
+	}
+
+	// Check if localhost
+	if ip == "127.0.0.1" || ip == "::1" || ip == "localhost" {
+		return true
+	}
+
+	// Check if in private IP ranges
+	privateRanges := []string{
+		"10.0.0.0/8",
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+	}
+
+	for _, cidr := range privateRanges {
+		_, ipnet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		if ipnet.Contains(net.ParseIP(ip)) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
-	router.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST")
-	router.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-	router.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
-	router.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+	// Public endpoints that don't need CSRF
+	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
+	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
+	router.HandleFunc("/api/auth/login", LoginHandler(cfg)).Methods("POST")
+	router.HandleFunc("/api/csrf-token", CSRFTokenHandler()).Methods("GET")
+
+	// Protected API routes with CSRF
+	apiRouter := router.PathPrefix("/api").Subrouter()
+	apiRouter.Use(JWTAuthenticationMiddleware(cfg))
+	apiRouter.Use(CSRFMiddleware)
+
+	apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
+	apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
+	apiRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+	apiRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
+	apiRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
 }
 
 func generatePassword() (string, error) {
@@ -290,4 +380,77 @@ func generateVPNConfigPath(vpnType, setupID string) string {
 	path := filepath.Join(configDir, filename)
 	logger.Log.Printf("generateVPNConfigPath: Generated path: %s", path)
 	return path
+}
+
+func BackupHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get server IP and credentials from JWT context
+		username := r.Context().Value("username").(string)
+		serverIP := r.URL.Query().Get("server_ip")
+		if serverIP == "" {
+			utils.JSONError(w, "Missing server_ip parameter", http.StatusBadRequest)
+			return
+		}
+
+		sshClient, err := sshclient.NewSSHClient(serverIP, username, "key", "")
+		if err != nil {
+			logger.Log.Printf("BackupHandler: SSH connection failed: %v", err)
+			utils.JSONError(w, "Failed to connect to server", http.StatusInternalServerError)
+			return
+		}
+		defer sshClient.Close()
+
+		backupManager := utils.BackupManager{SSHClient: sshClient}
+		backupFile, err := backupManager.CreateBackup()
+		if err != nil {
+			logger.Log.Printf("BackupHandler: Backup creation failed: %v", err)
+			utils.JSONError(w, "Failed to create backup", http.StatusInternalServerError)
+			return
+		}
+
+		response := map[string]string{
+			"status":      "success",
+			"backup_file": backupFile,
+			"message":     "Backup created successfully",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+func RestoreHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		username := r.Context().Value("username").(string)
+		var req struct {
+			ServerIP   string `json:"server_ip"`
+			BackupFile string `json:"backup_file"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.JSONError(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+
+		sshClient, err := sshclient.NewSSHClient(req.ServerIP, username, "key", "")
+		if err != nil {
+			logger.Log.Printf("RestoreHandler: SSH connection failed: %v", err)
+			utils.JSONError(w, "Failed to connect to server", http.StatusInternalServerError)
+			return
+		}
+		defer sshClient.Close()
+
+		backupManager := utils.BackupManager{SSHClient: sshClient}
+		if err := backupManager.RestoreBackup(req.BackupFile); err != nil {
+			logger.Log.Printf("RestoreHandler: Restore failed: %v", err)
+			utils.JSONError(w, "Failed to restore backup", http.StatusInternalServerError)
+			return
+		}
+
+		response := map[string]string{
+			"status":  "success",
+			"message": "Backup restored successfully",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
 }
