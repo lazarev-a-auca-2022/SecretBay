@@ -17,7 +17,7 @@ RUN apk --no-cache add ca-certificates openssh-client curl
 RUN adduser -D -H -s /sbin/nologin appuser
 
 # Ensure required directories exist with proper permissions
-RUN mkdir -p /app/static /app/certs /app/logs && \
+RUN mkdir -p /app/static /app/certs /app/logs /app/metrics && \
     chown -R appuser:appuser /app && \
     mkdir -p /home/appuser/.ssh && \
     touch /home/appuser/.ssh/known_hosts && \
@@ -32,7 +32,9 @@ COPY static/ /app/static/
 RUN chown -R appuser:appuser /app && \
     chmod -R 755 /app/static && \
     chmod 755 vpn-setup-server && \
-    chmod 755 /app/certs  # Ensure certs directory is readable
+    chmod -R 755 /app/certs && \  # Ensure certs directory is readable
+    chmod 755 /app/logs && \
+    chmod 755 /app/metrics
 
 # Switch to non-root user
 USER appuser
