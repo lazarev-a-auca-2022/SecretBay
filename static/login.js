@@ -2,7 +2,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to get CSRF token
     async function getCsrfToken() {
         try {
-            const response = await fetch('/api/csrf-token');
+            // Ensure we're using HTTPS
+            const protocol = window.location.protocol;
+            const baseUrl = `${protocol}//${window.location.host}`;
+            const response = await fetch(`${baseUrl}/api/csrf-token`, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
             if (!response.ok) {
                 throw new Error('Failed to get CSRF token');
             }
