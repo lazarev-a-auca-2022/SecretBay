@@ -37,7 +37,7 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
 
@@ -201,20 +201,41 @@ func GenerateCSRFToken() string {
 
 // CSRFTokenHandler returns a new CSRF token
 func CSRFTokenHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Log.Printf("CSRFTokenHandler: Received %s request from %s with path %s", r.Method, r.RemoteAddr, r.URL.Path)
+    return func(w http.ResponseWriter, r *http.Request) {
+        logger.Log.Printf("CSRFTokenHandler: Received %s request from %s with path %s", r.Method, r.RemoteAddr, r.URL.Path)
 
-		token := GenerateCSRFToken()
-		if token == "" {
-			logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
-			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
-			return
-		}
+        // Handle CORS preflight
+        if r.Method == "OPTIONS" {
+            logger.Log.Printf("CSRFTokenHandler: Handling OPTIONS preflight request")
+            origin := r.Header.Get("Origin")
+            if origin != "" {
+                w.Header().Set("Access-Control-Allow-Origin", origin)
+                w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+                w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+                w.Header().Set("Access-Control-Allow-Credentials", "true")
+            }
+            w.WriteHeader(http.StatusOK)
+            return
+        }
 
-		logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"token": token})
-	}
+        token := GenerateCSRFToken()
+        if token == "" {
+            logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
+            utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
+            return
+        }
+
+        // Set CORS headers for the actual response
+        origin := r.Header.Get("Origin")
+        if origin != "" {
+            w.Header().Set("Access-Control-Allow-Origin", origin)
+            w.Header().Set("Access-Control-Allow-Credentials", "true")
+        }
+        
+        logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]string{"token": token})
+    }
 }
 
 func SetupMiddleware(router *mux.Router) {

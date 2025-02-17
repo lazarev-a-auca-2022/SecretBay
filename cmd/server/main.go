@@ -80,19 +80,10 @@ func main() {
 		}
 	}()
 
+	// Create the router and add base middleware
 	router := mux.NewRouter()
-
-	// Create shutdown context that will be used by background tasks
-	ctx, cancelShutdown = context.WithCancel(context.Background())
-	defer cancelShutdown()
-
-	// Initialize rate limiter (100 requests per minute per IP)
-	rateLimiter := api.NewRateLimiter(time.Minute, 100)
-
-	// Add middlewares with operation tracking
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip tracking for health checks
 			if r.URL.Path != "/health" {
 				activeOps.Add(1)
 				monitoring.IncrementConnections()
@@ -105,16 +96,17 @@ func main() {
 		})
 	})
 	router.Use(api.MonitoringMiddleware)
-	router.Use(api.RateLimitMiddleware(rateLimiter))
 	router.Use(api.SecurityHeadersMiddleware)
 
-	// Public routes - ensure these are registered before the /api subrouter
+	// Public routes that need to bypass CSRF
 	publicRouter := router.PathPrefix("/api").Subrouter()
 	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	publicRouter.HandleFunc("/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
 
-	// Protected routes
+	// All other routes get rate limiting and CSRF protection
 	apiRouter := router.PathPrefix("/api").Subrouter()
+	apiRouter.Use(api.RateLimitMiddleware(api.NewRateLimiter(time.Minute, 100)))
+	apiRouter.Use(api.CSRFMiddleware)
 	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
 	api.SetupRoutes(apiRouter, cfg)
 
