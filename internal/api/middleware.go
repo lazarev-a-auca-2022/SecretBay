@@ -22,26 +22,30 @@ var csrfTokens sync.Map
 
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set security headers
+		// Set base security headers for all requests
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-
-		// More permissive CSP
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'")
 
-		// Handle CORS for specific endpoints
+			// Special handling for CSRF token and login endpoints
 		if r.URL.Path == "/api/csrf-token" || r.URL.Path == "/api/auth/login" {
+			// Force HTTPS
+			if r.Header.Get("X-Forwarded-Proto") != "https" {
+				http.Error(w, "HTTPS is required", http.StatusBadRequest)
+				return
+			}
+
 			origin := r.Header.Get("Origin")
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Vary", "Origin")
 			}
 
-			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -104,6 +108,12 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
+	// Always allow CSRF token requests
+	// We still log them but don't count them against the rate limit
+	if strings.HasSuffix(ip, "-csrf-token") {
+		return true
+	}
+
 	now := time.Now()
 	windowStart := now.Add(-rl.window)
 
@@ -127,6 +137,12 @@ func (rl *RateLimiter) Allow(ip string) bool {
 func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip rate limiting for CSRF token endpoint
+			if r.URL.Path == "/api/csrf-token" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			ip := r.RemoteAddr
 			if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
 				ip = strings.Split(forwardedFor, ",")[0]
@@ -204,20 +220,14 @@ func CSRFTokenHandler() http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         logger.Log.Printf("CSRFTokenHandler: Received %s request from %s with path %s", r.Method, r.RemoteAddr, r.URL.Path)
 
-        // Handle CORS preflight
-        if r.Method == "OPTIONS" {
-            logger.Log.Printf("CSRFTokenHandler: Handling OPTIONS preflight request")
-            origin := r.Header.Get("Origin")
-            if origin != "" {
-                w.Header().Set("Access-Control-Allow-Origin", origin)
-                w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-                w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
-                w.Header().Set("Access-Control-Allow-Credentials", "true")
-            }
-            w.WriteHeader(http.StatusOK)
+        // Ensure request is over HTTPS
+        if r.Header.Get("X-Forwarded-Proto") != "https" {
+            logger.Log.Printf("CSRFTokenHandler: Non-HTTPS request rejected from %s", r.RemoteAddr)
+            utils.JSONError(w, "HTTPS is required", http.StatusBadRequest)
             return
         }
 
+        // Generate new token
         token := GenerateCSRFToken()
         if token == "" {
             logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
@@ -225,15 +235,18 @@ func CSRFTokenHandler() http.HandlerFunc {
             return
         }
 
-        // Set CORS headers for the actual response
+        // Set response headers
+        w.Header().Set("Content-Type", "application/json")
         origin := r.Header.Get("Origin")
         if origin != "" {
             w.Header().Set("Access-Control-Allow-Origin", origin)
             w.Header().Set("Access-Control-Allow-Credentials", "true")
+            w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+            w.Header().Set("Vary", "Origin")
         }
-        
+
         logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
-        w.Header().Set("Content-Type", "application/json")
         json.NewEncoder(w).Encode(map[string]string{"token": token})
     }
 }

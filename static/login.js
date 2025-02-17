@@ -2,9 +2,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to get CSRF token
     async function getCsrfToken() {
         try {
-            const response = await fetch('/api/csrf-token', {
+            // Ensure we're using HTTPS for all requests
+            const protocol = window.location.protocol;
+            const host = window.location.host;
+            const url = `${protocol}//${host}/api/csrf-token`;
+
+            console.log('Fetching CSRF token from:', url); // Debug log
+
+            const response = await fetch(url, {
                 method: 'GET',
-                credentials: 'same-origin',
+                credentials: 'include',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
@@ -13,10 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!response.ok) {
                 const errorText = await response.text();
+                console.error('CSRF token error:', errorText); // Debug log
                 throw new Error(errorText || 'Failed to get CSRF token');
             }
             
             const data = await response.json();
+            console.log('CSRF token received:', data.token ? 'Yes' : 'No'); // Debug log
             return data.token;
         } catch (error) {
             console.error('Error getting CSRF token:', error);
@@ -29,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Handle login form submission
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const errorDiv = document.getElementById('error');
@@ -41,8 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Could not get CSRF token');
             }
 
-            const response = await fetch('/api/auth/login', {
+            const protocol = window.location.protocol;
+            const host = window.location.host;
+            const loginUrl = `${protocol}//${host}/api/auth/login`;
+
+            const response = await fetch(loginUrl, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-Token': csrfToken
@@ -63,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 errorDiv.style.display = 'block';
             }
         } catch (error) {
+            console.error('Login error:', error); // Debug log
             errorDiv.textContent = 'An error occurred. Please try again.';
             errorDiv.style.display = 'block';
         }

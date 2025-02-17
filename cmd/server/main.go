@@ -95,24 +95,28 @@ func main() {
 			next.ServeHTTP(w, r)
 		})
 	})
-	router.Use(api.MonitoringMiddleware)
+
+	// Add base security headers middleware
 	router.Use(api.SecurityHeadersMiddleware)
 
-	// Public routes that need to bypass CSRF
+	// Create public routes subrouter that bypasses authentication and CSRF
 	publicRouter := router.PathPrefix("/api").Subrouter()
-	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	// Register CSRF token endpoint first
 	publicRouter.HandleFunc("/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	// Then register login endpoint
+	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
 
-	// All other routes get rate limiting and CSRF protection
+	// Protected API routes
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.Use(api.RateLimitMiddleware(api.NewRateLimiter(time.Minute, 100)))
-	apiRouter.Use(api.CSRFMiddleware)
 	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
+	apiRouter.Use(api.CSRFMiddleware)
 	api.SetupRoutes(apiRouter, cfg)
 
 	// Static files with caching headers
 	fs := http.FileServer(http.Dir("./static"))
 	router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set appropriate headers for static content
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		fs.ServeHTTP(w, r)
 	}))
