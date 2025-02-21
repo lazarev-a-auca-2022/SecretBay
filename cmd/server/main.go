@@ -1,3 +1,12 @@
+// Package main implements the SecretBay VPN server.
+//
+// The server provides automated VPN configuration for remote Ubuntu servers,
+// supporting both OpenVPN and IKEv2 (StrongSwan) setups. It includes features
+// for authentication, monitoring, and secure configuration management.
+//
+// The server uses JWT for authentication, implements rate limiting and CSRF
+// protection, and provides endpoints for VPN setup, configuration download,
+// and server management.
 package main
 
 import (

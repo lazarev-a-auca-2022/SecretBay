@@ -1,3 +1,8 @@
+// Package models defines data structures and validation logic.
+//
+// This package contains the core data models used throughout the VPN server,
+// including request/response structures and their validation logic. All models
+// follow strict validation rules to ensure secure operation.
 package models
 
 import (
@@ -7,19 +12,36 @@ import (
 	"unicode"
 )
 
+// VPNSetupRequest represents a request to set up a VPN server.
+// All fields are validated before processing to ensure security.
 type VPNSetupRequest struct {
-	ServerIP       string `json:"server_ip"`
-	Username       string `json:"username"`
-	AuthMethod     string `json:"auth_method"`
+	// ServerIP is the target server's IP address
+	ServerIP string `json:"server_ip"`
+
+	// Username for SSH connection, defaults to "root"
+	Username string `json:"username"`
+
+	// AuthMethod specifies the SSH authentication method ("password" or "key")
+	AuthMethod string `json:"auth_method"`
+
+	// AuthCredential contains either the SSH password or key
 	AuthCredential string `json:"auth_credential"`
-	VPNType        string `json:"vpn_type"`
+
+	// VPNType specifies the VPN implementation ("ios_vpn" or "openvpn")
+	VPNType string `json:"vpn_type"`
 }
 
+// VPNSetupResponse represents the response after successful VPN setup.
 type VPNSetupResponse struct {
-	VPNConfig   string `json:"vpn_config"`
-	NewPassword string `json:"new_password,omitempty"` // Only included when password is changed
+	// VPNConfig contains the path to the generated VPN configuration
+	VPNConfig string `json:"vpn_config"`
+
+	// NewPassword contains the new root password if it was changed
+	NewPassword string `json:"new_password,omitempty"`
 }
 
+// Validate performs validation on all VPNSetupRequest fields.
+// It ensures all required fields are present and valid.
 func (r *VPNSetupRequest) Validate() error {
 	// Validate ServerIP
 	if r.ServerIP == "" {

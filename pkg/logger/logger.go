@@ -1,3 +1,8 @@
+// Package logger provides secure logging functionality with sensitive data redaction.
+//
+// This package implements logging with automatic redaction of sensitive information
+// like passwords, tokens, and keys. It supports log rotation and multi-destination
+// logging (file and stdout).
 package logger
 
 import (
@@ -12,18 +17,26 @@ import (
 )
 
 var (
+	// Log is the global logger instance
 	Log *log.Logger
 	mu  sync.Mutex
 )
 
 const (
-	maxLogSize   = 10 * 1024 * 1024 // 10MB
-	maxLogFiles  = 5
+	// maxLogSize defines the maximum size of a log file before rotation (10MB)
+	maxLogSize = 10 * 1024 * 1024
+
+	// maxLogFiles defines how many rotated log files to keep
+	maxLogFiles = 5
+
+	// logDirectory is the directory where log files are stored
 	logDirectory = "logs"
-	logFile      = "vpn-server.log"
+
+	// logFile is the name of the main log file
+	logFile = "vpn-server.log"
 )
 
-// sensitivePatterns contains regex patterns for sensitive data
+// sensitivePatterns defines regex patterns for data that should be redacted
 var sensitivePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`password[:=].*`),
 	regexp.MustCompile(`token[:=].*`),
@@ -57,6 +70,8 @@ func init() {
 	Log = log.New(multiWriter, "", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
+// sanitizeMessage redacts sensitive information from log messages.
+// It replaces matched patterns with <REDACTED>.
 func sanitizeMessage(message string) string {
 	for _, pattern := range sensitivePatterns {
 		message = pattern.ReplaceAllString(message, "${1}=<REDACTED>")
@@ -64,7 +79,8 @@ func sanitizeMessage(message string) string {
 	return message
 }
 
-// Printf logs a formatted message after sanitizing sensitive information
+// Printf logs a formatted message after sanitizing sensitive information.
+// It's a thread-safe wrapper around log.Printf with data redaction.
 func Printf(format string, v ...interface{}) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -74,7 +90,8 @@ func Printf(format string, v ...interface{}) {
 	Log.Output(2, sanitized)
 }
 
-// Println logs a message after sanitizing sensitive information
+// Println logs a message after sanitizing sensitive information.
+// It's a thread-safe wrapper around log.Println with data redaction.
 func Println(v ...interface{}) {
 	mu.Lock()
 	defer mu.Unlock()

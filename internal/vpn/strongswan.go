@@ -1,3 +1,9 @@
+// Package vpn provides VPN server configuration functionality.
+//
+// This package implements the core VPN setup logic for OpenVPN and StrongSwan (IKEv2).
+// It handles secure certificate generation, server configuration, and client profile
+// generation. The package ensures secure defaults and follows best practices for
+// VPN server configuration.
 package vpn
 
 import (
@@ -9,6 +15,7 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
 
+// StrongSwanSetup handles IKEv2/IPSec configuration using StrongSwan.
 type StrongSwanSetup struct {
 	SSHClient *sshclient.SSHClient
 	ServerIP  string
@@ -25,6 +32,9 @@ func generateStrongVPNPassword() string {
 	return string(password)
 }
 
+// Setup configures StrongSwan IKEv2 on the remote server.
+// It installs required packages, generates certificates, and configures
+// IPSec with secure cipher suites and settings.
 func (s *StrongSwanSetup) Setup() error {
 	logger.Log.Println("Starting StrongSwan setup")
 

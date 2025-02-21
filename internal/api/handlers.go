@@ -1,3 +1,9 @@
+// Package api implements HTTP handlers and middleware for the VPN server.
+//
+// It provides handlers for VPN setup, configuration management, and server maintenance.
+// The package includes security middleware for JWT authentication, CSRF protection,
+// and rate limiting. All handlers follow RESTful principles and include proper
+// error handling and logging.
 package api
 
 import (
@@ -23,6 +29,14 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/monitoring"
 )
 
+// StatusResponse defines the response structure for VPN status requests
+type StatusResponse struct {
+	Status string `json:"status"`
+}
+
+// SetupVPNHandler returns an http.HandlerFunc that handles VPN setup requests.
+// It validates the request, connects to the remote server via SSH, sets up the
+// requested VPN type, and returns the configuration.
 func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Println("SetupVPNHandler: Processing request")
@@ -141,12 +155,8 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 	}
 }
 
-// StatusResponse defines the structure for status responses
-type StatusResponse struct {
-	Status string `json:"status"`
-}
-
-// StatusHandler handles the /api/vpn/status endpoint
+// StatusHandler returns an http.HandlerFunc that handles VPN status requests.
+// It verifies authentication and returns the current status of the VPN service.
 func StatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Println("StatusHandler: Request received")
@@ -167,7 +177,8 @@ func StatusHandler(cfg *config.Config) http.HandlerFunc {
 	}
 }
 
-// Add health check handler
+// HealthCheckHandler returns an http.HandlerFunc that provides basic health check.
+// It returns a 200 OK response if the server is running.
 func HealthCheckHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -176,7 +187,8 @@ func HealthCheckHandler() http.HandlerFunc {
 	}
 }
 
-// Add monitoring endpoint
+// MetricsHandler returns an http.HandlerFunc that provides system metrics.
+// It only allows access from internal networks for security.
 func MetricsHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Only allow metrics access from localhost or internal network

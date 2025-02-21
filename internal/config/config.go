@@ -1,3 +1,8 @@
+// Package config handles application configuration and environment settings.
+//
+// This package provides functionality for loading and validating configuration
+// from environment variables with secure defaults. It ensures all required
+// security settings are properly configured.
 package config
 
 import (
@@ -11,23 +16,49 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
 
-type ServerConfig struct {
-	Port              string
-	DBConnection      string
-	MaxRequestSize    int64
-	RateLimitRequests int
-	RateLimitDuration int
-	TLSMinVersion     string
-	AllowedOrigins    []string
-	MaxConnectionAge  int
-	ReadTimeout       int
-	WriteTimeout      int
+// Config holds application configuration settings
+type Config struct {
+	// Server contains HTTP server specific configuration
+	Server ServerConfig
+
+	// JWTSecret is used for signing and verifying JWT tokens
+	JWTSecret string
+
+	// Production indicates if the server is running in production mode
+	Production bool
 }
 
-type Config struct {
-	Server     ServerConfig
-	JWTSecret  string
-	Production bool
+// ServerConfig holds HTTP server specific configuration
+type ServerConfig struct {
+	// Port the server listens on
+	Port string
+
+	// DBConnection string for database access
+	DBConnection string
+
+	// MaxRequestSize in bytes
+	MaxRequestSize int64
+
+	// RateLimitRequests is the number of requests allowed per duration
+	RateLimitRequests int
+
+	// RateLimitDuration is the time window for rate limiting in seconds
+	RateLimitDuration int
+
+	// TLSMinVersion is the minimum TLS version allowed
+	TLSMinVersion string
+
+	// AllowedOrigins is a list of CORS allowed origins
+	AllowedOrigins []string
+
+	// MaxConnectionAge is the maximum time a connection can stay open
+	MaxConnectionAge int
+
+	// ReadTimeout is the maximum duration for reading the entire request
+	ReadTimeout int
+
+	// WriteTimeout is the maximum duration before timing out writes of the response
+	WriteTimeout int
 }
 
 const (
@@ -39,26 +70,8 @@ const (
 	defaultTLSVersion     = "1.2"
 )
 
-func generateSecureSecret() string {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		logger.Log.Printf("Warning: Failed to generate secure random secret: %v", err)
-		return ""
-	}
-	return base64.URLEncoding.EncodeToString(bytes)
-}
-
-func validatePort(port string) error {
-	if port == "" {
-		return fmt.Errorf("port cannot be empty")
-	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil || portNum < 1024 || portNum > 65535 {
-		return fmt.Errorf("port must be between 1024 and 65535")
-	}
-	return nil
-}
-
+// LoadConfig loads and validates configuration from environment variables.
+// It returns an error if required settings are missing or invalid.
 func LoadConfig() (*Config, error) {
 	// Environment validation
 	env := strings.ToLower(getEnv("ENV", "development"))
@@ -127,6 +140,7 @@ func LoadConfig() (*Config, error) {
 	return config, nil
 }
 
+// getEnv retrieves an environment variable with a default fallback value
 func getEnv(key, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists && value != "" {
 		return strings.TrimSpace(value)
@@ -134,10 +148,32 @@ func getEnv(key, defaultVal string) string {
 	return defaultVal
 }
 
+// isValidTLSVersion checks if the provided TLS version is supported
 func isValidTLSVersion(version string) bool {
 	validVersions := map[string]bool{
 		"1.2": true,
 		"1.3": true,
 	}
 	return validVersions[version]
+}
+
+// generateSecureSecret creates a cryptographically secure random string
+func generateSecureSecret() string {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		logger.Log.Printf("Warning: Failed to generate secure random secret: %v", err)
+		return ""
+	}
+	return base64.URLEncoding.EncodeToString(bytes)
+}
+
+func validatePort(port string) error {
+	if port == "" {
+		return fmt.Errorf("port cannot be empty")
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil || portNum < 1024 || portNum > 65535 {
+		return fmt.Errorf("port must be between 1024 and 65535")
+	}
+	return nil
 }

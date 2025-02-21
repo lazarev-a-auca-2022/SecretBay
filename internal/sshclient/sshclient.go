@@ -1,3 +1,8 @@
+// Package sshclient provides secure SSH client functionality.
+//
+// This package handles SSH connections to remote servers with support for
+// both password and key-based authentication. It implements secure defaults
+// and proper connection lifecycle management.
 package sshclient
 
 import (
@@ -17,16 +22,25 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
-// SSHClient wraps an SSH client connection with enhanced security
+// SSHClient represents a secure SSH connection to a remote server.
 type SSHClient struct {
-	Client         *ssh.Client
+	// Client is the underlying SSH client connection
+	Client *ssh.Client
+
+	// RunCommandFunc is the function used to execute commands
 	RunCommandFunc func(string) (string, error)
-	CloseFunc      func()
-	mu             sync.Mutex
+
+	// CloseFunc is the function used to close the connection
+	CloseFunc func()
+	mu        sync.Mutex
 }
 
+// SSHClientInterface defines the interface for SSH operations
 type SSHClientInterface interface {
+	// RunCommand executes a command on the remote server
 	RunCommand(string) (string, error)
+
+	// Close terminates the SSH connection
 	Close()
 }
 
@@ -35,7 +49,8 @@ const (
 	backoffPeriod = 2 * time.Second
 )
 
-// NewSSHClient creates a new SSH client instance with enhanced security
+// NewSSHClient creates a new SSH client with the specified credentials.
+// It supports both password and key-based authentication methods.
 var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (*SSHClient, error) {
 	var auth ssh.AuthMethod
 
@@ -173,6 +188,8 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 	return sshClient, nil
 }
 
+// RunCommand executes a command on the remote server and returns its output.
+// It handles both stdout and stderr output properly.
 func (s *SSHClient) RunCommand(cmd string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -202,6 +219,7 @@ func (s *SSHClient) RunCommand(cmd string) (string, error) {
 	return output.String(), nil
 }
 
+// Close terminates the SSH connection and cleans up resources.
 func (s *SSHClient) Close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

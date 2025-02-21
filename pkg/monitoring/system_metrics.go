@@ -1,3 +1,8 @@
+// Package monitoring provides system metrics collection and monitoring.
+//
+// This package implements real-time monitoring of system metrics including
+// CPU usage, memory usage, goroutine count, and request statistics.
+// It supports both real-time monitoring and periodic metrics file writing.
 package monitoring
 
 import (
@@ -10,14 +15,28 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
 
+// SystemMetrics holds various system performance metrics.
 type SystemMetrics struct {
-	CPU        float64   `json:"cpu_usage"`
-	Memory     float64   `json:"memory_usage"`
-	Goroutines int       `json:"goroutines"`
-	Uptime     string    `json:"uptime"`
-	DiskUsage  float64   `json:"disk_usage"`
-	OpenFiles  int       `json:"open_files"`
-	StartTime  time.Time `json:"start_time"`
+	// CPU usage percentage
+	CPU float64 `json:"cpu_usage"`
+
+	// Memory usage percentage
+	Memory float64 `json:"memory_usage"`
+
+	// Number of active goroutines
+	Goroutines int `json:"goroutines"`
+
+	// Server uptime duration string
+	Uptime string `json:"uptime"`
+
+	// Disk usage percentage
+	DiskUsage float64 `json:"disk_usage"`
+
+	// Number of open file descriptors
+	OpenFiles int `json:"open_files"`
+
+	// Server start time
+	StartTime time.Time `json:"start_time"`
 }
 
 var (
@@ -26,6 +45,8 @@ var (
 	startTime     = time.Now()
 )
 
+// StartMetricsCollection begins periodic collection of system metrics.
+// It runs as a goroutine and updates metrics every 30 seconds.
 func StartMetricsCollection() {
 	go collectMetrics()
 }
@@ -57,18 +78,21 @@ func updateSystemMetrics() {
 	}
 }
 
+// GetSystemMetrics returns the current system metrics.
+// It provides a thread-safe way to access the latest metrics.
 func GetSystemMetrics() SystemMetrics {
 	metricsLock.RLock()
 	defer metricsLock.RUnlock()
 	return systemMetrics
 }
 
-// LogRequest logs request metrics
+// LogRequest records metrics about an HTTP request.
+// It tracks request path, method, status, and duration.
 func LogRequest(path, method string, status int, duration time.Duration) {
 	logger.Log.Printf("Request tracked: %s %s %d %v", method, path, status, duration)
 }
 
-// LogError logs error metrics
+// LogError records error metrics and logs the error details.
 func LogError(err error) {
 	if err == nil {
 		return
