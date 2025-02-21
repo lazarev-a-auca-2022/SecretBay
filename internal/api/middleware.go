@@ -20,6 +20,7 @@ import (
 
 var csrfTokens sync.Map
 
+// SecurityHeadersMiddleware ensures proper security headers are set
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set base security headers for all requests
@@ -28,25 +29,17 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-			// Special handling for CSRF token and login endpoints
-		if r.URL.Path == "/api/csrf-token" || r.URL.Path == "/api/auth/login" {
-			// Force HTTPS
-			if r.Header.Get("X-Forwarded-Proto") != "https" {
-				http.Error(w, "HTTPS is required", http.StatusBadRequest)
-				return
-			}
-
+		// Handle CORS pre-flight
+		if r.Method == "OPTIONS" {
 			origin := r.Header.Get("Origin")
 			if origin != "" {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Vary", "Origin")
-			}
-
-			if r.Method == "OPTIONS" {
+				w.Header().Set("Access-Control-Max-Age", "3600")
 				w.WriteHeader(http.StatusOK)
 				return
 			}
@@ -217,37 +210,46 @@ func GenerateCSRFToken() string {
 
 // CSRFTokenHandler returns a new CSRF token
 func CSRFTokenHandler() http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        logger.Log.Printf("CSRFTokenHandler: Received %s request from %s with path %s", r.Method, r.RemoteAddr, r.URL.Path)
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Set standard headers first
+		w.Header().Set("Content-Type", "application/json")
 
-        // Set CORS headers first
-        w.Header().Set("Content-Type", "application/json")
-        origin := r.Header.Get("Origin")
-        if origin != "" {
-            w.Header().Set("Access-Control-Allow-Origin", origin)
-            w.Header().Set("Access-Control-Allow-Credentials", "true")
-            w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
-            w.Header().Set("Vary", "Origin")
-        }
+		// Handle CORS
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+			w.Header().Set("Vary", "Origin")
+		}
 
-        // Handle preflight OPTIONS request
-        if r.Method == "OPTIONS" {
-            w.WriteHeader(http.StatusOK)
-            return
-        }
+		// Handle preflight OPTIONS request
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
-        // Generate new token
-        token := GenerateCSRFToken()
-        if token == "" {
-            logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
-            utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
-            return
-        }
+		// Check if request is using HTTPS
+		if r.Header.Get("X-Forwarded-Proto") != "https" && r.TLS == nil {
+			utils.JSONError(w, "HTTPS is required", http.StatusBadRequest)
+			return
+		}
 
-        logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
-        json.NewEncoder(w).Encode(map[string]string{"token": token})
-    }
+		// Generate and store token
+		token := GenerateCSRFToken()
+		if token == "" {
+			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
+			return
+		}
+
+		// Return token in JSON response
+		if err := json.NewEncoder(w).Encode(map[string]string{"token": token}); err != nil {
+			logger.Log.Printf("Error encoding CSRF token response: %v", err)
+			utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+	}
 }
 
 func SetupMiddleware(router *mux.Router) {
