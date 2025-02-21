@@ -2,14 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to get CSRF token
     async function getCsrfToken() {
         try {
-            // Ensure we're using HTTPS for all requests
-            const protocol = window.location.protocol;
-            const host = window.location.host;
-            const url = `${protocol}//${host}/api/csrf-token`;
-
-            console.log('Fetching CSRF token from:', url); // Debug log
-
-            const response = await fetch(url, {
+            const response = await fetch('/api/csrf-token', {
                 method: 'GET',
                 credentials: 'include',
                 headers: {
@@ -19,19 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('CSRF token error:', errorText); // Debug log
-                throw new Error(errorText || 'Failed to get CSRF token');
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
-            console.log('CSRF token received:', data.token ? 'Yes' : 'No'); // Debug log
+            if (!data.token) {
+                throw new Error('No token in response');
+            }
             return data.token;
         } catch (error) {
             console.error('Error getting CSRF token:', error);
             const errorDiv = document.getElementById('error');
             if (errorDiv) {
-                errorDiv.textContent = 'Authentication error. Please try again.';
+                errorDiv.textContent = 'Server connection error. Please try again.';
                 errorDiv.style.display = 'block';
             }
             return null;
@@ -45,17 +38,12 @@ document.addEventListener('DOMContentLoaded', () => {
         errorDiv.style.display = 'none';
 
         try {
-            // Get CSRF token first
             const csrfToken = await getCsrfToken();
             if (!csrfToken) {
                 throw new Error('Could not get CSRF token');
             }
 
-            const protocol = window.location.protocol;
-            const host = window.location.host;
-            const loginUrl = `${protocol}//${host}/api/auth/login`;
-
-            const response = await fetch(loginUrl, {
+            const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -78,8 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 errorDiv.style.display = 'block';
             }
         } catch (error) {
-            console.error('Login error:', error); // Debug log
-            errorDiv.textContent = 'An error occurred. Please try again.';
+            console.error('Login error:', error);
+            errorDiv.textContent = error.message || 'An error occurred. Please try again.';
             errorDiv.style.display = 'block';
         }
     });

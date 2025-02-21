@@ -220,10 +220,20 @@ func CSRFTokenHandler() http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         logger.Log.Printf("CSRFTokenHandler: Received %s request from %s with path %s", r.Method, r.RemoteAddr, r.URL.Path)
 
-        // Ensure request is over HTTPS
-        if r.Header.Get("X-Forwarded-Proto") != "https" {
-            logger.Log.Printf("CSRFTokenHandler: Non-HTTPS request rejected from %s", r.RemoteAddr)
-            utils.JSONError(w, "HTTPS is required", http.StatusBadRequest)
+        // Set CORS headers first
+        w.Header().Set("Content-Type", "application/json")
+        origin := r.Header.Get("Origin")
+        if origin != "" {
+            w.Header().Set("Access-Control-Allow-Origin", origin)
+            w.Header().Set("Access-Control-Allow-Credentials", "true")
+            w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+            w.Header().Set("Vary", "Origin")
+        }
+
+        // Handle preflight OPTIONS request
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
             return
         }
 
@@ -233,17 +243,6 @@ func CSRFTokenHandler() http.HandlerFunc {
             logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
             utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
             return
-        }
-
-        // Set response headers
-        w.Header().Set("Content-Type", "application/json")
-        origin := r.Header.Get("Origin")
-        if origin != "" {
-            w.Header().Set("Access-Control-Allow-Origin", origin)
-            w.Header().Set("Access-Control-Allow-Credentials", "true")
-            w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
-            w.Header().Set("Vary", "Origin")
         }
 
         logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
