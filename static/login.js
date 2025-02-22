@@ -5,13 +5,12 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('/api/csrf-token', {
                     method: 'GET',
-                    credentials: 'include',
+                    credentials: 'same-origin',
                     headers: {
                         'Accept': 'application/json',
                         'Content-Type': 'application/json',
                         'Cache-Control': 'no-cache'
-                    },
-                    mode: 'same-origin'
+                    }
                 });
                 
                 if (!response.ok) {
