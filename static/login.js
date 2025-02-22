@@ -1,33 +1,35 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Function to get CSRF token
-    async function getCsrfToken() {
-        try {
-            const response = await fetch('/api/csrf-token', {
-                method: 'GET',
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+    // Function to get CSRF token with retries
+    async function getCsrfToken(retries = 3, backoff = 1000) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch('/api/csrf-token', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
+                    mode: 'same-origin'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const data = await response.json();
+                if (!data.token) {
+                    throw new Error('No token in response');
+                }
+                return data.token;
+            } catch (error) {
+                console.error(`CSRF token fetch attempt ${i + 1} failed:`, error);
+                if (i === retries - 1) {
+                    throw error;
+                }
+                await new Promise(resolve => setTimeout(resolve, backoff * Math.pow(2, i)));
             }
-            
-            const data = await response.json();
-            if (!data.token) {
-                throw new Error('No token in response');
-            }
-            return data.token;
-        } catch (error) {
-            console.error('Error getting CSRF token:', error);
-            const errorDiv = document.getElementById('error');
-            if (errorDiv) {
-                errorDiv.textContent = 'Server connection error. Please try again.';
-                errorDiv.style.display = 'block';
-            }
-            return null;
         }
     }
 

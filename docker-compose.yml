@@ -113,3 +113,12 @@ networks:
   secretbay-net:
     driver: bridge
     name: secretbay-net
+    restart: unless-stopped
+    networks:
+      - secretbay-net
+    stop_grace_period: 5s
+
+networks:
+  secretbay-net:
+    driver: bridge
+    name: secretbay-net
