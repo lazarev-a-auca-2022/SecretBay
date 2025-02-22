@@ -8,6 +8,7 @@ package api
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -464,5 +465,75 @@ func RestoreHandler(cfg *config.Config) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
+	}
+}
+
+// RegisterHandler handles user registration
+func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var registration models.UserRegistration
+		if err := json.NewDecoder(r.Body).Decode(&registration); err != nil {
+			utils.JSONError(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Validate registration data
+		if err := registration.Validate(); err != nil {
+			utils.JSONError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Check if username already exists
+		var exists bool
+		err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", registration.Username).Scan(&exists)
+		if err != nil {
+			logger.Log.Printf("Database error checking username: %v", err)
+			utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if exists {
+			utils.JSONError(w, "Username already taken", http.StatusConflict)
+			return
+		}
+
+		// Check if email already exists
+		err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", registration.Email).Scan(&exists)
+		if err != nil {
+			logger.Log.Printf("Database error checking email: %v", err)
+			utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if exists {
+			utils.JSONError(w, "Email already registered", http.StatusConflict)
+			return
+		}
+
+		// Create new user
+		user := &models.User{
+			Username: registration.Username,
+			Email:    registration.Email,
+		}
+
+		if err := user.SetPassword(registration.Password); err != nil {
+			logger.Log.Printf("Error hashing password: %v", err)
+			utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		// Insert user into database
+		_, err = db.Exec(
+			`INSERT INTO users (username, email, password) VALUES ($1, $2, $3)`,
+			user.Username, user.Email, user.Password,
+		)
+		if err != nil {
+			logger.Log.Printf("Database error creating user: %v", err)
+			utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Registration successful",
+		})
 	}
 }
