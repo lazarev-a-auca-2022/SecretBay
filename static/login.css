@@ -67,3 +67,34 @@ button:hover {
     background: #f8d7da;
     color: #721c24;
 }
+
+#success {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 4px;
+    display: none;
+    background: #d4edda;
+    color: #155724;
+}
+
+small {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-size: 0.85em;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+}
