@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
@@ -12,6 +12,15 @@ import (
 type Claims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
+}
+
+type TokenError struct {
+	Type    string
+	Message string
+}
+
+func (e *TokenError) Error() string {
+	return e.Message
 }
 
 func GenerateJWT(username string, cfg *config.Config) (string, error) {
@@ -50,14 +59,7 @@ func ValidateJWT(tokenStr string, cfg *config.Config) (*Claims, error) {
 	keyFunc := func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			logger.Log.Printf("Unexpected signing method: %v", token.Header["alg"])
-			return nil, fmt.Errorf("invalid token signing method")
-		}
-
-		// Verify token hasn't expired with custom error message
-		if claims, ok := token.Claims.(*Claims); ok {
-			if !claims.ExpiresAt.Time.IsZero() && claims.ExpiresAt.Time.Before(time.Now()) {
-				return nil, fmt.Errorf("token has expired")
-			}
+			return nil, &TokenError{Type: "InvalidMethod", Message: "invalid token signing method"}
 		}
 
 		return []byte(cfg.JWTSecret), nil
@@ -66,23 +68,38 @@ func ValidateJWT(tokenStr string, cfg *config.Config) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, claims, keyFunc, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil {
 		logger.Log.Printf("Error validating JWT: %v", err)
-		return nil, fmt.Errorf("invalid token")
+		
+		// Check specific error conditions
+		if err.Error() == "token has expired" {
+			return nil, &TokenError{Type: "Expired", Message: "token has expired"}
+		} else if err.Error() == "token contains an invalid number of segments" {
+			return nil, &TokenError{Type: "Malformed", Message: "token is malformed"}
+		} else if err.Error() == "signature is invalid" {
+			return nil, &TokenError{Type: "InvalidSignature", Message: "invalid token signature"}
+		}
+		return nil, &TokenError{Type: "Invalid", Message: "invalid token"}
 	}
 
 	if !token.Valid {
 		logger.Log.Println("Token validation failed")
-		return nil, fmt.Errorf("invalid token")
+		return nil, &TokenError{Type: "Invalid", Message: "invalid token"}
 	}
 
 	// Additional validation
 	if claims.Issuer != "vpn-setup-server" {
 		logger.Log.Printf("Invalid token issuer: %s", claims.Issuer)
-		return nil, fmt.Errorf("invalid token issuer")
+		return nil, &TokenError{Type: "InvalidIssuer", Message: "invalid token issuer"}
+	}
+
+	// Check expiration explicitly since jwt.ParseWithClaims may not catch all cases
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+		logger.Log.Println("Token has expired")
+		return nil, &TokenError{Type: "Expired", Message: "token has expired"}
 	}
 
 	if time.Until(claims.ExpiresAt.Time) > 2*time.Hour {
 		logger.Log.Println("Token expiration time too long")
-		return nil, fmt.Errorf("invalid token expiration")
+		return nil, &TokenError{Type: "InvalidExpiration", Message: "invalid token expiration"}
 	}
 
 	return claims, nil

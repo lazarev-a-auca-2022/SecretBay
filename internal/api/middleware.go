@@ -57,9 +57,20 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			logger.Log.Println("JWTAuthenticationMiddleware: Request received")
 
+			// Skip auth for public paths
+			if r.URL.Path == "/login.html" ||
+				r.URL.Path == "/register.html" ||
+				strings.HasPrefix(r.URL.Path, "/error/") ||
+				strings.HasSuffix(r.URL.Path, ".css") ||
+				strings.HasSuffix(r.URL.Path, ".js") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				logger.Log.Println("JWTAuthenticationMiddleware: Missing Authorization Header")
+				w.Header().Set("WWW-Authenticate", `Bearer realm="SecretBay VPN"`)
 				utils.JSONError(w, "Missing Authorization Header", http.StatusUnauthorized)
 				return
 			}
@@ -67,17 +78,35 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
 				logger.Log.Println("JWTAuthenticationMiddleware: Invalid Authorization Header format")
+				w.Header().Set("WWW-Authenticate", `Bearer error="invalid_request"`)
 				utils.JSONError(w, "Invalid Authorization Header format", http.StatusUnauthorized)
 				return
 			}
 
 			claims, err := auth.ValidateJWT(parts[1], cfg)
 			if err != nil {
-				logger.Log.Printf("JWTAuthenticationMiddleware: Invalid Token: %v", err)
-				utils.JSONError(w, "Invalid or expired token", http.StatusUnauthorized)
+				logger.Log.Printf("JWTAuthenticationMiddleware: Token validation error: %v", err)
+				if tokenErr, ok := err.(*auth.TokenError); ok {
+					switch tokenErr.Type {
+					case "Expired":
+						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Token expired"`)
+					case "InvalidSignature":
+						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Invalid signature"`)
+					case "Malformed":
+						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Malformed token"`)
+					case "InvalidIssuer":
+						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Invalid issuer"`)
+					default:
+						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+					}
+				} else {
+					w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
+				}
+				utils.JSONError(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
 
+			// Set username in context and proceed
 			ctx := context.WithValue(r.Context(), "username", claims.Username)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

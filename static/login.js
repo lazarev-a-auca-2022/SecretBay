@@ -1,25 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if already logged in
-    const token = localStorage.getItem('jwt');
-    if (token) {
-        // Verify the token before redirecting
-        fetch('/api/vpn/status', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        }).then(response => {
-            if (response.ok) {
-                window.location.replace('/');
-            }
-        }).catch(() => {
-            // If verification fails, clear token but stay on login page
-            localStorage.removeItem('jwt');
-        });
-    }
-
     const loginForm = document.getElementById('loginForm');
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
+
+    // Don't check token on login page to prevent redirect loops
+    const token = localStorage.getItem('jwt');
+    if (token) {
+        localStorage.removeItem('jwt'); // Clear any existing token on login page
+    }
     
     // Check for registration success message
     const urlParams = new URLSearchParams(window.location.search);
@@ -94,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.token) {
                 localStorage.setItem('jwt', data.token);
-                // Use replace instead of href to prevent back button from causing loops
                 window.location.replace('/');
             } else {
                 throw new Error('Invalid response from server');
@@ -103,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Login error:', error);
             errorDiv.textContent = error.message;
             errorDiv.style.display = 'block';
+            localStorage.removeItem('jwt'); // Clear token on error
         }
     });
 });

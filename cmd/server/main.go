@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -25,7 +26,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/api"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/database" // Add this import
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/monitoring"
 )
@@ -72,6 +75,13 @@ func main() {
 		logger.Log.Fatalf("Error loading config: %v", err)
 	}
 
+	// Initialize database connection
+	db, err := database.InitDB()
+	if err != nil {
+		logger.Log.Fatalf("Error initializing database: %v", err)
+	}
+	defer db.Close()
+
 	// Start metrics collection before anything else
 	monitoring.StartMetricsCollection()
 
@@ -101,18 +111,16 @@ func main() {
 		}
 	}()
 
-	// Create the router and add base middleware
+	// Create router with rate limiting and monitoring
 	router := mux.NewRouter()
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/health" {
-				activeOps.Add(1)
-				monitoring.IncrementConnections()
-				defer func() {
-					activeOps.Done()
-					monitoring.DecrementConnections()
-				}()
-			}
+			monitoring.IncrementConnections()
+			activeOps.Add(1)
+			defer func() {
+				activeOps.Done()
+				monitoring.DecrementConnections()
+			}()
 			next.ServeHTTP(w, r)
 		})
 	})
@@ -120,12 +128,55 @@ func main() {
 	// Add base security headers middleware
 	router.Use(api.SecurityHeadersMiddleware)
 
-	// Create public routes subrouter that bypasses authentication and CSRF
+	// Handle static files first, before any API routes
+	staticRouter := router.PathPrefix("/").Subrouter()
+	fs := http.FileServer(http.Dir("./static"))
+	// Protect index.html and other authenticated pages
+	staticRouter.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Don't require auth for login.html, register.html, and error pages
+		if r.URL.Path == "/login.html" ||
+			r.URL.Path == "/register.html" ||
+			strings.HasPrefix(r.URL.Path, "/error/") ||
+			strings.HasSuffix(r.URL.Path, ".css") ||
+			strings.HasSuffix(r.URL.Path, ".js") {
+			fs.ServeHTTP(w, r)
+			return
+		}
+
+		// For index.html and other protected pages, check auth from cookie or Authorization header
+		var tokenStr string
+		// First check Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+		} else {
+			// Check for Authorization in cookie as fallback
+			cookie, err := r.Cookie("Authorization")
+			if err == nil {
+				tokenStr = strings.TrimPrefix(cookie.Value, "Bearer ")
+			}
+		}
+
+		if tokenStr == "" {
+			http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+			return
+		}
+
+		// Validate token
+		_, err := auth.ValidateJWT(tokenStr, cfg)
+		if err != nil {
+			http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+			return
+		}
+
+		fs.ServeHTTP(w, r)
+	}).Methods("GET")
+
+	// Create public routes subrouter that bypasses authentication
 	publicRouter := router.PathPrefix("/api").Subrouter()
-	// Register CSRF token endpoint first
 	publicRouter.HandleFunc("/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
-	// Then register login endpoint
 	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	publicRouter.HandleFunc("/auth/register", api.RegisterHandler(db, cfg)).Methods("POST", "OPTIONS")
 
 	// Protected API routes
 	apiRouter := router.PathPrefix("/api").Subrouter()
@@ -133,14 +184,6 @@ func main() {
 	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
 	apiRouter.Use(api.CSRFMiddleware)
 	api.SetupRoutes(apiRouter, cfg)
-
-	// Static files with caching headers
-	fs := http.FileServer(http.Dir("./static"))
-	router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set appropriate headers for static content
-		w.Header().Set("Cache-Control", "public, max-age=3600")
-		fs.ServeHTTP(w, r)
-	}))
 
 	// TLS Configuration
 	tlsConfig := &tls.Config{
