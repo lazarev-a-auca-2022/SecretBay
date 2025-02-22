@@ -166,6 +166,12 @@ func MonitoringMiddleware(next http.Handler) http.Handler {
 // CSRFMiddleware adds CSRF protection
 func CSRFMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip CSRF check for endpoints that issue tokens
+		if r.URL.Path == "/api/csrf-token" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Skip CSRF check for GET, HEAD, OPTIONS
 		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
 			next.ServeHTTP(w, r)
@@ -185,7 +191,7 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// If not the login endpoint, remove the token (one-time use)
+		// Consume the token for one-time use if not a login request
 		if r.URL.Path != "/api/auth/login" {
 			csrfTokens.Delete(token)
 		}
