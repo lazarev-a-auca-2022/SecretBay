@@ -1,4 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if already logged in
+    const token = localStorage.getItem('jwt');
+    if (token) {
+        // Verify the token before redirecting
+        fetch('/api/vpn/status', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        }).then(response => {
+            if (response.ok) {
+                window.location.replace('/');
+            }
+        }).catch(() => {
+            // If verification fails, clear token but stay on login page
+            localStorage.removeItem('jwt');
+        });
+    }
+
     const loginForm = document.getElementById('loginForm');
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
@@ -76,7 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (data.token) {
                 localStorage.setItem('jwt', data.token);
-                window.location.href = '/';
+                // Use replace instead of href to prevent back button from causing loops
+                window.location.replace('/');
             } else {
                 throw new Error('Invalid response from server');
             }

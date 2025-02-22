@@ -5,21 +5,33 @@ window.addEventListener('load', async () => {
         window.location.href = '/login.html';
         return;
     }
+    
     try {
         const response = await fetch('/api/vpn/status', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
-        if (!response.ok || response.status === 401 || response.status === 403) {
+        
+        // Only redirect to login if we get an actual auth error
+        if (response.status === 401 || response.status === 403) {
             localStorage.removeItem('jwt');
             window.location.href = '/login.html';
             return;
         }
+        
+        // For other types of errors, don't redirect - let the error handling happen naturally
+        if (!response.ok) {
+            console.error('Error checking authentication:', response.status);
+            return;
+        }
     } catch (error) {
         console.error('Error checking authentication:', error);
-        localStorage.removeItem('jwt');
-        window.location.href = '/login.html';
+        // Only redirect on auth errors, not network errors
+        if (error.name === 'AuthenticationError') {
+            localStorage.removeItem('jwt');
+            window.location.href = '/login.html';
+        }
     }
 });
 
