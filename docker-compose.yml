@@ -13,7 +13,6 @@ services:
       - ./logs:/app/logs:rw
       - ./metrics:/app/metrics:rw
       - ./backups:/var/backups/vpn-server:rw
-      - ./:/app
       - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
       - ENV=production
