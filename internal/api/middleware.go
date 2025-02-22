@@ -211,44 +211,45 @@ func GenerateCSRFToken() string {
 // CSRFTokenHandler returns a new CSRF token
 func CSRFTokenHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set standard headers first
-		w.Header().Set("Content-Type", "application/json")
+		logger.Log.Printf("CSRFTokenHandler: Received %s request from %s", r.Method, r.RemoteAddr)
 
-		// Handle CORS
+		// Set Content-Type first
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+		// Handle CORS and preflight
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
-			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, X-CSRF-Token")
+			w.Header().Set("Access-Control-Max-Age", "3600")
+			w.Header().Set("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
 		}
 
-		// Handle preflight OPTIONS request
+		// Handle preflight OPTIONS request first
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// Check if request is using HTTPS
-		if r.Header.Get("X-Forwarded-Proto") != "https" && r.TLS == nil {
-			utils.JSONError(w, "HTTPS is required", http.StatusBadRequest)
-			return
-		}
-
-		// Generate and store token
+		// Generate new token
 		token := GenerateCSRFToken()
 		if token == "" {
+			logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
 			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
 			return
 		}
 
-		// Return token in JSON response
-		if err := json.NewEncoder(w).Encode(map[string]string{"token": token}); err != nil {
-			logger.Log.Printf("Error encoding CSRF token response: %v", err)
+		// Return token with proper error handling
+		resp := map[string]string{"token": token}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			logger.Log.Printf("CSRFTokenHandler: Failed to encode response: %v", err)
 			utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+
+		logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
 	}
 }
 
