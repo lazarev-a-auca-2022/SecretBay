@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
-                    // 'Content-Type': 'application/json',
+                    'Content-Type': 'application/json',
                     'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({
@@ -68,14 +68,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || `Login failed: ${response.status}`);
+            }
+
             const data = await response.json();
-            if (response.ok) {
+            if (data.token) {
                 localStorage.setItem('jwt', data.token);
                 window.location.href = '/';
             } else {
-                throw new Error(data.error || 'Login failed');
+                throw new Error('Invalid response from server');
             }
         } catch (error) {
+            console.error('Login error:', error);
             errorDiv.textContent = error.message;
             errorDiv.style.display = 'block';
         }
