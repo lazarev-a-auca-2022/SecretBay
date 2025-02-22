@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     credentials: 'same-origin',
                     headers: {
                         'Accept': 'application/json',
-                        'Content-Type': 'application/json'
+                        // Removed Content-Type header to avoid HTTP/2 issues
+                        'Cache-Control': 'no-cache'
                     }
                 });
                 
