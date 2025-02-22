@@ -144,6 +144,20 @@ func main() {
 		PreferServerCipherSuites: true,
 	}
 
+	// Get certificate paths with fallbacks
+	certFile := os.Getenv("CERT_FILE")
+	keyFile := os.Getenv("KEY_FILE")
+	if certFile == "" {
+		// Try Let's Encrypt path first, fall back to local
+		if _, err := os.Stat("/etc/letsencrypt/live/secretbay.me/fullchain.pem"); err == nil {
+			certFile = "/etc/letsencrypt/live/secretbay.me/fullchain.pem"
+			keyFile = "/etc/letsencrypt/live/secretbay.me/privkey.pem"
+		} else {
+			certFile = "/app/certs/server.crt"
+			keyFile = "/app/certs/server.key"
+		}
+	}
+
 	serverPort := os.Getenv("SERVER_PORT")
 	if serverPort == "" {
 		serverPort = "9999" // default port if not set
@@ -160,9 +174,12 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		logger.Log.Printf("Server main: Starting HTTPS server on %s", srv.Addr)
-		if err := srv.ListenAndServeTLS("/app/certs/server.crt", "/app/certs/server.key"); err != nil && err != http.ErrServerClosed {
-			logger.Log.Fatalf("Server main: Failed to start HTTPS server: %v", err)
+		logger.Log.Printf("Server main: Starting HTTPS server on %s using cert: %s", srv.Addr, certFile)
+		if err := srv.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+			logger.Log.Printf("Server main: Failed to start HTTPS server: %v", err)
+			// Don't exit immediately to allow cleanup
+			time.Sleep(1 * time.Second)
+			os.Exit(1)
 		}
 	}()
 

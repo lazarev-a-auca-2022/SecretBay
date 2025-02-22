@@ -17,6 +17,8 @@ services:
         bind:
           create_host_path: true
       - ./backups:/var/backups/vpn-server:rw
+      - ./:/app
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     environment:
       - ENV=production
       - DOCKER_CONTAINER=true
@@ -41,6 +43,7 @@ services:
       - DB_NAME=secretbay
       - DB_USER=secretbay
       - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - TZ=UTC
     user: "${UID:-1000}:${GID:-1000}"
     healthcheck:
       test: ["CMD", "curl", "-k", "https://localhost:9999/health"]
@@ -68,6 +71,7 @@ services:
         condition: service_healthy
       certbot:
         condition: service_started
+      - secretbay-db
 
   nginx:
     container_name: nginx
