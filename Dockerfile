@@ -4,11 +4,18 @@ ENV GO111MODULE=on \
     GOOS=linux \
     GOARCH=amd64
 
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
+WORKDIR /build
 COPY . .
-RUN go build -o vpn-setup-server ./cmd/server
+
+# Verify source files are copied
+RUN ls -la && \
+    ls -la cmd/server
+
+# Build with verbose output
+RUN go build -v -o vpn-setup-server ./cmd/server && \
+    # Verify binary exists and is executable
+    ls -l vpn-setup-server && \
+    ./vpn-setup-server -version || true
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates openssh-client curl
@@ -31,12 +38,19 @@ RUN mkdir -p /app/static /app/certs /app/logs /app/metrics && \
     chmod 755 /app/metrics
 
 WORKDIR /app
-COPY --from=builder /app/vpn-setup-server .
+
+# Copy binary and verify
+COPY --from=builder /build/vpn-setup-server /app/
+RUN ls -l /app/vpn-setup-server && \
+    chown appuser:appgroup /app/vpn-setup-server && \
+    chmod 755 /app/vpn-setup-server
+
+# Copy static files
 COPY static/ /app/static/
 
 # Set final permissions
 RUN chown -R appuser:appgroup /app && \
-    chmod 755 vpn-setup-server
+    chmod -R 755 /app/static
 
 # Switch to non-root user
 USER appuser:appgroup
@@ -46,4 +60,4 @@ EXPOSE 9999 443
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -k https://localhost:9999/health || exit 1
 
-CMD ["./vpn-setup-server"]
+CMD ["/app/vpn-setup-server"]

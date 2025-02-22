@@ -12,6 +12,8 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -28,10 +30,20 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/monitoring"
 )
 
-// Track active operations
-var activeOps sync.WaitGroup
+var (
+	version   = "dev"
+	activeOps sync.WaitGroup
+)
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Print version information")
+	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("vpn-setup-server version %s\n", version)
+		return
+	}
+
 	logger.Log.Println("Server main: Loading configuration")
 
 	// Try to load .env from multiple possible locations
