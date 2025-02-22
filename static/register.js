@@ -2,15 +2,42 @@ document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('registerForm');
     const errorDiv = document.getElementById('error');
 
-    async function getCsrfToken() {
-        const response = await fetch('/api/csrf-token');
-        const data = await response.json();
-        return data.token;
+    async function getCsrfToken(retries = 3) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch('/api/csrf-token', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                if (!data.token) {
+                    throw new Error('No token in response');
+                }
+                return data.token;
+            } catch (error) {
+                console.error(`CSRF token fetch attempt ${i + 1} failed:`, error);
+                if (i === retries - 1) {
+                    throw error;
+                }
+                // Wait before retrying, with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+            }
+        }
     }
 
     registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         errorDiv.textContent = '';
+        errorDiv.style.display = 'none';
 
         const username = document.getElementById('username').value;
         const email = document.getElementById('email').value;
@@ -18,8 +45,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const csrfToken = await getCsrfToken();
+            if (!csrfToken) {
+                throw new Error('Could not get CSRF token');
+            }
+
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-Token': csrfToken

@@ -23,26 +23,29 @@ var csrfTokens sync.Map
 // SecurityHeadersMiddleware ensures proper security headers are set
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set base security headers for all requests
+		// Set security headers
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-		// Handle CORS pre-flight
+		// Handle CORS
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Max-Age", "3600")
+			w.Header().Set("Vary", "Origin")
+		}
+
+		// Skip actual processing for OPTIONS requests
 		if r.Method == "OPTIONS" {
-			origin := r.Header.Get("Origin")
-			if origin != "" {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Max-Age", "3600")
-				w.WriteHeader(http.StatusOK)
-				return
-			}
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 
 		next.ServeHTTP(w, r)
@@ -222,10 +225,7 @@ func CSRFTokenHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Printf("CSRFTokenHandler: Received %s request from %s", r.Method, r.RemoteAddr)
 
-		// Set Content-Type first
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-
-		// Handle CORS and preflight
+		// Set CORS headers first
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -233,16 +233,19 @@ func CSRFTokenHandler() http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, X-CSRF-Token")
 			w.Header().Set("Access-Control-Max-Age", "3600")
-			w.Header().Set("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers")
+			w.Header().Set("Vary", "Origin")
 		}
 
-		// Handle preflight OPTIONS request first
+		// Handle preflight OPTIONS request
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// Generate new token
+		// Set Content-Type for the actual response
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+		// Generate and store token
 		token := GenerateCSRFToken()
 		if token == "" {
 			logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
@@ -250,9 +253,9 @@ func CSRFTokenHandler() http.HandlerFunc {
 			return
 		}
 
-		// Return token with proper error handling
-		resp := map[string]string{"token": token}
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
+		// Return token
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(map[string]string{"token": token}); err != nil {
 			logger.Log.Printf("CSRFTokenHandler: Failed to encode response: %v", err)
 			utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
 			return
