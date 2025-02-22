@@ -11,11 +11,7 @@ services:
       - ./static:/app/static
       - ./.env:/app/.env:ro
       - ./logs:/app/logs:rw
-      - type: bind
-        source: ./metrics
-        target: /app/metrics
-        bind:
-          create_host_path: true
+      - ./metrics:/app/metrics:rw
       - ./backups:/var/backups/vpn-server:rw
       - ./:/app
       - /etc/letsencrypt:/etc/letsencrypt:ro
