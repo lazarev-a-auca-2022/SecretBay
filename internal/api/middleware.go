@@ -185,8 +185,11 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Token is valid, remove it from the map (one-time use)
-		csrfTokens.Delete(token)
+		// If not the login endpoint, remove the token (one-time use)
+		if r.URL.Path != "/api/auth/login" {
+			csrfTokens.Delete(token)
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
