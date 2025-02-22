@@ -67,6 +67,7 @@ services:
         condition: service_healthy
       certbot:
         condition: service_started
+    command: /app/vpn-setup-server
 
   nginx:
     container_name: nginx
