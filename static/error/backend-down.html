@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Service Temporarily Unavailable</title>
+    <title>Server Starting</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -23,38 +23,49 @@
             text-align: center;
             max-width: 500px;
         }
-        h1 { color: #e74c3c; margin-bottom: 20px; }
-        p { color: #666; line-height: 1.6; }
-        .status {
-            background: #fff3cd;
-            color: #856404;
-            padding: 10px;
-            border-radius: 4px;
+        h1 { 
+            color: #f39c12;
+            margin-bottom: 20px;
+        }
+        p { 
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .loading {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top-color: #f39c12;
+            animation: spin 1s linear infinite;
             margin: 20px 0;
         }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
         .refresh-btn {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 20px;
-            background: #3498db;
+            background: #f39c12;
             color: white;
-            text-decoration: none;
+            border: none;
+            padding: 10px 20px;
             border-radius: 4px;
-            transition: background 0.3s;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
         }
         .refresh-btn:hover {
-            background: #2980b9;
+            background: #e67e22;
         }
     </style>
 </head>
 <body>
     <div class="error-container">
-        <h1>Service Temporarily Unavailable</h1>
-        <p>Our system is currently undergoing maintenance or experiencing technical difficulties.</p>
-        <div class="status">
-            Status: Backend service is unreachable
-        </div>
-        <p>Please try again in a few moments.</p>
+        <h1>Server Starting</h1>
+        <div class="loading"></div>
+        <p>The server is currently starting up. This should only take a few moments...</p>
+        <p>You will be automatically redirected when the server is ready.</p>
         <button onclick="window.location.reload()" class="refresh-btn">Refresh Page</button>
     </div>
     <script>

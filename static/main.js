@@ -1,32 +1,109 @@
 // Authentication and CSRF token management
 let csrfToken = null;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+const MAX_STARTUP_ATTEMPTS = 5; // Maximum attempts to wait for server startup
+const STARTUP_CHECK_INTERVAL = 2000; // 2 seconds between startup checks
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Authentication check on page load
-    (async () => {
+    // Helper function to delay execution
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Helper function to check if server is ready
+    async function waitForServer(attempts = 0) {
         try {
-            // Check if auth is enabled
-            const authCheckResponse = await fetch('/api/auth/status', {
+            const response = await fetch('/api/auth/status', {
                 headers: {
                     'Accept': 'application/json'
                 }
             });
             
-            // If we get redirected to login page, handle it gracefully
-            const contentType = authCheckResponse.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                window.location.href = '/login.html';
-                return;
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return true;
             }
             
-            if (!authCheckResponse.ok) {
-                throw new Error(`HTTP error! status: ${authCheckResponse.status}`);
+            if (attempts >= MAX_STARTUP_ATTEMPTS) {
+                window.location.href = '/error/backend-down.html';
+                return false;
             }
             
-            const authData = await authCheckResponse.json();
+            console.log(`Server not ready, retrying in ${STARTUP_CHECK_INTERVAL/1000}s... (${attempts + 1}/${MAX_STARTUP_ATTEMPTS})`);
+            await delay(STARTUP_CHECK_INTERVAL);
+            return waitForServer(attempts + 1);
+        } catch (error) {
+            if (attempts >= MAX_STARTUP_ATTEMPTS) {
+                window.location.href = '/error/backend-down.html';
+                return false;
+            }
             
+            console.log(`Server not reachable, retrying in ${STARTUP_CHECK_INTERVAL/1000}s... (${attempts + 1}/${MAX_STARTUP_ATTEMPTS})`);
+            await delay(STARTUP_CHECK_INTERVAL);
+            return waitForServer(attempts + 1);
+        }
+    }
+
+    // Helper function to handle network requests with retries
+    async function fetchWithRetries(url, options = {}, retryCount = 0) {
+        try {
+            const response = await fetch(url, options).catch(error => {
+                throw new Error('Could not connect to server');
+            });
+            
+            if (!response || !response.headers) {
+                throw new Error('Invalid server response');
+            }
+
+            const contentType = response.headers.get('content-type');
+            
+            // If we get HTML when expecting JSON, it might be an error page
+            if (options.headers?.Accept === 'application/json' && 
+                (!contentType || !contentType.includes('application/json'))) {
+                
+                const text = await response.text();
+                if (text.includes('<!DOCTYPE')) {
+                    if (retryCount < MAX_RETRIES) {
+                        console.log(`Retrying request to ${url}... (${retryCount + 1}/${MAX_RETRIES})`);
+                        await delay(RETRY_DELAY * Math.pow(2, retryCount)); // Exponential backoff
+                        return fetchWithRetries(url, options, retryCount + 1);
+                    }
+                    window.location.href = '/error/backend-down.html';
+                    return null;
+                }
+                throw new Error('Unexpected response type');
+            }
+            
+            return response;
+        } catch (error) {
+            if (retryCount < MAX_RETRIES) {
+                console.log(`Retrying request to ${url}... (${retryCount + 1}/${MAX_RETRIES})`);
+                await delay(RETRY_DELAY * Math.pow(2, retryCount)); // Exponential backoff
+                return fetchWithRetries(url, options, retryCount + 1);
+            }
+            throw error;
+        }
+    }
+
+    // Authentication check on page load
+    (async () => {
+        try {
+            // First check if server is ready
+            if (!await waitForServer()) {
+                return; // Already redirected to error page
+            }
+
+            const response = await fetchWithRetries('/api/auth/status', {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response) {
+                return; // Already redirected to error page
+            }
+
+            const authData = await response.json();
             if (!authData.enabled) {
-                // If auth is disabled, no need to check for token
                 return;
             }
 
@@ -35,50 +112,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.href = '/login.html';
                 return;
             }
-            
-            const response = await fetch('/api/vpn/status', {
+
+            const statusResponse = await fetchWithRetries('/api/vpn/status', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
                 }
             });
-            
-            if (response.status === 401 || response.status === 403) {
+
+            if (!statusResponse) {
+                return; // Already redirected to error page
+            }
+
+            if (statusResponse.status === 401 || statusResponse.status === 403) {
                 localStorage.removeItem('jwt');
                 window.location.href = '/login.html?auth_error=true';
                 return;
             }
 
-            // If we get redirected to login page, handle it gracefully
-            const responseType = response.headers.get('content-type');
-            if (responseType && responseType.includes('text/html')) {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login.html';
-                return;
-            }
-
-            if (!response.ok) {
-                console.error('Error checking authentication:', response.status);
-                return;
+            if (!statusResponse.ok) {
+                throw new Error(`Status check failed: ${statusResponse.status}`);
             }
         } catch (error) {
-            console.error('Error checking authentication:', error);
-            if (error.name === 'SyntaxError') {
-                // If we get HTML instead of JSON, we've probably been redirected
+            console.error('Authentication check error:', error);
+            if (error.message.includes('Could not connect')) {
+                window.location.href = '/error/backend-down.html';
+            } else {
                 window.location.href = '/login.html';
-                return;
-            }
-            // Only redirect on auth errors, not network errors
-            if (error.name === 'AuthenticationError' || (error.response && (error.response.status === 401 || error.response.status === 403))) {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login.html?auth_error=true';
             }
         }
     })();
 
     async function getCsrfToken() {
         try {
-            const response = await fetch('/api/csrf-token', {
+            const response = await fetchWithRetries('/api/csrf-token', {
                 method: 'GET',
                 credentials: 'same-origin',
                 headers: {
@@ -86,37 +153,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Cache-Control': 'no-cache'
                 }
             });
-            
-            // Handle redirects to login page
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                window.location.href = '/login.html';
-                return null;
+
+            if (!response) {
+                return null; // Already redirected to error page
             }
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
+
             const data = await response.json();
-            if (!data.token) {
+            if (!data || !data.token) {
                 throw new Error('No token in response');
             }
             csrfToken = data.token;
             return csrfToken;
         } catch (error) {
             console.error('Error getting CSRF token:', error);
-            if (error.name === 'SyntaxError') {
-                // If we get HTML instead of JSON, redirect to login
+            if (error.message.includes('Could not connect')) {
+                window.location.href = '/error/backend-down.html';
+            } else {
                 window.location.href = '/login.html';
             }
             return null;
         }
     }
 
-    // Function to get JWT token with CSRF support
     async function getJWTToken() {
-        let token = localStorage.getItem('jwt');
+        const token = localStorage.getItem('jwt');
         if (!token) {
             window.location.href = '/login.html';
             return null;
@@ -124,23 +184,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return token;
     }
 
-    // Function to check if token is valid
     async function isTokenValid(token) {
         try {
-            const response = await fetch('/api/vpn/status', {
+            const response = await fetchWithRetries('/api/vpn/status', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json'
                 }
             });
             
-            // Handle redirects to login page
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('text/html')) {
-                return false;
-            }
-            
-            return response.status === 200;
+            return response ? response.ok : false;
         } catch (error) {
             return false;
         }
@@ -157,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
             errorDiv.style.display = 'none';
 
             try {
-                // Get fresh CSRF token
                 const csrfToken = await getCsrfToken();
                 if (!csrfToken) {
                     throw new Error('Could not get CSRF token');
@@ -171,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Setup VPN
-                const response = await fetch('/api/setup', {
+                const setupResponse = await fetchWithRetries('/api/setup', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -188,39 +240,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 });
 
-                // Handle redirects to login page
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('text/html')) {
-                    window.location.href = '/login.html';
-                    return;
+                if (!setupResponse) {
+                    return; // Already redirected to error page
                 }
 
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({}));
-                    throw new Error(data.error || 'Failed to setup VPN');
+                const setupData = await setupResponse.json();
+                if (!setupResponse.ok) {
+                    throw new Error(setupData.error || 'Failed to setup VPN');
                 }
 
-                const data = await response.json();
                 resultDiv.textContent = 'VPN setup successful! Downloading configuration...';
                 resultDiv.style.color = 'green';
                 resultDiv.style.display = 'block';
 
                 // Automatically download the config
-                const downloadResponse = await fetch(`/api/config/download?server_ip=${encodeURIComponent(document.getElementById('serverIp').value)}&username=${encodeURIComponent(document.getElementById('username').value)}&credential=${encodeURIComponent(document.getElementById('authCredential').value)}`, {
+                const downloadResponse = await fetchWithRetries(`/api/config/download?server_ip=${encodeURIComponent(document.getElementById('serverIp').value)}&username=${encodeURIComponent(document.getElementById('username').value)}&credential=${encodeURIComponent(document.getElementById('authCredential').value)}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'X-CSRF-Token': csrfToken,
-                        'Accept': 'application/json'
+                        'X-CSRF-Token': csrfToken
                     }
                 });
 
-                // Handle redirects to login page
-                if (downloadResponse.headers.get('content-type')?.includes('text/html')) {
-                    window.location.href = '/login.html';
-                    return;
-                }
-
-                if (!downloadResponse.ok) {
+                if (!downloadResponse || !downloadResponse.ok) {
                     throw new Error('Failed to download configuration');
                 }
 
@@ -237,9 +278,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 resultDiv.textContent += '\nConfiguration downloaded successfully!';
             } catch (error) {
-                errorDiv.textContent = error.message;
-                errorDiv.style.display = 'block';
-                resultDiv.style.display = 'none';
+                console.error('Setup error:', error);
+                if (error.message.includes('Could not connect')) {
+                    window.location.href = '/error/backend-down.html';
+                } else {
+                    errorDiv.textContent = error.message;
+                    errorDiv.style.display = 'block';
+                    resultDiv.style.display = 'none';
+                }
             }
         });
     }
