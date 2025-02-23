@@ -44,12 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const response = await fetch('/api/csrf-token', {
                     method: 'GET',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'Cache-Control': 'no-cache'
-                    }
+                    credentials: 'same-origin'
                 });
                 
                 if (!response.ok) {

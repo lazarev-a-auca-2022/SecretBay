@@ -291,11 +291,8 @@ func CSRFTokenHandler() http.HandlerFunc {
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, X-CSRF-Token")
-			w.Header().Set("Access-Control-Max-Age", "3600")
-			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 
 		// Handle preflight OPTIONS request
@@ -305,7 +302,7 @@ func CSRFTokenHandler() http.HandlerFunc {
 		}
 
 		// Set Content-Type for the actual response
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Content-Type", "application/json")
 
 		// Generate and store token
 		token := GenerateCSRFToken()
