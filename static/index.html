@@ -5,29 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VPN Management</title>
     <link rel="stylesheet" href="styles.css">
-    <script>
-        // Immediate auth check before loading any content
-        (function() {
-            const token = localStorage.getItem('jwt');
-            if (!token) {
-                window.location.replace('/login.html');
-            } else {
-                // Verify token validity
-                fetch('/api/vpn/status', {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                }).then(response => {
-                    if (!response.ok) {
-                        throw new Error('Invalid token');
-                    }
-                }).catch(() => {
-                    localStorage.removeItem('jwt');
-                    window.location.replace('/login.html');
-                });
-            }
-        })();
-    </script>
 </head>
 <body>
     <div class="container">

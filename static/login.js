@@ -3,14 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
 
-    // Don't check token on login page to prevent redirect loops
-    const token = localStorage.getItem('jwt');
-    if (token) {
-        localStorage.removeItem('jwt'); // Clear any existing token on login page
+    // Only remove token if we were redirected here due to an auth error
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('auth_error')) {
+        localStorage.removeItem('jwt');
     }
     
     // Check for registration success message
-    const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('registered') === 'true') {
         successDiv.textContent = 'Registration successful! Please login.';
         successDiv.style.display = 'block';

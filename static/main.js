@@ -13,14 +13,13 @@ window.addEventListener('load', async () => {
             }
         });
         
-        // Only redirect to login if we get an actual auth error
         if (response.status === 401 || response.status === 403) {
             localStorage.removeItem('jwt');
-            window.location.href = '/login.html';
+            window.location.href = '/login.html?auth_error=true';
             return;
         }
         
-        // For other types of errors, don't redirect - let the error handling happen naturally
+        // For other types of errors, don't redirect
         if (!response.ok) {
             console.error('Error checking authentication:', response.status);
             return;
@@ -30,7 +29,7 @@ window.addEventListener('load', async () => {
         // Only redirect on auth errors, not network errors
         if (error.name === 'AuthenticationError') {
             localStorage.removeItem('jwt');
-            window.location.href = '/login.html';
+            window.location.href = '/login.html?auth_error=true';
         }
     }
 });
