@@ -16,38 +16,29 @@ window.addEventListener('load', async () => {
             return;
         }
         
-        try {
-            const response = await fetch('/api/vpn/status', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            const data = await response.json();
-            
-            if (response.status === 401 || response.status === 403) {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login.html?auth_error=true';
-                return;
+        const response = await fetch('/api/vpn/status', {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
+        });
+        
+        const data = await response.json();
+        
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('jwt');
+            window.location.href = '/login.html?auth_error=true';
+            return;
+        }
 
-            if (!response.ok) {
-                console.error('Error checking authentication:', response.status);
-                // Don't redirect for non-auth related errors
-                return;
-            }
+        if (!response.ok) {
+            console.error('Error checking authentication:', response.status);
+            // Don't redirect for non-auth related errors
+            return;
+        }
 
-            // Successfully authenticated, ensure we're on the right page
-            if (window.location.pathname === '/login.html') {
-                window.location.replace('/');
-            }
-        } catch (error) {
-            console.error('Error checking authentication:', error);
-            // Only redirect on auth errors, not network errors
-            if (error.name === 'AuthenticationError' || (error.response && (error.response.status === 401 || error.response.status === 403))) {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login.html?auth_error=true';
-            }
+        // Successfully authenticated, ensure we're on the right page
+        if (window.location.pathname === '/login.html') {
+            window.location.replace('/');
         }
     } catch (error) {
         console.error('Error checking authentication:', error);

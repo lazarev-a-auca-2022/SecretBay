@@ -3,7 +3,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
 
-    // If we have a valid token and we're on the login page, redirect to index
+    // First check if authentication is enabled
+    try {
+        const authCheckResponse = await fetch('/api/auth/status');
+        const authData = await authCheckResponse.json();
+        
+        if (!authData.enabled) {
+            // If auth is disabled, redirect to main page
+            window.location.replace('/');
+            return;
+        }
+    } catch (error) {
+        console.error('Error checking auth status:', error);
+    }
+
+    // If auth is enabled, continue with normal login flow
     const token = localStorage.getItem('jwt');
     if (token) {
         try {
