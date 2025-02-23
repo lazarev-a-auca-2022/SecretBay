@@ -6,12 +6,21 @@ const RETRY_DELAY = 1000; // 1 second
 // Helper function to delay execution
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper function to check if an element exists
+function getElementByIdSafe(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+        console.error(`Element with id ${id} not found`);
+    }
+    return element;
+}
+
 // Helper function to initialize form
 function initializeVPNForm() {
-    const vpnForm = document.getElementById('vpnForm');
-    const loadingDiv = document.getElementById('loading');
-    const resultDiv = document.getElementById('result');
-    const errorDiv = document.getElementById('downloadError');
+    const vpnForm = getElementByIdSafe('vpnForm');
+    const loadingDiv = getElementByIdSafe('loading');
+    const resultDiv = getElementByIdSafe('result');
+    const errorDiv = getElementByIdSafe('downloadError');
 
     if (!vpnForm || !loadingDiv || !resultDiv || !errorDiv) {
         console.error('Required DOM elements not found');
@@ -33,11 +42,11 @@ function initializeVPNForm() {
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify({
-                    server_ip: document.getElementById('serverIp').value,
-                    username: document.getElementById('username').value,
-                    auth_method: document.getElementById('authMethod').value,
-                    auth_credential: document.getElementById('authCredential').value,
-                    vpn_type: document.getElementById('vpnType').value
+                    server_ip: getElementByIdSafe('serverIp').value,
+                    username: getElementByIdSafe('username').value,
+                    auth_method: getElementByIdSafe('authMethod').value,
+                    auth_credential: getElementByIdSafe('authCredential').value,
+                    vpn_type: getElementByIdSafe('vpnType').value
                 })
             });
 
@@ -73,7 +82,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Failed to check auth status');
         }
 
-        const authStatus = await authResponse.json();
+        const authStatus = await authResponse.json().catch(() => {
+            throw new Error('Invalid JSON response');
+        });
         
         // If auth is disabled, initialize form directly
         if (!authStatus.enabled) {
@@ -107,7 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('Initialization error:', error);
-        const errorDiv = document.getElementById('downloadError');
+        const errorDiv = getElementByIdSafe('downloadError');
         if (errorDiv) {
             errorDiv.textContent = 'Failed to initialize application. Please try refreshing the page.';
             errorDiv.style.display = 'block';
