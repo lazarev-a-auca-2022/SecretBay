@@ -2,14 +2,14 @@
 let csrfToken = null;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
-const MAX_STARTUP_ATTEMPTS = 5; // Maximum attempts to wait for server startup
-const STARTUP_CHECK_INTERVAL = 2000; // 2 seconds between startup checks
+const MAX_STARTUP_ATTEMPTS = 5;
+const STARTUP_CHECK_INTERVAL = 2000;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Helper function to delay execution
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     
-    // Helper function to check if server is ready
+    // Helper function to check if server is ready and auth is enabled
     async function waitForServer(attempts = 0) {
         try {
             const response = await fetch('/api/auth/status', {
@@ -18,21 +18,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            // If we get HTML instead of JSON, handle it gracefully
-            const contentType = response.headers.get('content-type');
-            if (contentType && !contentType.includes('application/json')) {
-                // If auth is enabled, redirect to login
+            // Always attempt to parse JSON first
+            try {
+                const data = await response.json();
+                // If auth is explicitly disabled, allow access without further checks
+                if (data.hasOwnProperty('enabled') && !data.enabled) {
+                    return true;
+                }
+            } catch (e) {
+                // If we can't parse JSON and get a redirect, handle login flow
                 if (response.status === 303) {
                     window.location.href = '/login.html';
                     return false;
                 }
-                // Otherwise try to continue
-                return true;
-            }
-
-            const data = await response.json();
-            // If auth is disabled, allow access
-            if (data.hasOwnProperty('enabled') && !data.enabled) {
+                // For other JSON parse errors, try to continue
                 return true;
             }
 
@@ -157,28 +156,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Authentication check on page load
     (async () => {
         try {
-            // First check if server is ready
-            if (!await waitForServer()) {
-                return; // Already redirected to error page
+            // First check if server is ready and get auth status
+            const serverReady = await waitForServer();
+            if (!serverReady) {
+                return; // Server not ready or already redirected
             }
 
-            // Try to get initial authentication status
-            const response = await fetchWithRetries('/api/auth/status', {
-                headers: {
-                    'Accept': 'application/json'
+            // If we got here and auth was disabled, we can skip the rest
+            try {
+                const authResponse = await fetch('/api/auth/status', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const authData = await authResponse.json();
+                if (!authData.enabled) {
+                    return; // Auth is disabled, allow access
                 }
-            }).catch(() => null);
-
-            if (!response) {
-                window.location.href = '/error/backend-down.html';
-                return;
+            } catch (e) {
+                console.error('Error checking auth status:', e);
+                // Continue with auth checks if we can't determine status
             }
 
-            const authData = await response.json();
-            if (!authData.enabled) {
-                return;
-            }
-
+            // Proceed with normal auth flow
             const token = localStorage.getItem('jwt');
             if (!token) {
                 window.location.href = '/login.html';
@@ -215,9 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     })();
 
-    // Only initialize VPN form if we're on the main page
+    // Only initialize VPN form if we're on the main page and the element exists
     const vpnForm = document.getElementById('vpnForm');
-    if (vpnForm && window.location.pathname === '/') {
+    if (vpnForm) {
         vpnForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const resultDiv = document.getElementById('result');

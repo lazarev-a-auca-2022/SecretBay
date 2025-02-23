@@ -549,10 +549,22 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Always set JSON content type
 		w.Header().Set("Content-Type", "application/json")
+
+		// Always return JSON with auth status, never redirect
 		response := AuthStatusResponse{
 			Enabled: cfg.AuthEnabled,
 		}
-		json.NewEncoder(w).Encode(response)
+		
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Internal server error",
+				"enabled": "false",
+			})
+			return
+		}
 	}
 }
