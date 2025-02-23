@@ -17,12 +17,17 @@ function getElementByIdSafe(id) {
 
 // Helper function to initialize form
 function initializeVPNForm() {
-    const vpnForm = getElementByIdSafe('vpnForm');
+    const vpnForm = document.getElementById('vpnForm');
+    if (!vpnForm) {
+        console.debug('VPN form not found on this page, skipping initialization');
+        return;
+    }
+    
     const loadingDiv = getElementByIdSafe('loading');
     const resultDiv = getElementByIdSafe('result');
     const errorDiv = getElementByIdSafe('downloadError');
 
-    if (!vpnForm || !loadingDiv || !resultDiv || !errorDiv) {
+    if (!loadingDiv || !resultDiv || !errorDiv) {
         console.error('Required DOM elements not found');
         return;
     }
