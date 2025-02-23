@@ -6,14 +6,21 @@ document.addEventListener('DOMContentLoaded', () => {
     (async () => {
         try {
             // Check if auth is enabled
-            const authCheckResponse = await fetch('/api/auth/status');
-            if (!authCheckResponse.ok) {
-                throw new Error(`HTTP error! status: ${authCheckResponse.status}`);
+            const authCheckResponse = await fetch('/api/auth/status', {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            
+            // If we get redirected to login page, handle it gracefully
+            const contentType = authCheckResponse.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                window.location.href = '/login.html';
+                return;
             }
             
-            const contentType = authCheckResponse.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('Expected JSON response but got ' + contentType);
+            if (!authCheckResponse.ok) {
+                throw new Error(`HTTP error! status: ${authCheckResponse.status}`);
             }
             
             const authData = await authCheckResponse.json();
@@ -31,7 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const response = await fetch('/api/vpn/status', {
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
                 }
             });
             
@@ -41,18 +49,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (!response.ok) {
-                console.error('Error checking authentication:', response.status);
-                // Don't redirect for non-auth related errors
+            // If we get redirected to login page, handle it gracefully
+            const responseType = response.headers.get('content-type');
+            if (responseType && responseType.includes('text/html')) {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login.html';
                 return;
             }
 
-            // Successfully authenticated, ensure we're on the right page
-            if (window.location.pathname === '/login.html') {
-                window.location.replace('/');
+            if (!response.ok) {
+                console.error('Error checking authentication:', response.status);
+                return;
             }
         } catch (error) {
             console.error('Error checking authentication:', error);
+            if (error.name === 'SyntaxError') {
+                // If we get HTML instead of JSON, we've probably been redirected
+                window.location.href = '/login.html';
+                return;
+            }
             // Only redirect on auth errors, not network errors
             if (error.name === 'AuthenticationError' || (error.response && (error.response.status === 401 || error.response.status === 403))) {
                 localStorage.removeItem('jwt');
@@ -72,13 +87,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            // Handle redirects to login page
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                window.location.href = '/login.html';
+                return null;
             }
             
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                throw new Error('Expected JSON response but got ' + contentType);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
@@ -89,6 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return csrfToken;
         } catch (error) {
             console.error('Error getting CSRF token:', error);
+            if (error.name === 'SyntaxError') {
+                // If we get HTML instead of JSON, redirect to login
+                window.location.href = '/login.html';
+            }
             return null;
         }
     }
@@ -97,36 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function getJWTToken() {
         let token = localStorage.getItem('jwt');
         if (!token) {
-            try {
-                // Get CSRF token first
-                const csrfToken = await getCsrfToken();
-                if (!csrfToken) {
-                    throw new Error('Failed to get CSRF token');
-                }
-
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify({
-                        username: document.getElementById('username').value,
-                        password: document.getElementById('password').value
-                    })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Authentication failed');
-                }
-                
-                const data = await response.json();
-                token = data.token;
-                localStorage.setItem('jwt', token);
-            } catch (error) {
-                console.error('Error getting JWT token:', error);
-                return null;
-            }
+            window.location.href = '/login.html';
+            return null;
         }
         return token;
     }
@@ -136,9 +129,17 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/vpn/status', {
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
                 }
             });
+            
+            // Handle redirects to login page
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                return false;
+            }
+            
             return response.status === 200;
         } catch (error) {
             return false;
@@ -165,10 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let token = await getJWTToken();
                 if (!token || !(await isTokenValid(token))) {
                     localStorage.removeItem('jwt');
-                    token = await getJWTToken();
-                    if (!token) {
-                        throw new Error('Could not authenticate. Please try again.');
-                    }
+                    window.location.href = '/login.html';
+                    return;
                 }
 
                 // Setup VPN
@@ -177,7 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`,
-                        'X-CSRF-Token': csrfToken
+                        'X-CSRF-Token': csrfToken,
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({
                         server_ip: document.getElementById('serverIp').value,
@@ -188,14 +188,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 });
 
+                // Handle redirects to login page
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('text/html')) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
                 if (!response.ok) {
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        const data = await response.json();
-                        throw new Error(data.error || 'Failed to setup VPN');
-                    } else {
-                        throw new Error('Server returned an unexpected response');
-                    }
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || 'Failed to setup VPN');
                 }
 
                 const data = await response.json();
@@ -207,9 +209,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const downloadResponse = await fetch(`/api/config/download?server_ip=${encodeURIComponent(document.getElementById('serverIp').value)}&username=${encodeURIComponent(document.getElementById('username').value)}&credential=${encodeURIComponent(document.getElementById('authCredential').value)}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'X-CSRF-Token': csrfToken
+                        'X-CSRF-Token': csrfToken,
+                        'Accept': 'application/json'
                     }
                 });
+
+                // Handle redirects to login page
+                if (downloadResponse.headers.get('content-type')?.includes('text/html')) {
+                    window.location.href = '/login.html';
+                    return;
+                }
 
                 if (!downloadResponse.ok) {
                     throw new Error('Failed to download configuration');
@@ -224,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
 
                 resultDiv.textContent += '\nConfiguration downloaded successfully!';
             } catch (error) {
