@@ -54,6 +54,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Invalid server response');
             }
 
+            // Handle redirects explicitly
+            if (response.status === 303) {
+                const location = response.headers.get('Location');
+                if (location && location.includes('login.html')) {
+                    window.location.href = location;
+                    return null;
+                }
+            }
+
             const contentType = response.headers.get('content-type');
             
             // If we get HTML when expecting JSON, it might be an error page
@@ -83,65 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
             throw error;
         }
     }
-
-    // Authentication check on page load
-    (async () => {
-        try {
-            // First check if server is ready
-            if (!await waitForServer()) {
-                return; // Already redirected to error page
-            }
-
-            const response = await fetchWithRetries('/api/auth/status', {
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!response) {
-                return; // Already redirected to error page
-            }
-
-            const authData = await response.json();
-            if (!authData.enabled) {
-                return;
-            }
-
-            const token = localStorage.getItem('jwt');
-            if (!token) {
-                window.location.href = '/login.html';
-                return;
-            }
-
-            const statusResponse = await fetchWithRetries('/api/vpn/status', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!statusResponse) {
-                return; // Already redirected to error page
-            }
-
-            if (statusResponse.status === 401 || statusResponse.status === 403) {
-                localStorage.removeItem('jwt');
-                window.location.href = '/login.html?auth_error=true';
-                return;
-            }
-
-            if (!statusResponse.ok) {
-                throw new Error(`Status check failed: ${statusResponse.status}`);
-            }
-        } catch (error) {
-            console.error('Authentication check error:', error);
-            if (error.message.includes('Could not connect')) {
-                window.location.href = '/error/backend-down.html';
-            } else {
-                window.location.href = '/login.html';
-            }
-        }
-    })();
 
     async function getCsrfToken() {
         try {
@@ -199,6 +149,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Authentication check on page load
+    (async () => {
+        try {
+            // First check if server is ready
+            if (!await waitForServer()) {
+                return; // Already redirected to error page
+            }
+
+            // Try to get initial authentication status
+            const response = await fetchWithRetries('/api/auth/status', {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            }).catch(() => null);
+
+            if (!response) {
+                window.location.href = '/error/backend-down.html';
+                return;
+            }
+
+            const authData = await response.json();
+            if (!authData.enabled) {
+                return;
+            }
+
+            const token = localStorage.getItem('jwt');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            const statusResponse = await fetchWithRetries('/api/vpn/status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!statusResponse) {
+                return; // Already redirected to error page
+            }
+
+            if (statusResponse.status === 401 || statusResponse.status === 403) {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login.html?auth_error=true';
+                return;
+            }
+
+            if (!statusResponse.ok) {
+                throw new Error(`Status check failed: ${statusResponse.status}`);
+            }
+        } catch (error) {
+            console.error('Authentication check error:', error);
+            if (error.message?.includes('Could not connect')) {
+                window.location.href = '/error/backend-down.html';
+            } else {
+                window.location.href = '/login.html';
+            }
+        }
+    })();
+
     // Handle form submission with CSRF protection
     const vpnForm = document.getElementById('vpnForm');
     if (vpnForm) {
@@ -206,6 +217,12 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const resultDiv = document.getElementById('result');
             const errorDiv = document.getElementById('downloadError');
+            
+            if (!resultDiv || !errorDiv) {
+                console.error('Required DOM elements not found');
+                return;
+            }
+
             resultDiv.style.display = 'none';
             errorDiv.style.display = 'none';
 
@@ -279,10 +296,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 resultDiv.textContent += '\nConfiguration downloaded successfully!';
             } catch (error) {
                 console.error('Setup error:', error);
-                if (error.message.includes('Could not connect')) {
+                if (error.message?.includes('Could not connect')) {
                     window.location.href = '/error/backend-down.html';
                 } else {
-                    errorDiv.textContent = error.message;
+                    errorDiv.textContent = error.message || 'An unexpected error occurred';
                     errorDiv.style.display = 'block';
                     resultDiv.style.display = 'none';
                 }
