@@ -235,40 +235,48 @@ func MonitoringMiddleware(next http.Handler) http.Handler {
 }
 
 // CSRFMiddleware adds CSRF protection
-func CSRFMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip CSRF check for endpoints that issue tokens
-		if r.URL.Path == "/api/csrf-token" {
+func CSRFMiddleware(cfg *config.Config) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip CSRF check if auth is disabled
+			if !cfg.AuthEnabled {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Skip CSRF check for endpoints that issue tokens
+			if r.URL.Path == "/api/csrf-token" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Skip CSRF check for GET, HEAD, OPTIONS
+			if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Verify CSRF token
+			token := r.Header.Get("X-CSRF-Token")
+			if token == "" {
+				utils.JSONError(w, "Missing CSRF token", http.StatusForbidden)
+				return
+			}
+
+			// Check if token exists and is valid
+			if _, ok := csrfTokens.Load(token); !ok {
+				utils.JSONError(w, "Invalid CSRF token", http.StatusForbidden)
+				return
+			}
+
+			// Consume the token for one-time use if not a login request
+			if r.URL.Path != "/api/auth/login" {
+				csrfTokens.Delete(token)
+			}
+
 			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Skip CSRF check for GET, HEAD, OPTIONS
-		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Verify CSRF token
-		token := r.Header.Get("X-CSRF-Token")
-		if token == "" {
-			utils.JSONError(w, "Missing CSRF token", http.StatusForbidden)
-			return
-		}
-
-		// Check if token exists and is valid
-		if _, ok := csrfTokens.Load(token); !ok {
-			utils.JSONError(w, "Invalid CSRF token", http.StatusForbidden)
-			return
-		}
-
-		// Consume the token for one-time use if not a login request
-		if r.URL.Path != "/api/auth/login" {
-			csrfTokens.Delete(token)
-		}
-
-		next.ServeHTTP(w, r)
-	})
+		})
+	}
 }
 
 // GenerateCSRFToken generates a new CSRF token
@@ -330,9 +338,9 @@ func CSRFTokenHandler() http.HandlerFunc {
 	}
 }
 
-func SetupMiddleware(router *mux.Router) {
+func SetupMiddleware(router *mux.Router, cfg *config.Config) {
 	router.Use(MonitoringMiddleware)
 	router.Use(SecurityHeadersMiddleware)
 	router.Use(RateLimitMiddleware(NewRateLimiter(time.Minute, 100)))
-	router.Use(CSRFMiddleware)
+	router.Use(CSRFMiddleware(cfg))
 }

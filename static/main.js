@@ -18,28 +18,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
+            // If we get HTML instead of JSON, handle it gracefully
             const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
+            if (contentType && !contentType.includes('application/json')) {
+                // If auth is enabled, redirect to login
+                if (response.status === 303) {
+                    window.location.href = '/login.html';
+                    return false;
+                }
+                // Otherwise try to continue
                 return true;
             }
-            
-            if (attempts >= MAX_STARTUP_ATTEMPTS) {
-                window.location.href = '/error/backend-down.html';
-                return false;
+
+            const data = await response.json();
+            // If auth is disabled, allow access
+            if (data.hasOwnProperty('enabled') && !data.enabled) {
+                return true;
             }
-            
-            console.log(`Server not ready, retrying in ${STARTUP_CHECK_INTERVAL/1000}s... (${attempts + 1}/${MAX_STARTUP_ATTEMPTS})`);
-            await delay(STARTUP_CHECK_INTERVAL);
-            return waitForServer(attempts + 1);
+
+            return response.ok;
         } catch (error) {
-            if (attempts >= MAX_STARTUP_ATTEMPTS) {
-                window.location.href = '/error/backend-down.html';
-                return false;
+            console.error('Error checking server:', error);
+            if (attempts < MAX_STARTUP_ATTEMPTS) {
+                await delay(STARTUP_CHECK_INTERVAL);
+                return waitForServer(attempts + 1);
             }
-            
-            console.log(`Server not reachable, retrying in ${STARTUP_CHECK_INTERVAL/1000}s... (${attempts + 1}/${MAX_STARTUP_ATTEMPTS})`);
-            await delay(STARTUP_CHECK_INTERVAL);
-            return waitForServer(attempts + 1);
+            window.location.href = '/error/backend-down.html';
+            return false;
         }
     }
 
@@ -210,9 +215,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     })();
 
-    // Handle form submission with CSRF protection
+    // Only initialize VPN form if we're on the main page
     const vpnForm = document.getElementById('vpnForm');
-    if (vpnForm) {
+    if (vpnForm && window.location.pathname === '/') {
         vpnForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const resultDiv = document.getElementById('result');

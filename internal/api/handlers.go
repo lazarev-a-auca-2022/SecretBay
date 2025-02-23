@@ -35,6 +35,11 @@ type StatusResponse struct {
 	Status string `json:"status"`
 }
 
+// AuthStatusResponse represents the auth status response
+type AuthStatusResponse struct {
+	Enabled bool `json:"enabled"`
+}
+
 // SetupVPNHandler returns an http.HandlerFunc that handles VPN setup requests.
 // It validates the request, connects to the remote server via SSH, sets up the
 // requested VPN type, and returns the configuration.
@@ -247,12 +252,13 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	router.HandleFunc("/api/auth/status", AuthStatusHandler(cfg)).Methods("GET")
 	router.HandleFunc("/api/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
-	// Removing CSRF token endpoint from here as it's already registered in main.go
 
 	// Protected API routes with CSRF
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.Use(JWTAuthenticationMiddleware(cfg))
-	apiRouter.Use(CSRFMiddleware)
+	apiRouter.Use(func(next http.Handler) http.Handler {
+		return CSRFMiddleware(cfg)(next)
+	})
 
 	apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
 	apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
@@ -540,12 +546,13 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 	}
 }
 
-// AuthStatusHandler returns the current authentication status
+// AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]bool{
-			"enabled": cfg.AuthEnabled,
-		})
+		response := AuthStatusResponse{
+			Enabled: cfg.AuthEnabled,
+		}
+		json.NewEncoder(w).Encode(response)
 	}
 }

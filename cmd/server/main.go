@@ -82,6 +82,9 @@ func main() {
 	}
 	defer db.Close()
 
+	// Store DB in config
+	cfg.DB = db
+
 	// Start metrics collection before anything else
 	monitoring.StartMetricsCollection()
 
@@ -182,7 +185,7 @@ func main() {
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.Use(api.RateLimitMiddleware(api.NewRateLimiter(time.Minute, 100)))
 	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
-	apiRouter.Use(api.CSRFMiddleware)
+	apiRouter.Use(api.CSRFMiddleware(cfg))
 	api.SetupRoutes(apiRouter, cfg)
 
 	// TLS Configuration
