@@ -245,6 +245,7 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
 	router.HandleFunc("/api/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 	// Removing CSRF token endpoint from here as it's already registered in main.go
 
 	// Protected API routes with CSRF

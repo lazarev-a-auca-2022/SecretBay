@@ -7,12 +7,14 @@ package config
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/database"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
 
@@ -26,6 +28,9 @@ type Config struct {
 
 	// Production indicates if the server is running in production mode
 	Production bool
+
+	// DB holds the database connection
+	DB *sql.DB
 }
 
 // ServerConfig holds HTTP server specific configuration
@@ -131,6 +136,16 @@ func LoadConfig() (*Config, error) {
 		JWTSecret:  jwtSecret,
 		Production: production,
 	}
+
+	// Initialize database connection
+	db, err := database.InitDB()
+	if err != nil {
+		if production {
+			return nil, fmt.Errorf("failed to initialize database: %v", err)
+		}
+		logger.Log.Printf("Warning: Failed to initialize database: %v", err)
+	}
+	config.DB = db
 
 	// Validate TLS version
 	if !isValidTLSVersion(config.Server.TLSMinVersion) {
