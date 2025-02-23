@@ -1,7 +1,30 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const loginForm = document.getElementById('loginForm');
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
+
+    // If we have a valid token and we're on the login page, redirect to index
+    const token = localStorage.getItem('jwt');
+    if (token) {
+        try {
+            const response = await fetch('/api/vpn/status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (response.ok) {
+                // Only redirect if we're not here due to an auth error
+                const urlParams = new URLSearchParams(window.location.search);
+                if (!urlParams.get('auth_error')) {
+                    window.location.replace('/');
+                    return;
+                }
+            }
+        } catch (error) {
+            console.error('Error checking auth status:', error);
+        }
+    }
 
     // Only remove token if we were redirected here due to an auth error
     const urlParams = new URLSearchParams(window.location.search);

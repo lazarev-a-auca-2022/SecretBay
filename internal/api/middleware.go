@@ -57,9 +57,12 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			logger.Log.Println("JWTAuthenticationMiddleware: Request received")
 
-			// Skip auth for public paths
+			// Skip auth for public paths and static assets
 			if r.URL.Path == "/login.html" ||
 				r.URL.Path == "/register.html" ||
+				r.URL.Path == "/api/csrf-token" ||
+				r.URL.Path == "/api/auth/login" ||
+				r.URL.Path == "/api/auth/register" ||
 				strings.HasPrefix(r.URL.Path, "/error/") ||
 				strings.HasSuffix(r.URL.Path, ".css") ||
 				strings.HasSuffix(r.URL.Path, ".js") {
@@ -67,6 +70,37 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 				return
 			}
 
+			// Special handling for index.html and root path
+			if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+				token := ""
+
+				// Check Authorization header first
+				authHeader := r.Header.Get("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					token = strings.TrimPrefix(authHeader, "Bearer ")
+				}
+
+				// If no valid token, redirect to login
+				if token == "" {
+					http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+					return
+				}
+
+				// Validate token
+				claims, err := auth.ValidateJWT(token, cfg)
+				if err != nil {
+					logger.Log.Printf("Token validation failed: %v", err)
+					http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+					return
+				}
+
+				// Valid token, set context and continue
+				ctx := context.WithValue(r.Context(), "username", claims.Username)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			// Handle API authentication
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				logger.Log.Println("JWTAuthenticationMiddleware: Missing Authorization Header")
@@ -106,7 +140,6 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 				return
 			}
 
-			// Set username in context and proceed
 			ctx := context.WithValue(r.Context(), "username", claims.Username)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
