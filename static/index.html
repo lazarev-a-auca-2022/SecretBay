@@ -37,19 +37,16 @@
                 </select>
             </div>
             <button type="submit">Setup VPN</button>
-            <button id="downloadConfigBtn">Download VPN Config</button>
             <div id="downloadError" style="color:red; display:none;"></div>
         </form>
         <div id="result"></div>
     </div>
     <script>
-        // Set Authorization header for all subsequent requests
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('jwt');
             if (token) {
                 const headers = new Headers();
                 headers.append('Authorization', `Bearer ${token}`);
-                // Attach headers to document for use by other scripts
                 document._headers = headers;
             }
         });

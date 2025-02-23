@@ -55,11 +55,28 @@ let csrfToken = null;
 
 async function getCsrfToken() {
     try {
-        const response = await fetch('/api/csrf-token');
+        const response = await fetch('/api/csrf-token', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
         if (!response.ok) {
-            throw new Error('Failed to get CSRF token');
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Expected JSON response but got ' + contentType);
+        }
+        
         const data = await response.json();
+        if (!data.token) {
+            throw new Error('No token in response');
+        }
         csrfToken = data.token;
         return csrfToken;
     } catch (error) {
@@ -120,63 +137,13 @@ async function isTokenValid(token) {
     }
 }
 
-// Handle config download with CSRF protection
-document.getElementById('downloadConfigBtn').addEventListener('click', async () => {
-    const errorDiv = document.getElementById('downloadError');
-    errorDiv.style.display = 'none';
-
-    const serverIp = document.getElementById('serverIp').value;
-    const username = document.getElementById('username').value;
-    const credential = document.getElementById('authCredential').value;
-
-    if (!serverIp || !credential) {
-        errorDiv.textContent = "Please specify the server IP and credential.";
-        errorDiv.style.display = "block";
-        return;
-    }
-    
-    try {
-        // Get fresh CSRF token for download
-        const csrfToken = await getCsrfToken();
-        if (!csrfToken) {
-            throw new Error('Could not get CSRF token');
-        }
-
-        let token = await getJWTToken();
-        if (!token) throw new Error('Authentication failed');
-        
-        const response = await fetch(`/api/config/download?server_ip=${serverIp}&username=${username}&credential=${encodeURIComponent(credential)}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'X-CSRF-Token': csrfToken
-            }
-        });
-        
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(errText);
-        }
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = "vpn_config";
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-    } catch (error) {
-        errorDiv.textContent = error.message || "Failed to download configuration";
-        errorDiv.style.display = "block";
-    }
-});
-
 // Handle form submission with CSRF protection
 document.getElementById('vpnForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const resultDiv = document.getElementById('result');
+    const errorDiv = document.getElementById('downloadError');
     resultDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
 
     try {
         // Get fresh CSRF token
@@ -194,6 +161,7 @@ document.getElementById('vpnForm').addEventListener('submit', async (e) => {
             }
         }
 
+        // Setup VPN
         const response = await fetch('/api/setup', {
             method: 'POST',
             headers: {
@@ -212,17 +180,39 @@ document.getElementById('vpnForm').addEventListener('submit', async (e) => {
 
         const data = await response.json();
         if (response.ok) {
-            resultDiv.textContent = `VPN setup successful!\nConfig path: ${data.vpn_config}\nNew root password: ${data.new_password}`;
-            if (data.backup_path) {
-                resultDiv.textContent += `\nBackup created at: ${data.backup_path}`;
-            }
+            resultDiv.textContent = 'VPN setup successful! Downloading configuration...';
             resultDiv.style.color = 'green';
+            resultDiv.style.display = 'block';
+
+            // Automatically download the config
+            const downloadResponse = await fetch(`/api/config/download?server_ip=${encodeURIComponent(document.getElementById('serverIp').value)}&username=${encodeURIComponent(document.getElementById('username').value)}&credential=${encodeURIComponent(document.getElementById('authCredential').value)}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-CSRF-Token': csrfToken
+                }
+            });
+
+            if (!downloadResponse.ok) {
+                throw new Error('Failed to download configuration');
+            }
+
+            const blob = await downloadResponse.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = "vpn_config";
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            resultDiv.textContent += '\nConfiguration downloaded successfully!';
         } else {
             throw new Error(data.error || 'Failed to setup VPN');
         }
     } catch (error) {
-        resultDiv.textContent = `Error: ${error.message}`;
-        resultDiv.style.color = 'red';
+        errorDiv.textContent = error.message;
+        errorDiv.style.display = 'block';
+        resultDiv.style.display = 'none';
     }
-    resultDiv.style.display = 'block';
 });
