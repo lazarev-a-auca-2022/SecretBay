@@ -549,22 +549,25 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Always set JSON content type
+		// Always set JSON content type and disable caching
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+        w.Header().Set("Pragma", "no-cache")
+        w.Header().Set("Expires", "0")
 
-		// Always return JSON with auth status, never redirect
-		response := AuthStatusResponse{
-			Enabled: cfg.AuthEnabled,
-		}
-		
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": "Internal server error",
-				"enabled": "false",
-			})
-			return
-		}
+        // Always return JSON, never redirect
+        response := AuthStatusResponse{
+            Enabled: cfg.AuthEnabled,
+        }
+        
+        w.WriteHeader(http.StatusOK)
+        if err := json.NewEncoder(w).Encode(response); err != nil {
+            logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
+            w.WriteHeader(http.StatusInternalServerError)
+            json.NewEncoder(w).Encode(map[string]interface{}{
+                "error": "Internal server error",
+                "enabled": false,
+            })
+        }
 	}
 }

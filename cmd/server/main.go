@@ -134,30 +134,33 @@ func main() {
 	// Handle static files first, before any API routes
 	staticRouter := router.PathPrefix("/").Subrouter()
 	fs := http.FileServer(http.Dir("./static"))
-	// Protect index.html and other authenticated pages
+
+	// Serve static files without any auth check for js/css
 	staticRouter.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Don't require auth for login.html, register.html, and error pages
-		if r.URL.Path == "/login.html" ||
-			r.URL.Path == "/register.html" ||
-			strings.HasPrefix(r.URL.Path, "/error/") ||
+		// Always serve .js, .css and error pages without auth
+		if strings.HasSuffix(r.URL.Path, ".js") ||
 			strings.HasSuffix(r.URL.Path, ".css") ||
-			strings.HasSuffix(r.URL.Path, ".js") {
+			strings.HasPrefix(r.URL.Path, "/error/") ||
+			r.URL.Path == "/login.html" ||
+			r.URL.Path == "/register.html" {
 			fs.ServeHTTP(w, r)
 			return
 		}
 
-		// For index.html and other protected pages, check auth from cookie or Authorization header
+		// For index.html and other protected pages, check auth only if enabled
+		cfg := r.Context().Value("config").(*config.Config)
+		if !cfg.AuthEnabled {
+			fs.ServeHTTP(w, r)
+			return
+		}
+
+		// Check auth when enabled
 		var tokenStr string
-		// First check Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if strings.HasPrefix(authHeader, "Bearer ") {
 			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-		} else {
-			// Check for Authorization in cookie as fallback
-			cookie, err := r.Cookie("Authorization")
-			if err == nil {
-				tokenStr = strings.TrimPrefix(cookie.Value, "Bearer ")
-			}
+		} else if cookie, err := r.Cookie("Authorization"); err == nil {
+			tokenStr = strings.TrimPrefix(cookie.Value, "Bearer ")
 		}
 
 		if tokenStr == "" {
@@ -165,9 +168,7 @@ func main() {
 			return
 		}
 
-		// Validate token
-		_, err := auth.ValidateJWT(tokenStr, cfg)
-		if err != nil {
+		if _, err := auth.ValidateJWT(tokenStr, cfg); err != nil {
 			http.Redirect(w, r, "/login.html", http.StatusSeeOther)
 			return
 		}
