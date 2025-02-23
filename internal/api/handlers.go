@@ -244,6 +244,7 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	// Public endpoints that don't need CSRF
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
+	router.HandleFunc("/api/auth/status", AuthStatusHandler(cfg)).Methods("GET")
 	router.HandleFunc("/api/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 	// Removing CSRF token endpoint from here as it's already registered in main.go
@@ -535,6 +536,16 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": "Registration successful",
+		})
+	}
+}
+
+// AuthStatusHandler returns the current authentication status
+func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{
+			"enabled": cfg.AuthEnabled,
 		})
 	}
 }

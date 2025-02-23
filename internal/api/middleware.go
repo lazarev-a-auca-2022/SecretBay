@@ -57,6 +57,12 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			logger.Log.Println("JWTAuthenticationMiddleware: Request received")
 
+			// If auth is disabled, skip all authentication
+			if !cfg.AuthEnabled {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// Skip auth for public paths and static assets
 			if r.URL.Path == "/login.html" ||
 				r.URL.Path == "/register.html" ||

@@ -31,6 +31,9 @@ type Config struct {
 
 	// DB holds the database connection
 	DB *sql.DB
+
+	// AuthEnabled controls whether authentication is required
+	AuthEnabled bool
 }
 
 // ServerConfig holds HTTP server specific configuration
@@ -81,6 +84,9 @@ func LoadConfig() (*Config, error) {
 	// Environment validation
 	env := strings.ToLower(getEnv("ENV", "development"))
 	production := env == "production"
+
+	// Load authentication setting
+	authEnabled, _ := strconv.ParseBool(getEnv("AUTH_ENABLED", "true"))
 
 	// Load and validate port
 	port := getEnv("SERVER_PORT", defaultPort)
@@ -133,8 +139,9 @@ func LoadConfig() (*Config, error) {
 			ReadTimeout:       readTimeout,
 			WriteTimeout:      writeTimeout,
 		},
-		JWTSecret:  jwtSecret,
-		Production: production,
+		JWTSecret:   jwtSecret,
+		Production:  production,
+		AuthEnabled: authEnabled,
 	}
 
 	// Initialize database connection

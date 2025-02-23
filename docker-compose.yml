@@ -39,6 +39,7 @@ services:
       - DB_USER=secretbay
       - DB_PASSWORD=${DB_PASSWORD:-changeme}
       - TZ=UTC
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
     user: root
     healthcheck:
       test: ["CMD", "curl", "-k", "https://localhost:9999/health"]

@@ -1,35 +1,53 @@
 // Authentication check on page load
 window.addEventListener('load', async () => {
-    const token = localStorage.getItem('jwt');
-    if (!token) {
-        window.location.href = '/login.html';
-        return;
-    }
-    
     try {
-        const response = await fetch('/api/vpn/status', {
-            headers: {
-                'Authorization': `Bearer ${token}`
+        // Check if auth is enabled
+        const authCheckResponse = await fetch('/api/auth/status');
+        const authData = await authCheckResponse.json();
+        
+        if (!authData.enabled) {
+            // If auth is disabled, no need to check for token
+            return;
+        }
+
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/vpn/status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login.html?auth_error=true';
+                return;
             }
-        });
-        
-        const data = await response.json();
-        
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwt');
-            window.location.href = '/login.html?auth_error=true';
-            return;
-        }
 
-        if (!response.ok) {
-            console.error('Error checking authentication:', response.status);
-            // Don't redirect for non-auth related errors
-            return;
-        }
+            if (!response.ok) {
+                console.error('Error checking authentication:', response.status);
+                // Don't redirect for non-auth related errors
+                return;
+            }
 
-        // Successfully authenticated, ensure we're on the right page
-        if (window.location.pathname === '/login.html') {
-            window.location.replace('/');
+            // Successfully authenticated, ensure we're on the right page
+            if (window.location.pathname === '/login.html') {
+                window.location.replace('/');
+            }
+        } catch (error) {
+            console.error('Error checking authentication:', error);
+            // Only redirect on auth errors, not network errors
+            if (error.name === 'AuthenticationError' || (error.response && (error.response.status === 401 || error.response.status === 403))) {
+                localStorage.removeItem('jwt');
+                window.location.href = '/login.html?auth_error=true';
+            }
         }
     } catch (error) {
         console.error('Error checking authentication:', error);
