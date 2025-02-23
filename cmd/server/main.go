@@ -137,6 +137,10 @@ func main() {
 
 	// Serve static files without any auth check for js/css
 	staticRouter.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Inject config into context
+		ctx := context.WithValue(r.Context(), "config", cfg)
+		r = r.WithContext(ctx)
+
 		// Always serve .js, .css and error pages without auth
 		if strings.HasSuffix(r.URL.Path, ".js") ||
 			strings.HasSuffix(r.URL.Path, ".css") ||
@@ -147,8 +151,7 @@ func main() {
 			return
 		}
 
-		// For index.html and other protected pages, check auth only if enabled
-		cfg := r.Context().Value("config").(*config.Config)
+		// For index.html and other protected pages, skip auth if disabled
 		if !cfg.AuthEnabled {
 			fs.ServeHTTP(w, r)
 			return

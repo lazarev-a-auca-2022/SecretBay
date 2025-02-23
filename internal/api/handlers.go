@@ -246,25 +246,28 @@ func isInternalIP(ip string) bool {
 }
 
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
-	// Public endpoints that don't need CSRF
-	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
-	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
-	router.HandleFunc("/api/auth/status", AuthStatusHandler(cfg)).Methods("GET")
-	router.HandleFunc("/api/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
+    // Public endpoints that don't need auth or CSRF
+    router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
+    router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
+    
+    // Auth endpoints - must be accessible without auth
+    authRouter := router.PathPrefix("/api/auth").Subrouter()
+    authRouter.HandleFunc("/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+    authRouter.HandleFunc("/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
+    authRouter.HandleFunc("/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
-	// Protected API routes with CSRF
-	apiRouter := router.PathPrefix("/api").Subrouter()
-	apiRouter.Use(JWTAuthenticationMiddleware(cfg))
-	apiRouter.Use(func(next http.Handler) http.Handler {
-		return CSRFMiddleware(cfg)(next)
-	})
+    // Protected API routes
+    apiRouter := router.PathPrefix("/api").Subrouter()
+    apiRouter.Use(JWTAuthenticationMiddleware(cfg))
+    apiRouter.Use(func(next http.Handler) http.Handler {
+        return CSRFMiddleware(cfg)(next)
+    })
 
-	apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-	apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
-	apiRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
-	apiRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
-	apiRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
+    apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
+    apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
+    apiRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+    apiRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
+    apiRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
 }
 
 func generatePassword() (string, error) {

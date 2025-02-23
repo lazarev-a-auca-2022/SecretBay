@@ -5,10 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VPN Management</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+        // Initialize headers before any other script runs
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('jwt');
+            if (token) {
+                const headers = new Headers();
+                headers.append('Authorization', `Bearer ${token}`);
+                window._headers = headers;
+            }
+        });
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>VPN Setup</h1>
+        <div id="loading" style="display: none;">Loading...</div>
         <form id="vpnForm" autocomplete="on">
             <div class="form-group">
                 <label for="serverIp">Server IP</label>
@@ -41,16 +53,7 @@
         </form>
         <div id="result"></div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('jwt');
-            if (token) {
-                const headers = new Headers();
-                headers.append('Authorization', `Bearer ${token}`);
-                document._headers = headers;
-            }
-        });
-    </script>
+    <!-- Place the main.js script at the end of body -->
     <script src="main.js"></script>
 </body>
 </html>
