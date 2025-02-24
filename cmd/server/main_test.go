@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -41,14 +42,40 @@ func (m *MockSSHClient) Close() {
 func TestMain(m *testing.M) {
 	// Setup test environment
 	os.Setenv("SERVER_PORT", "9999")
-	os.Setenv("JWT_SECRET", "test-secret")
+	os.Setenv("JWT_SECRET", "this-is-a-very-long-secret-key-for-testing-purposes-123456")
+	os.Setenv("ADMIN_USERNAME", "admin")
+	os.Setenv("ADMIN_PASSWORD", "admin123")
+	os.Setenv("DB_HOST", "localhost")
+	os.Setenv("DB_PORT", "5432")
+	os.Setenv("DB_USER", "test")
+	os.Setenv("DB_PASSWORD", "test")
+	os.Setenv("DB_NAME", "test_db")
 	os.Exit(m.Run())
 }
 
 // TestVPNSetupRequest tests the VPN setup endpoint
 func TestVPNSetupRequest(t *testing.T) {
-	cfg, _ := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	assert.NoError(t, err)
+
+	// Initialize DB connection for testing
+	db, err := sql.Open("postgres", fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+	))
+	if err != nil {
+		t.Skip("Skipping test due to missing database:", err)
+		return
+	}
+	defer db.Close()
+	cfg.DB = db
+
 	router := mux.NewRouter()
+	api.SetupRoutes(router, cfg) // Setting up all routes properly
 
 	// Create mock SSH client with expected behaviors
 	mockSSH := new(MockSSHClient)
@@ -58,7 +85,6 @@ func TestVPNSetupRequest(t *testing.T) {
 	// Override the NewSSHClient function for testing
 	originalNewSSHClient := sshclient.NewSSHClient
 	sshclient.NewSSHClient = func(serverIP, username, authMethod, authCredential string) (*sshclient.SSHClient, error) {
-		// Create a proper SSHClient with our mock
 		return &sshclient.SSHClient{
 			Client: &ssh.Client{},
 			RunCommandFunc: func(cmd string) (string, error) {
@@ -72,8 +98,6 @@ func TestVPNSetupRequest(t *testing.T) {
 	defer func() {
 		sshclient.NewSSHClient = originalNewSSHClient
 	}()
-
-	api.SetupRoutes(router, cfg)
 
 	testCases := []struct {
 		name       string
@@ -109,7 +133,7 @@ func TestVPNSetupRequest(t *testing.T) {
 			payloadBytes, err := json.Marshal(tc.payload)
 			assert.NoError(t, err)
 
-			req := httptest.NewRequest(http.MethodPost, "/setup", bytes.NewReader(payloadBytes))
+			req := httptest.NewRequest(http.MethodPost, "/api/setup", bytes.NewReader(payloadBytes))
 			req.Header.Set("Content-Type", "application/json")
 
 			token, err := auth.GenerateJWT("test-user", cfg)
