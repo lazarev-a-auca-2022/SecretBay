@@ -1,3 +1,8 @@
+// Configure base URL based on environment
+const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://${window.location.host}`
+    : `https://${window.location.host}`;
+
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('registerForm');
     const errorDiv = document.getElementById('error');
@@ -5,12 +10,12 @@ document.addEventListener('DOMContentLoaded', function() {
     async function getCsrfToken(retries = 3) {
         for (let i = 0; i < retries; i++) {
             try {
-                const response = await fetch('/api/csrf-token', {
+                const response = await fetch(`${BASE_URL}/api/csrf-token`, {
                     method: 'GET',
-                    credentials: 'same-origin',
+                    credentials: 'include',
                     headers: {
                         'Accept': 'application/json',
-                        // Removed Content-Type header to avoid HTTP/2 issues
+                        'Origin': window.location.origin,
                         'Cache-Control': 'no-cache'
                     }
                 });
@@ -50,12 +55,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Could not get CSRF token');
             }
 
-            const response = await fetch('/api/auth/register', {
+            const response = await fetch(`${BASE_URL}/api/auth/register`, {
                 method: 'POST',
-                credentials: 'same-origin',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': csrfToken,
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
                 },
                 body: JSON.stringify({
                     username,

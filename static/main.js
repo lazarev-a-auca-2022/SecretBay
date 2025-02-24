@@ -3,11 +3,20 @@ let csrfToken = null;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
 
+// Configure base URL based on environment
+const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://${window.location.host}`
+    : `https://${window.location.host}`;
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Check auth status first before doing anything else
     try {
-        const response = await fetch('/api/auth/status', {
-            headers: { 'Accept': 'application/json' }
+        const response = await fetch(`${BASE_URL}/api/auth/status`, {
+            headers: { 
+                'Accept': 'application/json',
+                'Origin': window.location.origin
+            },
+            credentials: 'include'
         }).catch(error => {
             console.error('Failed to connect to server:', error);
             window.location.href = '/error/backend-down.html';
@@ -38,11 +47,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Verify token is valid
-            const statusResponse = await fetch('/api/vpn/status', {
+            const statusResponse = await fetch(`${BASE_URL}/api/vpn/status`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json'
-                }
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
+                },
+                credentials: 'include'
             }).catch(error => {
                 console.error('Failed to check token status:', error);
                 window.location.href = '/error/backend-down.html';
@@ -100,14 +111,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
 
                 // Setup VPN
-                const setupResponse = await fetchWithRetries('/api/setup', {
+                const setupResponse = await fetchWithRetries(`${BASE_URL}/api/setup`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`,
                         'X-CSRF-Token': csrfToken,
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         server_ip: document.getElementById('serverIp')?.value || '',
                         username: document.getElementById('username')?.value || '',
@@ -151,11 +164,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const username = document.getElementById('username')?.value || '';
                 const credential = document.getElementById('authCredential')?.value || '';
 
-                const downloadResponse = await fetchWithRetries(`/api/config/download?server_ip=${encodeURIComponent(serverIp)}&username=${encodeURIComponent(username)}&credential=${encodeURIComponent(credential)}`, {
+                const downloadResponse = await fetchWithRetries(`${BASE_URL}/api/config/download?server_ip=${encodeURIComponent(serverIp)}&username=${encodeURIComponent(username)}&credential=${encodeURIComponent(credential)}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'X-CSRF-Token': csrfToken
-                    }
+                        'X-CSRF-Token': csrfToken,
+                        'Origin': window.location.origin
+                    },
+                    credentials: 'include'
                 }).catch(error => {
                     console.error('Failed to download config:', error);
                     throw new Error('Failed to download configuration: Network error');

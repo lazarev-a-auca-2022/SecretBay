@@ -1,3 +1,8 @@
+// Configure base URL based on environment
+const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? `http://${window.location.host}`
+    : `https://${window.location.host}`;
+
 document.addEventListener('DOMContentLoaded', async () => {
     const loginForm = document.getElementById('loginForm');
     const errorDiv = document.getElementById('error');
@@ -5,7 +10,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // First check if authentication is enabled
     try {
-        const authCheckResponse = await fetch('/api/auth/status');
+        const authCheckResponse = await fetch(`${BASE_URL}/api/auth/status`, {
+            headers: {
+                'Accept': 'application/json',
+                'Origin': window.location.origin
+            },
+            credentials: 'include'
+        });
         const authData = await authCheckResponse.json();
         
         if (!authData.enabled) {
@@ -21,10 +32,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('jwt');
     if (token) {
         try {
-            const response = await fetch('/api/vpn/status', {
+            const response = await fetch(`${BASE_URL}/api/vpn/status`, {
                 headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
+                },
+                credentials: 'include'
             });
             
             if (response.ok) {
@@ -56,9 +70,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function getCsrfToken(retries = 3) {
         for (let i = 0; i < retries; i++) {
             try {
-                const response = await fetch('/api/csrf-token', {
+                const response = await fetch(`${BASE_URL}/api/csrf-token`, {
                     method: 'GET',
-                    credentials: 'same-origin'
+                    headers: {
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    credentials: 'include'
                 });
                 
                 if (!response.ok) {
@@ -92,12 +110,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error('Could not get CSRF token');
             }
 
-            const response = await fetch('/api/auth/login', {
+            const response = await fetch(`${BASE_URL}/api/auth/login`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': csrfToken,
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
                 },
                 body: JSON.stringify({
                     username: document.getElementById('username').value,
