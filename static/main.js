@@ -8,8 +8,59 @@ const BASE_URL = window.location.hostname === 'localhost' || window.location.hos
     ? `http://${window.location.host}`
     : `https://${window.location.host}`;
 
+// Helper functions
+async function getCsrfToken(retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(`${BASE_URL}/api/csrf-token`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
+                },
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (!data.token) {
+                throw new Error('No token in response');
+            }
+            return data.token;
+        } catch (error) {
+            console.error(`CSRF token fetch attempt ${i + 1} failed:`, error);
+            if (i === retries - 1) {
+                throw error;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+        }
+    }
+}
+
+async function getJWTToken() {
+    return localStorage.getItem('jwt');
+}
+
+async function isTokenValid(token) {
+    try {
+        const response = await fetch(`${BASE_URL}/api/vpn/status`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+                'Origin': window.location.origin
+            },
+            credentials: 'include'
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    // Check auth status first before doing anything else
     try {
         const response = await fetch(`${BASE_URL}/api/auth/status`, {
             headers: { 
@@ -19,11 +70,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             credentials: 'include'
         }).catch(error => {
             console.error('Failed to connect to server:', error);
-            window.location.href = '/error/backend-down.html';
             return null;
         });
 
-        if (!response) return; // Already redirected due to connection error
+        if (!response) {
+            window.location.href = '/error/backend-down.html';
+            return;
+        }
         
         // Check if response is HTML instead of JSON
         const contentType = response.headers.get('content-type');
@@ -47,40 +100,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             // Verify token is valid
-            const statusResponse = await fetch(`${BASE_URL}/api/vpn/status`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'Origin': window.location.origin
-                },
-                credentials: 'include'
-            }).catch(error => {
-                console.error('Failed to check token status:', error);
-                window.location.href = '/error/backend-down.html';
-                return null;
-            });
-
-            if (!statusResponse) return; // Already redirected due to connection error
-
-            // Check if response is HTML instead of JSON
-            const statusContentType = statusResponse.headers.get('content-type');
-            if (statusContentType && statusContentType.includes('text/html')) {
-                window.location.href = '/error/backend-down.html';
-                return;
-            }
-
-            if (statusResponse.status === 401 || statusResponse.status === 403) {
+            if (!(await isTokenValid(token))) {
                 localStorage.removeItem('jwt');
                 window.location.href = '/login.html';
                 return;
             }
         }
 
-        // Initialize form handling only after auth check passes
+        // Initialize form handling only if we're on the VPN setup page
         const vpnForm = document.getElementById('vpnForm');
-        // Early return if we're not on a page with the VPN form
         if (!vpnForm) {
-            console.log('VPN form not found - likely on a different page');
+            // Not on the VPN setup page, this is fine
             return;
         }
 
