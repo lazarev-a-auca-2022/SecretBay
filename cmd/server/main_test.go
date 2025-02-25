@@ -3,9 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,18 +21,17 @@ import (
 	"testing"
 	"time"
 
-	"net"
-
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"golang.org/x/crypto/ssh"
+
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/api"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/sshclient"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/models"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"golang.org/x/crypto/ssh"
 )
 
 type MockSSHClient struct {
@@ -621,7 +628,7 @@ func TestBackupRestoreHandlers(t *testing.T) {
 
 	// Create mock SSH client
 	mockSSH := new(MockSSHClient)
-	
+
 	// Mock backup commands
 	mockSSH.On("RunCommand", "mkdir -p /var/backups/vpn-server").Return("", nil)
 	mockSSH.On("RunCommand", mock.MatchedBy(func(cmd string) bool {
@@ -667,7 +674,7 @@ func TestBackupRestoreHandlers(t *testing.T) {
 	t.Run("Backup", func(t *testing.T) {
 		// Create request with query parameters
 		req := httptest.NewRequest(http.MethodGet, "/backup?server_ip=192.168.1.1", nil)
-		
+
 		// Generate and set JWT token
 		token, err := auth.GenerateJWT("test-user", cfg)
 		assert.NoError(t, err)
@@ -692,7 +699,7 @@ func TestBackupRestoreHandlers(t *testing.T) {
 		assert.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/restore", bytes.NewReader(payloadBytes))
-		
+
 		// Generate and set JWT token
 		token, err := auth.GenerateJWT("test-user", cfg)
 		assert.NoError(t, err)
@@ -873,4 +880,282 @@ func isInternalIP(ip string) bool {
 	}
 
 	return false
+}
+
+// TestAuthStatusHandler tests the auth status endpoint
+func TestAuthStatusHandler(t *testing.T) {
+	cfg, err := config.LoadConfig()
+	assert.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+
+	testCases := []struct {
+		name           string
+		method         string
+		headers        map[string]string
+		expectedStatus int
+		expectedBody   map[string]interface{}
+	}{
+		{
+			name:   "Valid GET request",
+			method: "GET",
+			headers: map[string]string{
+				"Accept": "application/json",
+				"Origin": "http://localhost:8080",
+			},
+			expectedStatus: http.StatusOK,
+			expectedBody: map[string]interface{}{
+				"enabled": true,
+			},
+		},
+		{
+			name:   "OPTIONS request for CORS",
+			method: "OPTIONS",
+			headers: map[string]string{
+				"Origin":                        "http://localhost:8080",
+				"Access-Control-Request-Method": "GET",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "Missing Accept header",
+			method: "GET",
+			headers: map[string]string{
+				"Origin": "http://localhost:8080",
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:   "Invalid Origin",
+			method: "GET",
+			headers: map[string]string{
+				"Accept": "application/json",
+				"Origin": "http://malicious-site.com",
+			},
+			expectedStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, "/api/auth/status", nil)
+
+			// Set headers
+			for key, value := range tc.headers {
+				req.Header.Set(key, value)
+			}
+
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			assert.Equal(t, tc.expectedStatus, rr.Code)
+
+			if tc.expectedBody != nil {
+				var response map[string]interface{}
+				err := json.NewDecoder(rr.Body).Decode(&response)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedBody, response)
+			}
+
+			// Check CORS headers for OPTIONS requests
+			if tc.method == "OPTIONS" {
+				assert.NotEmpty(t, rr.Header().Get("Access-Control-Allow-Origin"))
+				assert.NotEmpty(t, rr.Header().Get("Access-Control-Allow-Methods"))
+				assert.NotEmpty(t, rr.Header().Get("Access-Control-Allow-Headers"))
+			}
+		})
+	}
+}
+
+// TestStaticAssetsLoading tests proper loading of static assets and script execution order
+func TestStaticAssetsLoading(t *testing.T) {
+	// Create test directories and files
+	err := os.MkdirAll("./static", 0755)
+	assert.NoError(t, err)
+	defer os.RemoveAll("./static")
+
+	// Create test index.html with proper script loading
+	indexHTML := `<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Test DOM is ready
+            console.log('DOM loaded');
+        });
+    </script>
+</head>
+<body>
+    <div id="vpnForm"></div>
+    <script src="main.js"></script>
+</body>
+</html>`
+
+	err = os.WriteFile("./static/index.html", []byte(indexHTML), 0644)
+	assert.NoError(t, err)
+
+	// Create test router with static file serving
+	router := mux.NewRouter()
+	fs := http.FileServer(http.Dir("./static"))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/index.html")
+	})
+
+	// Create test server
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	// Test index.html is served correctly
+	resp, err := http.Get(ts.URL + "/")
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	resp.Body.Close()
+
+	// Verify script tag is present and correctly placed
+	assert.Contains(t, string(body), `<script src="main.js"></script>`)
+	assert.Contains(t, string(body), `<div id="vpnForm"></div>`)
+}
+
+// TestHTTP2Support tests proper HTTP/2 protocol support and configuration
+func TestHTTP2Support(t *testing.T) {
+	cfg, err := config.LoadConfig()
+	assert.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+
+	// Create test server with HTTP/2 support
+	ts := httptest.NewUnstartedServer(router)
+	ts.EnableHTTP2 = true
+	ts.StartTLS()
+	defer ts.Close()
+
+	// Create HTTP/2 capable client
+	client := ts.Client()
+	transport := client.Transport.(*http.Transport)
+	transport.TLSClientConfig.NextProtos = []string{"h2"}
+
+	// Test auth status endpoint with HTTP/2
+	req, err := http.NewRequest("GET", ts.URL+"/api/auth/status", nil)
+	assert.NoError(t, err)
+	req.Header.Set("Origin", "http://localhost:8080")
+
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Check if protocol is HTTP/2 (accepting both h2 and HTTP/2.0)
+	proto := resp.Proto
+	assert.True(t, proto == "h2" || proto == "HTTP/2.0", "Expected HTTP/2 protocol (h2 or HTTP/2.0), got %s", proto)
+
+	// Verify response content
+	var response map[string]bool
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	assert.NoError(t, err)
+	assert.Contains(t, response, "enabled")
+}
+
+// Helper function to generate test certificate
+func generateTestCertificate() (tls.Certificate, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Test Co"},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour * 24),
+
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	return tls.Certificate{
+		Certificate: [][]byte{derBytes},
+		PrivateKey:  priv,
+	}, nil
+}
+
+// TestAuthStatusHandlerWithHTTP2 tests the auth status endpoint specifically for HTTP/2 protocol issues
+func TestAuthStatusHandlerWithHTTP2(t *testing.T) {
+	cfg, err := config.LoadConfig()
+	assert.NoError(t, err)
+
+	router := mux.NewRouter()
+	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+
+	// Create test server with HTTP/2 support
+	ts := httptest.NewUnstartedServer(router)
+	ts.EnableHTTP2 = true
+	ts.StartTLS()
+	defer ts.Close()
+
+	// Create HTTP/2 capable client
+	client := ts.Client()
+
+	// Test cases
+	testCases := []struct {
+		name           string
+		headers        map[string]string
+		expectedStatus int
+	}{
+		{
+			name: "No Accept header HTTP/2",
+			headers: map[string]string{
+				"Origin": "http://localhost:8080",
+			},
+			expectedStatus: http.StatusOK, // Should not return 400 even without Accept header
+		},
+		{
+			name: "With Accept header HTTP/2",
+			headers: map[string]string{
+				"Accept": "application/json",
+				"Origin": "http://localhost:8080",
+			},
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", ts.URL+"/api/auth/status", nil)
+			assert.NoError(t, err)
+
+			// Set headers
+			for key, value := range tc.headers {
+				req.Header.Set(key, value)
+			}
+
+			resp, err := client.Do(req)
+			assert.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.expectedStatus, resp.StatusCode)
+
+			// Verify response is valid JSON and has expected structure
+			var response map[string]interface{}
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			assert.NoError(t, err)
+			assert.Contains(t, response, "enabled")
+		})
+	}
 }
