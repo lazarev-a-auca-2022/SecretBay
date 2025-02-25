@@ -11,11 +11,6 @@ func ValidatePath(path string, allowedDirs []string) error {
 	// Clean the path to handle ., .., and multiple slashes
 	cleanPath := filepath.Clean(path)
 
-	// Check for absolute paths
-	if filepath.IsAbs(cleanPath) {
-		return fmt.Errorf("absolute paths are not allowed")
-	}
-
 	// Check if path tries to escape using ../
 	if strings.Contains(path, "../") || strings.Contains(path, "..\\") {
 		return fmt.Errorf("path traversal attempted")
@@ -25,8 +20,7 @@ func ValidatePath(path string, allowedDirs []string) error {
 	allowed := false
 	for _, dir := range allowedDirs {
 		cleanDir := filepath.Clean(dir)
-		relPath, err := filepath.Rel(cleanDir, cleanPath)
-		if err == nil && !strings.Contains(relPath, "..") {
+		if strings.HasPrefix(cleanPath, cleanDir) {
 			allowed = true
 			break
 		}

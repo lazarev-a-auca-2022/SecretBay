@@ -159,10 +159,16 @@ conn ikev2-vpn
 	}
 
 	// Verify service status
-	out, err := s.SSHClient.RunCommand("sudo systemctl is-active strongswan-starter")
-	if err != nil || !strings.Contains(strings.TrimSpace(out), "active") {
+	out, err := s.SSHClient.RunCommand("systemctl is-active strongswan-starter")
+	if err != nil {
 		logger.Log.Printf("Service status check failed: Output: %s, Error: %v", out, err)
-		return fmt.Errorf("StrongSwan service failed to start properly")
+		return fmt.Errorf("StrongSwan service failed to start: %v", err)
+	}
+
+	trimmedStatus := strings.TrimSpace(out)
+	if trimmedStatus != "active" {
+		logger.Log.Printf("Service is not active, status: %s", trimmedStatus)
+		return fmt.Errorf("StrongSwan service is not active, status: %s", trimmedStatus)
 	}
 
 	// Save the VPN credentials securely

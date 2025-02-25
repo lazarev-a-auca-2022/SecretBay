@@ -1,0 +1,1402 @@
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:49:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Forbidden: Missing CSRF token
+2025/02/25 22:49:17 http.go:35: Error response: {Error:Missing CSRF token Code:Forbidden RequestID: Timestamp:2025-02-25 16:49:17.2616551 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Forbidden: Missing CSRF token
+2025/02/25 22:49:17 http.go:35: Error response: {Error:Missing CSRF token Code:Forbidden RequestID: Timestamp:2025-02-25 16:49:17.2628234 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:49:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:49:17 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 22:49:17 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 16:49:17.3534448 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:49:17 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 22:49:17 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 22:49:17 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 16:49:17.354576 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 22:49:17 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 16:49:17.4586321 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:49:17 handlers.go:352: LoginHandler: Request received
+2025/02/25 22:49:17 handlers.go:365: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 22:49:17 handlers.go:380: LoginHandler: Invalid credentials for user: test@example.com
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 22:49:17 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 16:49:17.4597631 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 handlers.go:352: LoginHandler: Request received
+2025/02/25 22:49:17 handlers.go:365: LoginHandler: Login attempt for user: 
+2025/02/25 22:49:17 handlers.go:380: LoginHandler: Invalid credentials for user: 
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 22:49:17 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 16:49:17.4597631 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 22:49:17 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 16:49:17.460832 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 22:49:17 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 16:49:17.460832 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 22:49:17 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 16:49:17.4613614 +0000 UTC Details: Path:}
+2025/02/25 22:49:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Forbidden: Missing CSRF token
+2025/02/25 22:52:54 http.go:35: Error response: {Error:Missing CSRF token Code:Forbidden RequestID: Timestamp:2025-02-25 16:52:54.2452724 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Forbidden: Missing CSRF token
+2025/02/25 22:52:54 http.go:35: Error response: {Error:Missing CSRF token Code:Forbidden RequestID: Timestamp:2025-02-25 16:52:54.2452724 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:52:54 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 22:52:54 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 16:52:54.3182606 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:52:54 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 22:52:54 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 22:52:54 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 16:52:54.318788 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 22:52:54 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 16:52:54.4219815 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 handlers.go:352: LoginHandler: Request received
+2025/02/25 22:52:54 handlers.go:365: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 22:52:54 handlers.go:380: LoginHandler: Invalid credentials for user: test@example.com
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 22:52:54 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 16:52:54.4235881 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 handlers.go:352: LoginHandler: Request received
+2025/02/25 22:52:54 handlers.go:365: LoginHandler: Login attempt for user: 
+2025/02/25 22:52:54 handlers.go:380: LoginHandler: Invalid credentials for user: 
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 22:52:54 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 16:52:54.4235881 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 22:52:54 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 16:52:54.42518 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 22:52:54 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 16:52:54.42518 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 22:52:54 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 16:52:54.42518 +0000 UTC Details: Path:}
+2025/02/25 22:52:54 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 22:56:31 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 22:56:31 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:56:31 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 22:56:31 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 22:56:31 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_271e13ab-5a5c-47f2-ad47-3f17551e24cd.ovpn
+2025/02/25 22:56:31 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 22:56:31 openvpn.go:153: Service status check failed: Output: , Error: <nil>
+2025/02/25 22:56:31 handlers.go:89: SetupVPNHandler: OpenVPN setup failed: OpenVPN service failed to start
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: OpenVPN service failed to start
+2025/02/25 22:56:31 http.go:60: Detailed error response: {Error:OpenVPN service failed to start Code:Internal Server Error RequestID: Timestamp:2025-02-25 16:56:31.2076464 +0000 UTC Details: Path:/api/setup}
+2025/02/25 22:56:31 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 22:56:31 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 22:56:31 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:56:31 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 22:56:31 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 22:56:31 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_54c51f60-783f-4799-b50b-f48dad62e531.ovpn
+2025/02/25 22:56:31 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 22:56:31 strongswan.go:164: Service status check failed: Output: , Error: <nil>
+2025/02/25 22:56:31 handlers.go:96: SetupVPNHandler: StrongSwan setup failed: StrongSwan service failed to start properly
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: StrongSwan service failed to start properly
+2025/02/25 22:56:31 http.go:60: Detailed error response: {Error:StrongSwan service failed to start properly Code:Internal Server Error RequestID: Timestamp:2025-02-25 16:56:31.2092252 +0000 UTC Details: Path:/api/setup}
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:56:31 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 22:56:31 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 16:56:31.2711422 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 22:56:31 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 22:56:31 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 22:56:31 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 16:56:31.2721964 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 22:56:31 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 16:56:31.3755704 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 handlers.go:352: LoginHandler: Request received
+2025/02/25 22:56:31 handlers.go:365: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 22:56:31 handlers.go:380: LoginHandler: Invalid credentials for user: test@example.com
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 22:56:31 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 16:56:31.3766418 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 handlers.go:352: LoginHandler: Request received
+2025/02/25 22:56:31 handlers.go:365: LoginHandler: Login attempt for user: 
+2025/02/25 22:56:31 handlers.go:380: LoginHandler: Invalid credentials for user: 
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 22:56:31 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 16:56:31.3766418 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 22:56:31 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 16:56:31.3777083 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 22:56:31 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 16:56:31.3777083 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 22:56:31 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 16:56:31.3777083 +0000 UTC Details: Path:}
+2025/02/25 22:56:31 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:37 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:37 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:00:37 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:00:37 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:00:37 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:00:37 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:00:37 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_03b076f7-35d0-4008-b2bf-b10a70571a51.ovpn
+2025/02/25 23:00:37 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:00:37 openvpn.go:159: Service is not active, status: 
+2025/02/25 23:00:37 handlers.go:89: SetupVPNHandler: OpenVPN setup failed: OpenVPN service is not active, status: 
+2025/02/25 23:00:37 system_metrics.go:100: Error tracked: OpenVPN service is not active, status: 
+2025/02/25 23:00:37 http.go:60: Detailed error response: {Error:OpenVPN service is not active, status:  Code:Internal Server Error RequestID: Timestamp:2025-02-25 17:00:37.9912662 +0000 UTC Details: Path:/api/setup}
+2025/02/25 23:00:37 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:00:37 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:00:37 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:00:37 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:00:37 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:00:37 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_83715e4e-b260-43a3-b3b6-fe75ee83ee21.ovpn
+2025/02/25 23:00:37 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:00:37 strongswan.go:170: Service is not active, status: 
+2025/02/25 23:00:37 handlers.go:96: SetupVPNHandler: StrongSwan setup failed: StrongSwan service is not active, status: 
+2025/02/25 23:00:37 system_metrics.go:100: Error tracked: StrongSwan service is not active, status: 
+2025/02/25 23:00:37 http.go:60: Detailed error response: {Error:StrongSwan service is not active, status:  Code:Internal Server Error RequestID: Timestamp:2025-02-25 17:00:37.9928714 +0000 UTC Details: Path:/api/setup}
+2025/02/25 23:00:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:38 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:00:38 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 23:00:38 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 17:00:38.0581383 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:00:38 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 23:00:38 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 23:00:38 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 17:00:38.0586611 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 23:00:38 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 17:00:38.1619703 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:38 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:00:38 handlers.go:365: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 23:00:38 handlers.go:380: LoginHandler: Invalid credentials for user: test@example.com
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 23:00:38 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 17:00:38.1626099 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:00:38 handlers.go:365: LoginHandler: Login attempt for user: 
+2025/02/25 23:00:38 handlers.go:380: LoginHandler: Invalid credentials for user: 
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 23:00:38 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 17:00:38.1631418 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:00:38 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:00:38.1636672 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 23:00:38 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 17:00:38.1642004 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:00:38 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:00:38.1642004 +0000 UTC Details: Path:}
+2025/02/25 23:00:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:04:51 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:04:51 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:04:51 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:04:51 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:04:51 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_f5d7b308-82cb-4a61-a12b-48618d66e663.ovpn
+2025/02/25 23:04:51 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:04:51 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/25 23:04:51 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:04:51 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:04:51 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:04:51 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:04:51 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:04:51 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:04:51 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:04:51 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:04:51 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:04:51 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:04:51 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:04:51 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:04:51 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_b9f93395-0351-4217-839e-12ba515c6453.ovpn
+2025/02/25 23:04:51 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:04:51 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/25 23:04:51 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:04:51 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:04:51 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:04:51 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:04:51 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:04:51 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:04:51 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:04:51 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 23:04:51 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 17:04:51.8115939 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:04:51 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 23:04:51 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 23:04:51 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 17:04:51.8121305 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 23:04:51 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 17:04:51.915678 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:04:51 handlers.go:365: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 23:04:51 handlers.go:380: LoginHandler: Invalid credentials for user: test@example.com
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 23:04:51 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 17:04:51.916204 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:04:51 handlers.go:365: LoginHandler: Login attempt for user: 
+2025/02/25 23:04:51 handlers.go:380: LoginHandler: Invalid credentials for user: 
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 23:04:51 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 17:04:51.91673 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:04:51 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:04:51.9172616 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 23:04:51 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 17:04:51.9177847 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:04:51 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:04:51.9242164 +0000 UTC Details: Path:}
+2025/02/25 23:04:51 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:55 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:55 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:10:55 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:10:55 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:10:55 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:10:55 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:10:55 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_745cf906-5c7d-4f51-9586-e34c3aa3afc2.ovpn
+2025/02/25 23:10:55 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:10:55 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/25 23:10:55 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:10:55 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:10:55 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:10:55 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:10:55 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:10:55 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:10:55 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:10:55 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:10:55 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:10:55 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:10:55 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:10:55 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:10:55 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:10:55 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_29dd64f2-2ea6-47e6-b30c-e313a851d0cd.ovpn
+2025/02/25 23:10:55 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:10:55 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/25 23:10:55 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:10:55 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:10:55 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:10:55 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:10:55 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:10:55 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:10:55 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:10:55 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:10:56 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:56 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:56 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:10:56 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 23:10:56 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 17:10:56.0056569 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:10:56 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 23:10:56 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 23:10:56 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 17:10:56.0061982 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:56 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 23:10:56 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 17:10:56.1148718 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:56 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:10:56 handlers.go:365: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 23:10:56 handlers.go:380: LoginHandler: Invalid credentials for user: test@example.com
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 23:10:56 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 17:10:56.1164526 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:10:56 handlers.go:365: LoginHandler: Login attempt for user: 
+2025/02/25 23:10:56 handlers.go:380: LoginHandler: Invalid credentials for user: 
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 23:10:56 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 17:10:56.1164526 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:10:56 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:10:56.117514 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 23:10:56 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 17:10:56.117514 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:10:56 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:10:56.1180434 +0000 UTC Details: Path:}
+2025/02/25 23:10:56 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:23:30 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:23:30 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:23:30 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:23:30 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:23:30 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:23:30 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:23:30 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_98a50406-5448-4dbb-aa2a-711d58509cf6.ovpn
+2025/02/25 23:23:30 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:23:30 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/25 23:23:30 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:23:30 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:23:30 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:23:30 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:23:30 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:23:30 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:23:30 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:23:30 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:23:30 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:23:30 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:23:30 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:23:30 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:23:30 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:23:30 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_469b9de8-9453-4a82-88c0-d733340a98d5.ovpn
+2025/02/25 23:23:30 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:23:30 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/25 23:23:30 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:23:30 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:23:30 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:23:30 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:23:30 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:23:30 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:23:30 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:23:30 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:31:02 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:31:02 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:31:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:31:02 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:31:02 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:31:02 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_b8d3607e-3655-4b00-bfc8-7101a3c15aa0.ovpn
+2025/02/25 23:31:02 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:31:02 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/25 23:31:02 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:31:02 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:31:02 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:31:02 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:31:02 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:31:02 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:31:02 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:31:02 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:31:02 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:31:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:31:02 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:31:02 handlers.go:401: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:31:02 handlers.go:405: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_86dcc52b-8fd0-46d0-bd32-cb7de77e1b35.ovpn
+2025/02/25 23:31:02 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:31:02 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/25 23:31:02 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:31:02 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:31:02 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:31:02 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:31:02 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:31:02 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:31:02 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:31:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:31:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:31:02 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 23:31:02 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 17:31:02.8191368 +0000 UTC Details: Path:}
+2025/02/25 23:31:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:31:02 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 23:31:02 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 23:31:02 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 17:31:02.8201942 +0000 UTC Details: Path:}
+2025/02/25 23:31:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:31:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 23:31:02 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 17:31:02.9439453 +0000 UTC Details: Path:}
+2025/02/25 23:31:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:31:02 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:31:02 handlers.go:365: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 23:31:02 handlers.go:393: LoginHandler: Successful login for user: test@example.com
+2025/02/25 23:31:02 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:31:02 handlers.go:365: LoginHandler: Login attempt for user: 
+2025/02/25 23:31:02 handlers.go:380: LoginHandler: Invalid credentials for user: 
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: Unauthorized: Invalid credentials
+2025/02/25 23:31:02 http.go:35: Error response: {Error:Invalid credentials Code:Unauthorized RequestID: Timestamp:2025-02-25 17:31:02.945547 +0000 UTC Details: Path:}
+2025/02/25 23:31:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:31:02 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:31:02.9471355 +0000 UTC Details: Path:}
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 23:31:02 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 17:31:02.9476723 +0000 UTC Details: Path:}
+2025/02/25 23:31:02 system_metrics.go:100: Error tracked: Bad Request: username can only contain letters, numbers, underscores, and hyphens
+2025/02/25 23:31:02 http.go:35: Error response: {Error:username can only contain letters, numbers, underscores, and hyphens Code:Bad Request RequestID: Timestamp:2025-02-25 17:31:02.9476723 +0000 UTC Details: Path:}
+2025/02/25 23:31:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:31:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:38:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:38:38 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:38:38 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:38:38 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:38:38 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:38:38 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:38:38 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_330cbc88-b06e-4411-89fd-2bd64227a325.ovpn
+2025/02/25 23:38:38 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:38:38 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/25 23:38:38 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:38:38 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:38:38 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:38:38 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:38:38 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:38:38 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:38:38 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:38:38 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:38:38 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:38:38 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:38:38 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:38:38 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:38:38 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:38:38 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_d4b40bb5-015d-4aad-a01a-005104e18f84.ovpn
+2025/02/25 23:38:38 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:38:38 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/25 23:38:38 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:38:38 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:38:38 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:38:38 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:38:38 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:38:38 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:38:38 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:38:38 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:38:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:38:38 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:38:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:38:38 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:38:38 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 23:38:38 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 23:38:38 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 17:38:38.1178122 +0000 UTC Details: Path:}
+2025/02/25 23:38:38 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:38:38 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 23:38:38 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 23:38:38 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 23:38:38 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 17:38:38.1188668 +0000 UTC Details: Path:}
+2025/02/25 23:38:38 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:38:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:38:38 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:38:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:38:38 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 23:38:38 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 17:38:38.2368156 +0000 UTC Details: Path:}
+2025/02/25 23:38:38 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:38:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:38:38 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:38:38 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 23:38:38 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/25 23:38:38 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:38:38 handlers.go:366: LoginHandler: Missing credentials
+2025/02/25 23:38:38 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/25 23:38:38 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 17:38:38.2378868 +0000 UTC Details: Path:}
+2025/02/25 23:38:38 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:38:38 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:40:42 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:40:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:40:42 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:40:42 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:40:42 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_5e992453-6c8b-40d3-a3af-6454d57fedb7.ovpn
+2025/02/25 23:40:42 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:40:42 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/25 23:40:42 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:40:42 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:40:42 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:40:42 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:40:42 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:40:42 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:40:42 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:40:42 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:40:42 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:40:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:40:42 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:40:42 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:40:42 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_3d7d1b9a-b1ea-414e-a0eb-8bf107c968d2.ovpn
+2025/02/25 23:40:42 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:40:42 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/25 23:40:42 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:40:42 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:40:42 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:40:42 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:40:42 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:40:42 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:40:42 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:40:42 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 17:40:42.5949981 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:40:42 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 23:40:42 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 23:40:42 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 17:40:42.5955248 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 17:40:42.699184 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:40:42 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 23:40:42 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/25 23:40:42 handlers.go:352: LoginHandler: Request received
+2025/02/25 23:40:42 handlers.go:366: LoginHandler: Missing credentials
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 17:40:42.6997151 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Service Unavailable: Service unavailable
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Service unavailable Code:Service Unavailable RequestID: Timestamp:2025-02-25 17:40:42.7007771 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Service Unavailable: Service unavailable
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Service unavailable Code:Service Unavailable RequestID: Timestamp:2025-02-25 17:40:42.7007771 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Service Unavailable: Service unavailable
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Service unavailable Code:Service Unavailable RequestID: Timestamp:2025-02-25 17:40:42.7013078 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:40:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:40:42 handlers.go:428: BackupHandler: SSH connection failed: all parameters are required
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Internal Server Error: Failed to connect to server
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Failed to connect to server Code:Internal Server Error RequestID: Timestamp:2025-02-25 17:40:42.7023791 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 handlers.go:467: RestoreHandler: SSH connection failed: all parameters are required
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Internal Server Error: Failed to connect to server
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Failed to connect to server Code:Internal Server Error RequestID: Timestamp:2025-02-25 17:40:42.7023791 +0000 UTC Details: Path:}
+2025/02/25 23:40:42 middleware.go:216: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/25 23:40:42 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/25 23:40:42 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-25 17:40:42.7034935 +0000 UTC Details: Path:}
+2025/02/25 23:50:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:02 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:50:02 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:50:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:50:02 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:50:02 handlers.go:410: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:50:02 handlers.go:414: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_2cf177b9-f242-4acc-9bb4-9aa27ad31537.ovpn
+2025/02/25 23:50:02 openvpn.go:17: Starting OpenVPN setup
+2025/02/25 23:50:02 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/25 23:50:02 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:50:02 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:50:02 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:50:02 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:50:02 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:50:02 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:50:02 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:50:02 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:50:02 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/25 23:50:02 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/25 23:50:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:50:02 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/25 23:50:02 handlers.go:410: generateVPNConfigPath: Generating VPN config path
+2025/02/25 23:50:02 handlers.go:414: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_75ebb205-69e4-4241-9573-507c4d576e77.ovpn
+2025/02/25 23:50:02 strongswan.go:39: Starting StrongSwan setup
+2025/02/25 23:50:02 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/25 23:50:02 security.go:16: Starting SetupFail2Ban
+2025/02/25 23:50:02 security.go:87: Starting DisableUnnecessaryServices
+2025/02/25 23:50:02 handlers.go:274: generatePassword: Generating new password
+2025/02/25 23:50:02 handlers.go:291: generatePassword: Password generated successfully
+2025/02/25 23:50:02 security.go:129: Starting ChangeRootPassword
+2025/02/25 23:50:02 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:50:02 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/25 23:50:02 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/25 23:50:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:50:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:50:02 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/25 23:50:02 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/25 23:50:02 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 17:50:02.9162858 +0000 UTC Details: Path:}
+2025/02/25 23:50:02 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/25 23:50:02 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/25 23:50:02 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/25 23:50:02 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/25 23:50:02 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 17:50:02.9168022 +0000 UTC Details: Path:}
+2025/02/25 23:50:02 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:50:02 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:03 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:50:03 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:03 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/25 23:50:03 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 17:50:03.0199094 +0000 UTC Details: Path:}
+2025/02/25 23:50:03 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:50:03 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:03 handlers.go:354: LoginHandler: Request received
+2025/02/25 23:50:03 handlers.go:374: LoginHandler: Login attempt for user: test@example.com
+2025/02/25 23:50:03 handlers.go:402: LoginHandler: Successful login for user: test@example.com
+2025/02/25 23:50:03 handlers.go:354: LoginHandler: Request received
+2025/02/25 23:50:03 handlers.go:368: LoginHandler: Missing credentials
+2025/02/25 23:50:03 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/25 23:50:03 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 17:50:03.0215071 +0000 UTC Details: Path:}
+2025/02/25 23:50:03 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:50:03 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:03 system_metrics.go:100: Error tracked: Service Unavailable: Service unavailable
+2025/02/25 23:50:03 http.go:35: Error response: {Error:Service unavailable Code:Service Unavailable RequestID: Timestamp:2025-02-25 17:50:03.0225639 +0000 UTC Details: Path:}
+2025/02/25 23:50:03 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/25 23:50:03 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 17:50:03.0225639 +0000 UTC Details: Path:}
+2025/02/25 23:50:03 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/25 23:50:03 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 17:50:03.0225639 +0000 UTC Details: Path:}
+2025/02/25 23:50:03 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/25 23:50:03 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/25 23:50:03 handlers.go:442: BackupHandler: SSH connection failed: password too short
+2025/02/25 23:50:03 system_metrics.go:100: Error tracked: Internal Server Error: Failed to connect to server
+2025/02/25 23:50:03 http.go:35: Error response: {Error:Failed to connect to server Code:Internal Server Error RequestID: Timestamp:2025-02-25 17:50:03.0236265 +0000 UTC Details: Path:}
+2025/02/25 23:50:03 handlers.go:498: RestoreHandler: SSH connection failed: password too short
+2025/02/25 23:50:03 system_metrics.go:100: Error tracked: Internal Server Error: Failed to connect to server
+2025/02/25 23:50:03 http.go:35: Error response: {Error:Failed to connect to server Code:Internal Server Error RequestID: Timestamp:2025-02-25 17:50:03.0236265 +0000 UTC Details: Path:}
+2025/02/26 00:02:23 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:02:23 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:02:23 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:02:23 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:02:23 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:02:23 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:02:23 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_56a0c819-7952-4b65-81f6-d42cc79471a8.ovpn
+2025/02/26 00:02:23 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 00:02:23 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 00:02:23 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:02:23 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:02:23 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:02:23 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:02:23 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:02:23 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:02:23 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:02:23 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:02:23 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:02:23 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:02:23 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:02:23 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:02:23 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:02:23 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_bba2505b-6306-46a6-a405-44acfa90bc74.ovpn
+2025/02/26 00:02:23 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 00:02:23 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 00:02:23 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:02:23 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:02:23 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:02:23 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:02:23 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:02:23 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:02:23 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:02:23 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:02:23 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:02:23 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:02:23 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:02:23 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:02:23 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 00:02:23 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 00:02:23 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 18:02:23.885763 +0000 UTC Details: Path:}
+2025/02/26 00:02:23 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:02:23 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 00:02:23 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 00:02:23 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 00:02:23 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 18:02:23.8862937 +0000 UTC Details: Path:}
+2025/02/26 00:02:23 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:02:23 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:02:23 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:02:23 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:02:23 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 00:02:23 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 18:02:23.989774 +0000 UTC Details: Path:}
+2025/02/26 00:02:23 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:02:23 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:02:23 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:02:23 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 00:02:23 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 00:02:23 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:02:23 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 00:02:23 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 00:02:23 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 18:02:23.9908518 +0000 UTC Details: Path:}
+2025/02/26 00:02:23 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:02:23 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:13:16 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:13:16 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:13:16 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:13:16 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:13:16 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_4aa236b7-e9bc-4b05-a713-8bba74dd404f.ovpn
+2025/02/26 00:13:16 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 00:13:16 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 00:13:16 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:13:16 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:13:16 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:13:16 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:13:16 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:13:16 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:13:16 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:13:16 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:13:16 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:13:16 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:13:16 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:13:16 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:13:16 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_2fe892bd-edd2-456b-90a0-b793ad867ee4.ovpn
+2025/02/26 00:13:16 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 00:13:16 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 00:13:16 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:13:16 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:13:16 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:13:16 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:13:16 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:13:16 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:13:16 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:13:16 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 00:13:16 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 18:13:16.6969195 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:13:16 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 00:13:16 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 00:13:16 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 18:13:16.6974446 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 00:13:16 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 18:13:16.8010095 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:13:16 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 00:13:16 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 00:13:16 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:13:16 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 00:13:16 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 18:13:16.8020676 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 00:13:16 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 18:13:16.8549002 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 00:13:16 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 18:13:16.8549002 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:13:16 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:13:16 handlers.go:428: BackupHandler: SSH connection failed: all parameters are required
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Internal Server Error: Failed to connect to server
+2025/02/26 00:13:16 http.go:35: Error response: {Error:Failed to connect to server Code:Internal Server Error RequestID: Timestamp:2025-02-25 18:13:16.8559347 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 handlers.go:467: RestoreHandler: SSH connection failed: all parameters are required
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Internal Server Error: Failed to connect to server
+2025/02/26 00:13:16 http.go:35: Error response: {Error:Failed to connect to server Code:Internal Server Error RequestID: Timestamp:2025-02-25 18:13:16.8559347 +0000 UTC Details: Path:}
+2025/02/26 00:13:16 middleware.go:216: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 00:13:16 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 00:13:16 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-25 18:13:16.8564633 +0000 UTC Details: Path:}
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:16:42 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:16:42 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:16:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:16:42 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:16:42 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:16:42 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_3bdccf51-63e5-45b6-8c6e-302771cde434.ovpn
+2025/02/26 00:16:42 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 00:16:42 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 00:16:42 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:16:42 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:16:42 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:16:42 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:16:42 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:16:42 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:16:42 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:16:42 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:16:42 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:16:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:16:42 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:16:42 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:16:42 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_01a11ebd-dc3d-44bd-b1af-b675d0728219.ovpn
+2025/02/26 00:16:42 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 00:16:42 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 00:16:42 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:16:42 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:16:42 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:16:42 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:16:42 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:16:42 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:16:42 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:16:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:16:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:16:42 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 00:16:42 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 18:16:42.5465699 +0000 UTC Details: Path:}
+2025/02/26 00:16:42 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:16:42 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 00:16:42 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 00:16:42 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 18:16:42.5471075 +0000 UTC Details: Path:}
+2025/02/26 00:16:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:16:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 00:16:42 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 18:16:42.6505707 +0000 UTC Details: Path:}
+2025/02/26 00:16:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:16:42 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:16:42 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 00:16:42 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 00:16:42 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:16:42 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 00:16:42 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 18:16:42.6726396 +0000 UTC Details: Path:}
+2025/02/26 00:16:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 00:16:42 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 18:16:42.7266972 +0000 UTC Details: Path:}
+2025/02/26 00:16:42 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 00:16:42 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 18:16:42.7266972 +0000 UTC Details: Path:}
+2025/02/26 00:16:42 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:16:42 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:22:20 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:22:20 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:22:20 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:22:20 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:22:20 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_11ecbf19-4ed3-43cc-9f74-f222b34bf970.ovpn
+2025/02/26 00:22:20 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 00:22:20 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 00:22:20 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:22:20 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:22:20 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:22:20 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:22:20 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:22:20 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:22:20 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:22:20 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:22:20 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:22:20 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:22:20 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:22:20 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:22:20 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_e4616339-ac65-46b2-a936-1fbc0be680f2.ovpn
+2025/02/26 00:22:20 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 00:22:20 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 00:22:20 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:22:20 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:22:20 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:22:20 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:22:20 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:22:20 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:22:20 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:22:20 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 00:22:20 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 18:22:20.2474454 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:22:20 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 00:22:20 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 00:22:20 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 18:22:20.247968 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 00:22:20 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 18:22:20.3518318 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:22:20 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 00:22:20 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 00:22:20 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:22:20 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 00:22:20 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 18:22:20.3523615 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 00:22:20 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 18:22:20.4097413 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 00:22:20 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 18:22:20.4097413 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:22:20 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:22:20 handlers.go:437: BackupHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Internal Server Error: Failed to create backup
+2025/02/26 00:22:20 http.go:35: Error response: {Error:Failed to create backup Code:Internal Server Error RequestID: Timestamp:2025-02-25 18:22:20.4114653 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 handlers.go:475: RestoreHandler: Restore failed: invalid backup file path: path is not within allowed directories
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Internal Server Error: Failed to restore backup
+2025/02/26 00:22:20 http.go:35: Error response: {Error:Failed to restore backup Code:Internal Server Error RequestID: Timestamp:2025-02-25 18:22:20.4119861 +0000 UTC Details: Path:}
+2025/02/26 00:22:20 middleware.go:216: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 00:22:20 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 00:22:20 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-25 18:22:20.4151934 +0000 UTC Details: Path:}
+2025/02/26 00:25:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:09 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:25:09 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:25:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:25:09 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:25:09 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:25:09 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_11933dce-fb4b-4353-8243-597c3b3f78f2.ovpn
+2025/02/26 00:25:09 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 00:25:09 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 00:25:09 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:25:09 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:25:09 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:25:09 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:25:09 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:25:09 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:25:09 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:25:09 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:25:09 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 00:25:09 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 00:25:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:25:09 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 00:25:09 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 00:25:09 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_99c32b13-f0da-4bfd-9c69-9134bc861b2a.ovpn
+2025/02/26 00:25:09 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 00:25:09 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 00:25:09 security.go:16: Starting SetupFail2Ban
+2025/02/26 00:25:09 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 00:25:09 handlers.go:274: generatePassword: Generating new password
+2025/02/26 00:25:09 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 00:25:09 security.go:129: Starting ChangeRootPassword
+2025/02/26 00:25:09 handlers.go:143: SetupVPNHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:25:09 system_metrics.go:100: Error tracked: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:25:09 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 00:25:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:09 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:25:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:25:09 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 00:25:09 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 00:25:09 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 18:25:09.9814316 +0000 UTC Details: Path:}
+2025/02/26 00:25:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 00:25:09 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 00:25:09 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 00:25:09 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 00:25:09 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 18:25:09.9819696 +0000 UTC Details: Path:}
+2025/02/26 00:25:09 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:25:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:10 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:25:10 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:10 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 00:25:10 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 18:25:10.0854927 +0000 UTC Details: Path:}
+2025/02/26 00:25:10 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:25:10 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:10 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:25:10 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 00:25:10 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 00:25:10 handlers.go:352: LoginHandler: Request received
+2025/02/26 00:25:10 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 00:25:10 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 00:25:10 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 18:25:10.0955239 +0000 UTC Details: Path:}
+2025/02/26 00:25:10 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:25:10 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:10 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 00:25:10 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 18:25:10.1490249 +0000 UTC Details: Path:}
+2025/02/26 00:25:10 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 00:25:10 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 18:25:10.1490249 +0000 UTC Details: Path:}
+2025/02/26 00:25:10 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 00:25:10 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 00:25:10 handlers.go:437: BackupHandler: Backup creation failed: invalid backup source path /etc/ipsec.conf: path is not within allowed directories
+2025/02/26 00:25:10 system_metrics.go:100: Error tracked: Internal Server Error: Failed to create backup
+2025/02/26 00:25:10 http.go:35: Error response: {Error:Failed to create backup Code:Internal Server Error RequestID: Timestamp:2025-02-25 18:25:10.1500779 +0000 UTC Details: Path:}
+2025/02/26 00:25:10 handlers.go:475: RestoreHandler: Restore failed: invalid backup file path: path is not within allowed directories
+2025/02/26 00:25:10 system_metrics.go:100: Error tracked: Internal Server Error: Failed to restore backup
+2025/02/26 00:25:10 http.go:35: Error response: {Error:Failed to restore backup Code:Internal Server Error RequestID: Timestamp:2025-02-25 18:25:10.1506022 +0000 UTC Details: Path:}
+2025/02/26 00:25:10 middleware.go:216: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 00:25:10 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 00:25:10 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-25 18:25:10.1511394 +0000 UTC Details: Path:}
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:02:57 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:02:57 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:02:57 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:02:57 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:02:57 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:02:57 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_54efb748-d7e5-42de-b08c-1bbff2784347.ovpn
+2025/02/26 01:02:57 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 01:02:57 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 01:02:57 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:02:57 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:02:57 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:02:57 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:02:57 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:02:57 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:02:57 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:02:57 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:02:57 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:02:57 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:02:57 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:02:57 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_6a6c5b5c-23c6-4c5c-a1c0-cc343b262685.ovpn
+2025/02/26 01:02:57 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 01:02:57 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 01:02:57 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:02:57 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:02:57 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:02:57 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:02:57 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:02:57 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:02:57 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:02:57 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:02:57 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 01:02:57 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 01:02:57 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 19:02:57.7032719 +0000 UTC Details: Path:}
+2025/02/26 01:02:57 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:02:57 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 01:02:57 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 01:02:57 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 01:02:57 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 19:02:57.7038076 +0000 UTC Details: Path:}
+2025/02/26 01:02:57 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:02:57 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:02:57 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 01:02:57 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 19:02:57.8068415 +0000 UTC Details: Path:}
+2025/02/26 01:02:57 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:02:57 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:02:57 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 01:02:57 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 01:02:57 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:02:57 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 01:02:57 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 01:02:57 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 19:02:57.807898 +0000 UTC Details: Path:}
+2025/02/26 01:02:57 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:02:57 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 01:02:57 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 19:02:57.8600976 +0000 UTC Details: Path:}
+2025/02/26 01:02:57 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 01:02:57 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 19:02:57.8600976 +0000 UTC Details: Path:}
+2025/02/26 01:02:57 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:02:57 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:17 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:04:17 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:04:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:04:17 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:04:17 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:04:17 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_9eeac397-b13f-4f89-a37d-41e2845e4593.ovpn
+2025/02/26 01:04:17 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 01:04:17 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 01:04:17 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:04:17 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:04:17 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:04:17 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:04:17 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:04:17 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:04:17 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:04:17 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:04:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:04:17 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:04:17 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:04:17 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_f5aeb4d1-da4b-41c8-9e75-4b5eceeb9151.ovpn
+2025/02/26 01:04:17 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 01:04:17 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 01:04:17 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:04:17 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:04:17 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:04:17 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:04:17 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:04:17 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:04:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:17 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:04:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:04:17 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 01:04:17 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 01:04:17 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 19:04:17.9856161 +0000 UTC Details: Path:}
+2025/02/26 01:04:17 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:04:17 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 01:04:17 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 01:04:17 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 01:04:17 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 19:04:17.986131 +0000 UTC Details: Path:}
+2025/02/26 01:04:17 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:04:17 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:18 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:04:18 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:18 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 01:04:18 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 19:04:18.0893545 +0000 UTC Details: Path:}
+2025/02/26 01:04:18 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:04:18 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:18 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:04:18 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 01:04:18 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 01:04:18 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:04:18 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 01:04:18 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 01:04:18 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 19:04:18.0904146 +0000 UTC Details: Path:}
+2025/02/26 01:04:18 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:04:18 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:04:18 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 01:04:18 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 19:04:18.1426929 +0000 UTC Details: Path:}
+2025/02/26 01:04:18 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 01:04:18 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 19:04:18.1426929 +0000 UTC Details: Path:}
+2025/02/26 01:04:18 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:04:18 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:06:53 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:06:53 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:06:53 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:06:53 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:06:53 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_33f29c05-bb68-42d8-9582-98a6bff1022f.ovpn
+2025/02/26 01:06:53 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 01:06:53 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 01:06:53 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:06:53 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:06:53 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:06:53 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:06:53 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:06:53 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:06:53 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:06:53 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:06:53 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:06:53 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:06:53 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:06:53 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_7fba0b65-f954-4595-8766-8b61f1248520.ovpn
+2025/02/26 01:06:53 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 01:06:53 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 01:06:53 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:06:53 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:06:53 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:06:53 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:06:53 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:06:53 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:06:53 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 01:06:53 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 01:06:53 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 19:06:53.4555473 +0000 UTC Details: Path:}
+2025/02/26 01:06:53 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:06:53 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 01:06:53 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 01:06:53 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 01:06:53 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 19:06:53.4560672 +0000 UTC Details: Path:}
+2025/02/26 01:06:53 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 01:06:53 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 19:06:53.5596817 +0000 UTC Details: Path:}
+2025/02/26 01:06:53 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:06:53 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 01:06:53 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 01:06:53 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:06:53 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 01:06:53 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 01:06:53 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 19:06:53.5612875 +0000 UTC Details: Path:}
+2025/02/26 01:06:53 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:06:53 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 01:06:53 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 19:06:53.6146483 +0000 UTC Details: Path:}
+2025/02/26 01:06:53 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 01:06:53 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 19:06:53.6146483 +0000 UTC Details: Path:}
+2025/02/26 01:06:53 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:06:53 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:06 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:06 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:08:06 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:08:06 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:08:06 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:08:06 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:08:06 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_2bbd9e78-c67c-4876-b7bf-c77813fbe577.ovpn
+2025/02/26 01:08:06 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 01:08:06 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 01:08:06 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:08:06 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:08:06 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:08:06 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:08:06 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:08:06 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:08:06 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:08:06 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:08:06 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:08:06 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:08:06 handlers.go:408: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:08:06 handlers.go:412: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_924210b1-f745-4b93-9c41-3475c9bea74e.ovpn
+2025/02/26 01:08:06 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 01:08:06 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 01:08:06 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:08:06 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:08:06 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:08:06 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:08:06 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:08:06 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:08:06 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:06 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:08:06 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:06 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:08:06 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 01:08:06 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 01:08:06 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 19:08:06.9389531 +0000 UTC Details: Path:}
+2025/02/26 01:08:06 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:08:06 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 01:08:06 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 01:08:06 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 01:08:06 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 19:08:06.9400089 +0000 UTC Details: Path:}
+2025/02/26 01:08:06 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:08:06 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:07 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:08:07 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:07 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 01:08:07 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 19:08:07.0434132 +0000 UTC Details: Path:}
+2025/02/26 01:08:07 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:08:07 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:07 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:08:07 handlers.go:372: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 01:08:07 handlers.go:400: LoginHandler: Successful login for user: test@example.com
+2025/02/26 01:08:07 handlers.go:352: LoginHandler: Request received
+2025/02/26 01:08:07 handlers.go:366: LoginHandler: Missing credentials
+2025/02/26 01:08:07 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 01:08:07 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 19:08:07.0444858 +0000 UTC Details: Path:}
+2025/02/26 01:08:07 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:08:07 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:07 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 01:08:07 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 19:08:07.0969568 +0000 UTC Details: Path:}
+2025/02/26 01:08:07 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 01:08:07 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 19:08:07.0969568 +0000 UTC Details: Path:}
+2025/02/26 01:08:07 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:08:07 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:08:07 middleware.go:216: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 01:08:07 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 01:08:07 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-25 19:08:07.0998328 +0000 UTC Details: Path:}
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:14:49 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:14:49 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:14:49 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:14:49 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:14:49 handlers.go:433: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:14:49 handlers.go:437: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_74eebf36-7314-4ac1-87e7-ac6eeafb7a8b.ovpn
+2025/02/26 01:14:49 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 01:14:49 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 01:14:49 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:14:49 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:14:49 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:14:49 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:14:49 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:14:49 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:14:49 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:14:49 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:14:49 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:14:49 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:14:49 handlers.go:433: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:14:49 handlers.go:437: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_8f46a3ac-0037-4648-9a6f-da01abd2467c.ovpn
+2025/02/26 01:14:49 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 01:14:49 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 01:14:49 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:14:49 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:14:49 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:14:49 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:14:49 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:14:49 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:14:49 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:14:49 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:14:49 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 01:14:49 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 01:14:49 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 19:14:49.770664 +0000 UTC Details: Path:}
+2025/02/26 01:14:49 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:14:49 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 01:14:49 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 01:14:49 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 01:14:49 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 19:14:49.7712091 +0000 UTC Details: Path:}
+2025/02/26 01:14:49 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:14:49 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:14:49 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 01:14:49 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 19:14:49.8760031 +0000 UTC Details: Path:}
+2025/02/26 01:14:49 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:14:49 handlers.go:377: LoginHandler: Request received
+2025/02/26 01:14:49 handlers.go:397: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 01:14:49 handlers.go:425: LoginHandler: Successful login for user: test@example.com
+2025/02/26 01:14:49 handlers.go:377: LoginHandler: Request received
+2025/02/26 01:14:49 handlers.go:391: LoginHandler: Missing credentials
+2025/02/26 01:14:49 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 01:14:49 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 19:14:49.8812782 +0000 UTC Details: Path:}
+2025/02/26 01:14:49 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:14:49 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 01:14:49 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 19:14:49.9370612 +0000 UTC Details: Path:}
+2025/02/26 01:14:49 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 01:14:49 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 19:14:49.9370612 +0000 UTC Details: Path:}
+2025/02/26 01:14:49 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:14:49 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:09 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:21:09 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:21:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:21:09 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:21:09 handlers.go:433: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:21:09 handlers.go:437: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_adb3319d-f2db-473d-8c46-6cb2a2b0912c.ovpn
+2025/02/26 01:21:09 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 01:21:09 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 01:21:09 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:21:09 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:21:09 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:21:09 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:21:09 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:21:09 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:21:09 middleware.go:302: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 01:21:09 middleware.go:337: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 01:21:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:21:09 handlers.go:48: SetupVPNHandler: Processing request
+2025/02/26 01:21:09 handlers.go:433: generateVPNConfigPath: Generating VPN config path
+2025/02/26 01:21:09 handlers.go:437: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_2e7985f2-14ae-4f27-aa16-c2872128b1ef.ovpn
+2025/02/26 01:21:09 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 01:21:09 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 01:21:09 security.go:16: Starting SetupFail2Ban
+2025/02/26 01:21:09 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 01:21:09 handlers.go:274: generatePassword: Generating new password
+2025/02/26 01:21:09 handlers.go:291: generatePassword: Password generated successfully
+2025/02/26 01:21:09 security.go:129: Starting ChangeRootPassword
+2025/02/26 01:21:09 handlers.go:158: SetupVPNHandler: Setup completed successfully
+2025/02/26 01:21:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:09 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:21:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:21:09 middleware.go:112: JWTAuthenticationMiddleware: Missing Authorization Header
+2025/02/26 01:21:09 system_metrics.go:100: Error tracked: Unauthorized: Missing Authorization Header
+2025/02/26 01:21:09 http.go:35: Error response: {Error:Missing Authorization Header Code:Unauthorized RequestID: Timestamp:2025-02-25 19:21:09.8692463 +0000 UTC Details: Path:}
+2025/02/26 01:21:09 middleware.go:58: JWTAuthenticationMiddleware: Request received
+2025/02/26 01:21:09 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 01:21:09 middleware.go:128: JWTAuthenticationMiddleware: Token validation error: invalid token
+2025/02/26 01:21:09 system_metrics.go:100: Error tracked: Unauthorized: invalid token
+2025/02/26 01:21:09 http.go:35: Error response: {Error:invalid token Code:Unauthorized RequestID: Timestamp:2025-02-25 19:21:09.8697682 +0000 UTC Details: Path:}
+2025/02/26 01:21:09 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:21:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:09 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:21:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:09 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 01:21:09 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-25 19:21:09.9729887 +0000 UTC Details: Path:}
+2025/02/26 01:21:09 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:21:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:09 handlers.go:377: LoginHandler: Request received
+2025/02/26 01:21:09 handlers.go:397: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 01:21:09 handlers.go:425: LoginHandler: Successful login for user: test@example.com
+2025/02/26 01:21:09 handlers.go:377: LoginHandler: Request received
+2025/02/26 01:21:09 handlers.go:391: LoginHandler: Missing credentials
+2025/02/26 01:21:09 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 01:21:09 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-25 19:21:09.9740438 +0000 UTC Details: Path:}
+2025/02/26 01:21:09 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:21:09 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:10 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 01:21:10 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-25 19:21:10.031748 +0000 UTC Details: Path:}
+2025/02/26 01:21:10 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 01:21:10 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-25 19:21:10.031748 +0000 UTC Details: Path:}
+2025/02/26 01:21:10 config.go:108: Warning: Generated temporary JWT secret for development
+2025/02/26 01:21:10 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 01:21:10 middleware.go:216: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 01:21:10 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 01:21:10 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-25 19:21:10.0371404 +0000 UTC Details: Path:}

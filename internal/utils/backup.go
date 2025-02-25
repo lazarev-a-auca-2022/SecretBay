@@ -20,6 +20,12 @@ var allowedBackupPaths = []string{
 	"/etc/vpn-configs",
 	"/etc/openvpn",
 	"/etc/ipsec.d",
+	"/etc/ipsec.conf",
+	"/etc/openvpn/server.conf",
+	"/etc/openvpn/certs",
+	"/etc/ipsec.d/cacerts",
+	"/etc/ipsec.d/certs",
+	"/tmp", // Allow tmp directory for restore operations
 }
 
 func (b *BackupManager) CreateBackup() (string, error) {

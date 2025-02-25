@@ -246,28 +246,28 @@ func isInternalIP(ip string) bool {
 }
 
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
-    // Public endpoints that don't need auth or CSRF
-    router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
-    router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
-    
-    // Auth endpoints - must be accessible without auth
-    authRouter := router.PathPrefix("/api/auth").Subrouter()
-    authRouter.HandleFunc("/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
-    authRouter.HandleFunc("/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
-    authRouter.HandleFunc("/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
+	// Public endpoints that don't need auth or CSRF
+	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
+	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
 
-    // Protected API routes
-    apiRouter := router.PathPrefix("/api").Subrouter()
-    apiRouter.Use(JWTAuthenticationMiddleware(cfg))
-    apiRouter.Use(func(next http.Handler) http.Handler {
-        return CSRFMiddleware(cfg)(next)
-    })
+	// Auth endpoints - must be accessible without auth
+	authRouter := router.PathPrefix("/api/auth").Subrouter()
+	authRouter.HandleFunc("/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	authRouter.HandleFunc("/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	authRouter.HandleFunc("/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
-    apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-    apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
-    apiRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
-    apiRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
-    apiRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
+	// Protected API routes
+	apiRouter := router.PathPrefix("/api").Subrouter()
+	apiRouter.Use(JWTAuthenticationMiddleware(cfg))
+	apiRouter.Use(func(next http.Handler) http.Handler {
+		return CSRFMiddleware(cfg)(next)
+	})
+
+	apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
+	apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
+	apiRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+	apiRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
+	apiRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
 }
 
 func generatePassword() (string, error) {
@@ -294,6 +294,15 @@ func generatePassword() (string, error) {
 
 func DownloadConfigHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		vpnType := vars["type"]
+
+		// Validate VPN type
+		if vpnType != "openvpn" && vpnType != "ios" {
+			http.Error(w, "Invalid VPN type", http.StatusBadRequest)
+			return
+		}
+
 		// Get required query parameters
 		serverIP := r.URL.Query().Get("server_ip")
 		if serverIP == "" {
@@ -322,8 +331,16 @@ func DownloadConfigHandler() http.HandlerFunc {
 		}
 		defer sshClient.Close()
 
-		// Check whether a VPN config file exists.
-		out, err := sshClient.RunCommand("test -f /etc/vpn-configs/openvpn_config.ovpn && echo exists || echo notfound")
+		// Define config file path based on VPN type
+		var configPath string
+		if vpnType == "openvpn" {
+			configPath = "/etc/vpn-configs/openvpn_config.ovpn"
+		} else {
+			configPath = "/etc/vpn-configs/ios_vpn.mobileconfig"
+		}
+
+		// Check whether VPN config file exists.
+		out, err := sshClient.RunCommand(fmt.Sprintf("test -f %s && echo exists || echo notfound", configPath))
 		if err != nil {
 			logger.Log.Printf("DownloadConfigHandler: error checking VPN config: %v", err)
 			http.Error(w, fmt.Sprintf("Error checking VPN config: %v", err), http.StatusInternalServerError)
@@ -335,15 +352,23 @@ func DownloadConfigHandler() http.HandlerFunc {
 		}
 
 		// If found, read the configuration file.
-		configContent, err := sshClient.RunCommand("cat /etc/vpn-configs/openvpn_config.ovpn")
+		configContent, err := sshClient.RunCommand(fmt.Sprintf("cat %s", configPath))
 		if err != nil {
 			logger.Log.Printf("DownloadConfigHandler: failed to read config file: %v", err)
 			http.Error(w, fmt.Sprintf("Failed to read config file: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", "attachment; filename=openvpn_config.ovpn")
+		// Set appropriate filename based on VPN type
+		filename := "openvpn_config.ovpn"
+		contentType := "application/octet-stream"
+		if vpnType == "ios" {
+			filename = "vpn_config.mobileconfig"
+			contentType = "application/x-apple-aspen-config"
+		}
+
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 		w.Write([]byte(configContent))
 	}
 }
@@ -358,6 +383,13 @@ func LoginHandler(cfg *config.Config) http.HandlerFunc {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			logger.Log.Printf("LoginHandler: Error decoding request: %v", err)
 			utils.JSONError(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		// Check for missing credentials
+		if req.Username == "" || req.Password == "" {
+			logger.Log.Println("LoginHandler: Missing credentials")
+			utils.JSONError(w, "Missing credentials", http.StatusBadRequest)
 			return
 		}
 
@@ -555,22 +587,22 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 		// Always set JSON content type and disable caching
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-        w.Header().Set("Pragma", "no-cache")
-        w.Header().Set("Expires", "0")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
 
-        // Always return JSON, never redirect
-        response := AuthStatusResponse{
-            Enabled: cfg.AuthEnabled,
-        }
-        
-        w.WriteHeader(http.StatusOK)
-        if err := json.NewEncoder(w).Encode(response); err != nil {
-            logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
-            w.WriteHeader(http.StatusInternalServerError)
-            json.NewEncoder(w).Encode(map[string]interface{}{
-                "error": "Internal server error",
-                "enabled": false,
-            })
-        }
+		// Always return JSON, never redirect
+		response := AuthStatusResponse{
+			Enabled: cfg.AuthEnabled,
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "Internal server error",
+				"enabled": false,
+			})
+		}
 	}
 }

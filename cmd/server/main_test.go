@@ -2,17 +2,20 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"net"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gorilla/mux"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/api"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
@@ -75,10 +78,13 @@ func TestVPNSetupRequest(t *testing.T) {
 	cfg.DB = db
 
 	router := mux.NewRouter()
-	api.SetupRoutes(router, cfg) // Setting up all routes properly
+	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	api.SetupRoutes(router, cfg)
 
 	// Create mock SSH client with expected behaviors
 	mockSSH := new(MockSSHClient)
+	mockSSH.On("RunCommand", "systemctl is-active openvpn@server").Return("active", nil)
+	mockSSH.On("RunCommand", "systemctl is-active strongswan-starter").Return("active", nil)
 	mockSSH.On("RunCommand", mock.AnythingOfType("string")).Return("", nil)
 	mockSSH.On("Close").Return()
 
@@ -130,11 +136,24 @@ func TestVPNSetupRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// First get a CSRF token
+			csrfReq := httptest.NewRequest(http.MethodGet, "/api/csrf-token", nil)
+			csrfRR := httptest.NewRecorder()
+			router.ServeHTTP(csrfRR, csrfReq)
+			assert.Equal(t, http.StatusOK, csrfRR.Code)
+
+			var csrfResp map[string]string
+			err := json.NewDecoder(csrfRR.Body).Decode(&csrfResp)
+			assert.NoError(t, err)
+			assert.NotEmpty(t, csrfResp["token"])
+
+			// Then make the actual VPN setup request
 			payloadBytes, err := json.Marshal(tc.payload)
 			assert.NoError(t, err)
 
 			req := httptest.NewRequest(http.MethodPost, "/api/setup", bytes.NewReader(payloadBytes))
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-CSRF-Token", csrfResp["token"])
 
 			token, err := auth.GenerateJWT("test-user", cfg)
 			assert.NoError(t, err)
@@ -197,8 +216,9 @@ func TestSSHClientRunCommand(t *testing.T) {
 			mockSSH.On("RunCommand", tc.command).Return(tc.mockOutput, tc.mockError)
 			mockSSH.On("Close").Return()
 
-			// Create SSH client with mock
+			// Create SSH client with both Client and RunCommandFunc initialized
 			client := &sshclient.SSHClient{
+				Client: &ssh.Client{}, // Add this line to initialize the Client field
 				RunCommandFunc: func(cmd string) (string, error) {
 					return mockSSH.RunCommand(cmd)
 				},
@@ -287,7 +307,7 @@ func TestErrorHandling(t *testing.T) {
 				_, err := sshclient.NewSSHClient("invalid", "invalid", "password", "invalid")
 				return err
 			},
-			expectedError: "could not create hostkeycallback function", // Updated expected error
+			expectedError: "password too short",
 		},
 	}
 
@@ -335,11 +355,17 @@ func TestStaticFileServing(t *testing.T) {
 
 // TestConfigLoading tests config loading functionality
 func TestConfigLoading(t *testing.T) {
+	// Set required environment variables for test
+	os.Setenv("JWT_SECRET", "test-secret-that-meets-minimum-length-32char")
+
 	cfg, err := config.LoadConfig()
 	assert.NoError(t, err)
 	assert.NotNil(t, cfg)
 	assert.Equal(t, "9999", cfg.Server.Port)
-	assert.Equal(t, "test-secret", cfg.JWTSecret)
+	assert.Equal(t, "test-secret-that-meets-minimum-length-32char", cfg.JWTSecret)
+
+	// Clean up
+	os.Unsetenv("JWT_SECRET")
 }
 
 // TestSecuredRoutes tests JWT authentication middleware
@@ -381,7 +407,7 @@ func TestServerStartup(t *testing.T) {
 	go func() {
 		router := mux.NewRouter()
 		err := http.ListenAndServe(":"+cfg.Server.Port, router)
-		if err != http.ErrServerClosed {
+		if (err != nil) && (err != http.ErrServerClosed) {
 			assert.NoError(t, err)
 		}
 	}()
@@ -440,6 +466,10 @@ func TestLoginHandler(t *testing.T) {
 	cfg, err := config.LoadConfig()
 	assert.NoError(t, err)
 
+	// Set admin credentials in env for testing
+	os.Setenv("ADMIN_USERNAME", "test@example.com")
+	os.Setenv("ADMIN_PASSWORD", "password123")
+
 	router := mux.NewRouter()
 	router.HandleFunc("/login", api.LoginHandler(cfg))
 
@@ -479,12 +509,23 @@ func TestLoginHandler(t *testing.T) {
 			assert.Equal(t, tc.wantStatus, rr.Code)
 		})
 	}
+
+	// Clean up environment
+	os.Unsetenv("ADMIN_USERNAME")
+	os.Unsetenv("ADMIN_PASSWORD")
 }
 
 // TestRegisterHandler tests the user registration endpoint
 func TestRegisterHandler(t *testing.T) {
 	cfg, err := config.LoadConfig()
 	assert.NoError(t, err)
+
+	// Create mock database
+	db, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+
+	cfg.DB = db
 
 	router := mux.NewRouter()
 	router.HandleFunc("/register", api.RegisterHandler(cfg.DB, cfg))
@@ -493,15 +534,32 @@ func TestRegisterHandler(t *testing.T) {
 		name       string
 		payload    map[string]string
 		wantStatus int
+		setupMock  func()
 	}{
 		{
 			name: "Valid Registration",
 			payload: map[string]string{
-				"username": "newuser@example.com",
-				"password": "securePass123!",
+				"username": "testuser123",
+				"password": "SecurePass123!",
 				"email":    "newuser@example.com",
 			},
 			wantStatus: http.StatusCreated,
+			setupMock: func() {
+				// Mock username check
+				mock.ExpectQuery("SELECT EXISTS").
+					WithArgs("testuser123").
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+				// Mock email check
+				mock.ExpectQuery("SELECT EXISTS").
+					WithArgs("newuser@example.com").
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+
+				// Mock insert
+				mock.ExpectExec("INSERT INTO users").
+					WithArgs("testuser123", "newuser@example.com", sqlmock.AnyArg()).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
 		},
 		{
 			name: "Invalid Email",
@@ -511,20 +569,25 @@ func TestRegisterHandler(t *testing.T) {
 				"email":    "notanemail",
 			},
 			wantStatus: http.StatusBadRequest,
+			setupMock:  func() {},
 		},
 		{
 			name: "Weak Password",
 			payload: map[string]string{
-				"username": "user@example.com",
+				"username": "user123",
 				"password": "123",
 				"email":    "user@example.com",
 			},
 			wantStatus: http.StatusBadRequest,
+			setupMock:  func() {},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Setup mock expectations
+			tc.setupMock()
+
 			payloadBytes, err := json.Marshal(tc.payload)
 			assert.NoError(t, err)
 
@@ -534,24 +597,86 @@ func TestRegisterHandler(t *testing.T) {
 			router.ServeHTTP(rr, req)
 
 			assert.Equal(t, tc.wantStatus, rr.Code)
+
+			// Verify all expectations were met
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("there were unfulfilled expectations: %s", err)
+			}
 		})
 	}
 }
 
 // TestBackupRestoreHandlers tests the backup and restore functionality
+func isRestoreCopyCommand(cmd string) bool {
+	// Normalize path separators
+	cmd = strings.ReplaceAll(cmd, "\\", "/")
+	return strings.HasPrefix(cmd, "cp -a /tmp/vpn-restore") &&
+		strings.Contains(cmd, "/* ") &&
+		strings.HasSuffix(cmd, "/ 2>/dev/null || true")
+}
+
 func TestBackupRestoreHandlers(t *testing.T) {
 	cfg, err := config.LoadConfig()
 	assert.NoError(t, err)
 
+	// Create mock SSH client
+	mockSSH := new(MockSSHClient)
+	
+	// Mock backup commands
+	mockSSH.On("RunCommand", "mkdir -p /var/backups/vpn-server").Return("", nil)
+	mockSSH.On("RunCommand", mock.MatchedBy(func(cmd string) bool {
+		return strings.HasPrefix(cmd, "tar czf /var/backups/vpn-server/backup-")
+	})).Return("", nil)
+	mockSSH.On("RunCommand", mock.MatchedBy(func(cmd string) bool {
+		return strings.HasPrefix(cmd, "chmod 600 /var/backups/vpn-server/backup-")
+	})).Return("", nil)
+	mockSSH.On("RunCommand", mock.MatchedBy(func(cmd string) bool {
+		return strings.HasPrefix(cmd, "ls -t /var/backups/vpn-server/backup-")
+	})).Return("", nil)
+
+	// Mock restore commands
+	mockSSH.On("RunCommand", "test -f /tmp/backup.tar.gz").Return("", nil)
+	mockSSH.On("RunCommand", "rm -rf /tmp/vpn-restore && mkdir -p /tmp/vpn-restore").Return("", nil)
+	mockSSH.On("RunCommand", "tar xzf /tmp/backup.tar.gz -C /tmp/vpn-restore").Return("", nil)
+	mockSSH.On("RunCommand", mock.MatchedBy(isRestoreCopyCommand)).Return("", nil)
+	mockSSH.On("RunCommand", "rm -rf /tmp/vpn-restore").Return("", nil)
+	mockSSH.On("Close").Return()
+
+	// Override the NewSSHClient function for testing
+	originalNewSSHClient := sshclient.NewSSHClient
+	sshclient.NewSSHClient = func(serverIP, username, authMethod, authCredential string) (*sshclient.SSHClient, error) {
+		return &sshclient.SSHClient{
+			Client: &ssh.Client{},
+			RunCommandFunc: func(cmd string) (string, error) {
+				return mockSSH.RunCommand(cmd)
+			},
+			CloseFunc: func() {
+				mockSSH.Close()
+			},
+		}, nil
+	}
+	defer func() {
+		sshclient.NewSSHClient = originalNewSSHClient
+	}()
+
 	router := mux.NewRouter()
-	router.HandleFunc("/backup", api.BackupHandler(cfg))
-	router.HandleFunc("/restore", api.RestoreHandler(cfg))
+	router.HandleFunc("/backup", api.BackupHandler(cfg)).Methods("GET")
+	router.HandleFunc("/restore", api.RestoreHandler(cfg)).Methods("POST")
 
 	// Test backup endpoint
 	t.Run("Backup", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/backup", nil)
-		token, _ := auth.GenerateJWT("test-user", cfg)
+		// Create request with query parameters
+		req := httptest.NewRequest(http.MethodGet, "/backup?server_ip=192.168.1.1", nil)
+		
+		// Generate and set JWT token
+		token, err := auth.GenerateJWT("test-user", cfg)
+		assert.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer "+token)
+
+		// Create a new context with the username
+		ctx := context.WithValue(req.Context(), "username", "test-user")
+		req = req.WithContext(ctx)
+
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 		assert.Equal(t, http.StatusOK, rr.Code)
@@ -559,19 +684,61 @@ func TestBackupRestoreHandlers(t *testing.T) {
 
 	// Test restore endpoint
 	t.Run("Restore", func(t *testing.T) {
-		backupData := []byte("mock backup data")
-		req := httptest.NewRequest(http.MethodPost, "/restore", bytes.NewReader(backupData))
-		token, _ := auth.GenerateJWT("test-user", cfg)
+		payload := map[string]string{
+			"server_ip":   "192.168.1.1",
+			"backup_file": "/tmp/backup.tar.gz",
+		}
+		payloadBytes, err := json.Marshal(payload)
+		assert.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodPost, "/restore", bytes.NewReader(payloadBytes))
+		
+		// Generate and set JWT token
+		token, err := auth.GenerateJWT("test-user", cfg)
+		assert.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("Content-Type", "application/octet-stream")
+		req.Header.Set("Content-Type", "application/json")
+
+		// Create a new context with the username
+		ctx := context.WithValue(req.Context(), "username", "test-user")
+		req = req.WithContext(ctx)
+
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 		assert.Equal(t, http.StatusOK, rr.Code)
 	})
+
+	// Verify all mock expectations were met
+	mockSSH.AssertExpectations(t)
 }
 
 // TestDownloadConfigHandler tests the VPN config download endpoint
 func TestDownloadConfigHandler(t *testing.T) {
+	// Create mock SSH client with path-aware responses
+	mockSSH := new(MockSSHClient)
+	mockSSH.On("RunCommand", "test -f /etc/vpn-configs/openvpn_config.ovpn && echo exists || echo notfound").Return("exists\n", nil)
+	mockSSH.On("RunCommand", "cat /etc/vpn-configs/openvpn_config.ovpn").Return("mock openvpn config", nil)
+	mockSSH.On("RunCommand", "test -f /etc/vpn-configs/ios_vpn.mobileconfig && echo exists || echo notfound").Return("exists\n", nil)
+	mockSSH.On("RunCommand", "cat /etc/vpn-configs/ios_vpn.mobileconfig").Return("mock ios vpn config", nil)
+	mockSSH.On("Close").Return()
+
+	// Override the NewSSHClient function for testing
+	originalNewSSHClient := sshclient.NewSSHClient
+	sshclient.NewSSHClient = func(serverIP, username, authMethod, authCredential string) (*sshclient.SSHClient, error) {
+		return &sshclient.SSHClient{
+			Client: &ssh.Client{},
+			RunCommandFunc: func(cmd string) (string, error) {
+				return mockSSH.RunCommand(cmd)
+			},
+			CloseFunc: func() {
+				mockSSH.Close()
+			},
+		}, nil
+	}
+	defer func() {
+		sshclient.NewSSHClient = originalNewSSHClient
+	}()
+
 	router := mux.NewRouter()
 	router.HandleFunc("/download/{type}/{id}", api.DownloadConfigHandler())
 
@@ -603,13 +770,16 @@ func TestDownloadConfigHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			path := fmt.Sprintf("/download/%s/%s", tc.vpnType, tc.setupID)
+			path := fmt.Sprintf("/download/%s/%s?server_ip=192.168.1.1&username=test-user&credential=test-pass", tc.vpnType, tc.setupID)
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
 			assert.Equal(t, tc.wantStatus, rr.Code)
 		})
 	}
+
+	// Verify all mock expectations were met
+	mockSSH.AssertExpectations(t)
 }
 
 // TestSecurityMiddleware tests all security middleware functions

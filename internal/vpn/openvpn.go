@@ -148,10 +148,16 @@ verify-client-cert require`
 	}
 
 	// Verify service status
-	status, err := o.SSHClient.RunCommand("sudo systemctl is-active openvpn@server")
-	if err != nil || !strings.Contains(strings.TrimSpace(status), "active") {
+	status, err := o.SSHClient.RunCommand("systemctl is-active openvpn@server")
+	if err != nil {
 		logger.Log.Printf("Service status check failed: Output: %s, Error: %v", status, err)
-		return fmt.Errorf("OpenVPN service failed to start")
+		return fmt.Errorf("OpenVPN service failed to start: %v", err)
+	}
+
+	trimmedStatus := strings.TrimSpace(status)
+	if trimmedStatus != "active" {
+		logger.Log.Printf("Service is not active, status: %s", trimmedStatus)
+		return fmt.Errorf("OpenVPN service is not active, status: %s", trimmedStatus)
 	}
 
 	logger.Log.Println("OpenVPN setup completed successfully")
