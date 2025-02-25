@@ -12,6 +12,10 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     for (let i = 0; i < retries; i++) {
         try {
             const response = await fetch(url, options);
+            if (!response.ok && response.status === 400) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || 'Bad request');
+            }
             return response;
         } catch (error) {
             if (i === retries - 1) throw error;
@@ -20,14 +24,25 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     }
 }
 
+// Check if we're on the VPN setup page
+function isVPNSetupPage() {
+    return window.location.pathname === '/' || window.location.pathname === '/index.html';
+}
+
 // Initialize form handling
 function initializeVPNForm() {
+    // Only initialize if we're on the VPN setup page
+    if (!isVPNSetupPage()) {
+        return;
+    }
+
     const vpnForm = document.getElementById('vpnForm');
     const resultDiv = document.getElementById('result');
     const errorDiv = document.getElementById('downloadError');
 
-    // Only proceed if we're on the VPN setup page and all elements exist
+    // Check if all required elements exist
     if (!vpnForm || !resultDiv || !errorDiv) {
+        console.warn('Required form elements not found on page');
         return;
     }
 
@@ -107,6 +122,36 @@ function initializeVPNForm() {
 }
 
 // Initialize form on page load
-document.addEventListener('DOMContentLoaded', () => {
-    initializeVPNForm();
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Check authentication status only on the VPN setup page
+        if (isVPNSetupPage()) {
+            const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
+                },
+                credentials: 'include'
+            }).catch(error => {
+                console.warn('Auth status check failed:', error);
+                // Don't redirect on auth check failure, just continue
+                return null;
+            });
+
+            if (authResponse?.ok) {
+                const authData = await authResponse.json();
+                if (authData?.enabled && !authData?.authenticated) {
+                    window.location.replace('/login.html');
+                    return;
+                }
+            }
+        }
+
+        // Initialize the form
+        initializeVPNForm();
+    } catch (error) {
+        console.error('Initialization error:', error);
+        // Continue with form initialization even if auth check fails
+        initializeVPNForm();
+    }
 });

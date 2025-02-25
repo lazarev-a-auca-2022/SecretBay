@@ -131,6 +131,9 @@ func main() {
 	// Add base security headers middleware
 	router.Use(api.SecurityHeadersMiddleware)
 
+	// Register auth status endpoint at root level, before static files
+	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+
 	// Handle static files first, before any API routes
 	staticRouter := router.PathPrefix("/").Subrouter()
 	fs := http.FileServer(http.Dir("./static"))
@@ -226,13 +229,18 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:         ":" + serverPort,
-		Handler:      router,
-		TLSConfig:    tlsConfig,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              ":" + serverPort,
+		Handler:           router,
+		TLSConfig:         tlsConfig,
+		ReadTimeout:       30 * time.Second,  // Increased from 15
+		WriteTimeout:      30 * time.Second,  // Increased from 15
+		IdleTimeout:       300 * time.Second, // Increased from 120
+		ReadHeaderTimeout: 10 * time.Second,  // Added explicit header timeout
+		MaxHeaderBytes:    1 << 20,           // Added max header size (1MB)
 	}
+
+	// Enable TCP keep-alive
+	srv.SetKeepAlivesEnabled(true)
 
 	// Start server in a goroutine
 	go func() {

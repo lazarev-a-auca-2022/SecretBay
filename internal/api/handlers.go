@@ -250,18 +250,15 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
 
-	// Auth endpoints - must be accessible without auth
-	authRouter := router.PathPrefix("/api/auth").Subrouter()
-	authRouter.HandleFunc("/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
-	authRouter.HandleFunc("/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
-	authRouter.HandleFunc("/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
+	// Auth endpoints - publicly accessible
+	router.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
 	// Protected API routes
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.Use(JWTAuthenticationMiddleware(cfg))
-	apiRouter.Use(func(next http.Handler) http.Handler {
-		return CSRFMiddleware(cfg)(next)
-	})
+	apiRouter.Use(CSRFMiddleware(cfg))
 
 	apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
 	apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
@@ -583,79 +580,98 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        // Handle preflight first
-        if r.Method == http.MethodOptions {
-            handleCORS(w, r)
-            return
-        }
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Handle preflight first
+		if r.Method == http.MethodOptions {
+			handleCORS(w, r)
+			return
+		}
 
-        // Validate headers based on HTTP version
-        if err := validateHeaders(w, r); err != nil {
-            return
-        }
+		// Set basic headers early to prevent connection resets
+		w.Header().Set("Content-Type", "application/json")
+		setSecurityHeaders(w)
 
-        // Set response headers
-        setSecurityHeaders(w)
+		// Handle HTTP/2 specific requirements
+		if r.ProtoMajor == 2 {
+			// Set HTTP/2 specific headers
+			w.Header().Set("X-Content-Type-Options", "nosniff")
 
-        // Send response
-        response := AuthStatusResponse{
-            Enabled: cfg.AuthEnabled,
-        }
+			// Flush headers early for HTTP/2
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+		}
 
-        if err := json.NewEncoder(w).Encode(response); err != nil {
-            logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
-            utils.JSONError(w, "Internal server error", http.StatusInternalServerError)
-            return
-        }
-    }
+		// Set CORS headers if needed
+		origin := r.Header.Get("Origin")
+		if origin != "" && isValidOrigin(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Vary", "Origin")
+		}
+
+		// Prepare response
+		response := AuthStatusResponse{
+			Enabled: cfg.AuthEnabled,
+		}
+
+		// Write response with error handling
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false) // Prevent unnecessary escaping
+		if err := encoder.Encode(response); err != nil {
+			logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			encoder.Encode(map[string]string{"error": "Internal server error"})
+			return
+		}
+	}
 }
 
 func handleCORS(w http.ResponseWriter, r *http.Request) {
-    origin := r.Header.Get("Origin")
-    if origin != "" && isValidOrigin(origin) {
-        w.Header().Set("Access-Control-Allow-Origin", origin)
-    }
-    w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-    w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
-    w.WriteHeader(http.StatusOK)
+	origin := r.Header.Get("Origin")
+	if origin != "" && isValidOrigin(origin) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	}
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
+	w.WriteHeader(http.StatusOK)
 }
 
 func validateHeaders(w http.ResponseWriter, r *http.Request) error {
-    isHTTP2 := r.ProtoMajor == 2
-    accept := r.Header.Get("Accept")
+	isHTTP2 := r.ProtoMajor == 2
+	accept := r.Header.Get("Accept")
 
-    // HTTP/1.1: Require Accept header
-    if !isHTTP2 && (accept == "" || !strings.Contains(accept, "application/json")) {
-        utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
-        return fmt.Errorf("invalid accept header")
-    }
+	// HTTP/1.1: Require Accept header
+	if !isHTTP2 && (accept == "" || !strings.Contains(accept, "application/json")) {
+		utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
+		return fmt.Errorf("invalid accept header")
+	}
 
-    // HTTP/2: Only validate if Accept header is present
-    if isHTTP2 && accept != "" && !strings.Contains(accept, "application/json") {
-        utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
-        return fmt.Errorf("invalid accept header")
-    }
+	// HTTP/2: Only validate if Accept header is present
+	if isHTTP2 && accept != "" && !strings.Contains(accept, "application/json") {
+		utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
+		return fmt.Errorf("invalid accept header")
+	}
 
-    // Validate Origin if present
-    origin := r.Header.Get("Origin")
-    if origin != "" {
-        if !isValidOrigin(origin) {
-            utils.JSONError(w, "Invalid origin", http.StatusForbidden)
-            return fmt.Errorf("invalid origin")
-        }
-        w.Header().Set("Access-Control-Allow-Origin", origin)
-        w.Header().Set("Vary", "Origin")
-    }
+	// Validate Origin if present
+	origin := r.Header.Get("Origin")
+	if origin != "" {
+		if !isValidOrigin(origin) {
+			utils.JSONError(w, "Invalid origin", http.StatusForbidden)
+			return fmt.Errorf("invalid origin")
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Vary", "Origin")
+	}
 
-    return nil
+	return nil
 }
 
 func setSecurityHeaders(w http.ResponseWriter) {
-    w.Header().Set("Content-Type", "application/json")
-    w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-    w.Header().Set("Pragma", "no-cache")
-    w.Header().Set("Expires", "0")
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 }
 
 // isValidOrigin checks if the origin is allowed
