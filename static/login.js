@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('jwt');
     if (token) {
         try {
-            const response = await fetch(`${BASE_URL}/api/vpn/status`, {
+            const response = await fetch(`${BASE_URL}/api/auth/status`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/json',

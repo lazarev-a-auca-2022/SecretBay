@@ -591,14 +591,10 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		setSecurityHeaders(w)
 
-		// Handle HTTP/2 specific requirements
-		if r.ProtoMajor == 2 {
-			// Set HTTP/2 specific headers
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-
-			// Flush headers early for HTTP/2
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
+		// For HTTP/2, we're more lenient with Accept header requirements
+		if r.ProtoMajor != 2 {
+			if err := validateHeaders(w, r); err != nil {
+				return // validateHeaders already set the error response
 			}
 		}
 
@@ -608,6 +604,11 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Vary", "Origin")
+		}
+
+		// Clear any previous write failures and prepare response
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
 		}
 
 		// Prepare response
