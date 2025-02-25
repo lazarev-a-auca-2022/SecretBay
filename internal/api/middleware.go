@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/utils"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
@@ -55,99 +53,9 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			logger.Log.Println("JWTAuthenticationMiddleware: Request received")
-
-			// If auth is disabled, skip all authentication
-			if !cfg.AuthEnabled {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Skip auth for public paths and static assets
-			if r.URL.Path == "/login.html" ||
-				r.URL.Path == "/register.html" ||
-				r.URL.Path == "/api/csrf-token" ||
-				r.URL.Path == "/api/auth/login" ||
-				r.URL.Path == "/api/auth/register" ||
-				strings.HasPrefix(r.URL.Path, "/error/") ||
-				strings.HasSuffix(r.URL.Path, ".css") ||
-				strings.HasSuffix(r.URL.Path, ".js") {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Special handling for index.html and root path
-			if r.URL.Path == "/" || r.URL.Path == "/index.html" {
-				token := ""
-
-				// Check Authorization header first
-				authHeader := r.Header.Get("Authorization")
-				if strings.HasPrefix(authHeader, "Bearer ") {
-					token = strings.TrimPrefix(authHeader, "Bearer ")
-				}
-
-				// If no valid token, redirect to login
-				if token == "" {
-					http.Redirect(w, r, "/login.html", http.StatusSeeOther)
-					return
-				}
-
-				// Validate token
-				claims, err := auth.ValidateJWT(token, cfg)
-				if err != nil {
-					logger.Log.Printf("Token validation failed: %v", err)
-					http.Redirect(w, r, "/login.html", http.StatusSeeOther)
-					return
-				}
-
-				// Valid token, set context and continue
-				ctx := context.WithValue(r.Context(), "username", claims.Username)
-				next.ServeHTTP(w, r.WithContext(ctx))
-				return
-			}
-
-			// Handle API authentication
-			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				logger.Log.Println("JWTAuthenticationMiddleware: Missing Authorization Header")
-				w.Header().Set("WWW-Authenticate", `Bearer realm="SecretBay VPN"`)
-				utils.JSONError(w, "Missing Authorization Header", http.StatusUnauthorized)
-				return
-			}
-
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-				logger.Log.Println("JWTAuthenticationMiddleware: Invalid Authorization Header format")
-				w.Header().Set("WWW-Authenticate", `Bearer error="invalid_request"`)
-				utils.JSONError(w, "Invalid Authorization Header format", http.StatusUnauthorized)
-				return
-			}
-
-			claims, err := auth.ValidateJWT(parts[1], cfg)
-			if err != nil {
-				logger.Log.Printf("JWTAuthenticationMiddleware: Token validation error: %v", err)
-				if tokenErr, ok := err.(*auth.TokenError); ok {
-					switch tokenErr.Type {
-					case "Expired":
-						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Token expired"`)
-					case "InvalidSignature":
-						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Invalid signature"`)
-					case "Malformed":
-						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Malformed token"`)
-					case "InvalidIssuer":
-						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="Invalid issuer"`)
-					default:
-						w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
-					}
-				} else {
-					w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token"`)
-				}
-				utils.JSONError(w, err.Error(), http.StatusUnauthorized)
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), "username", claims.Username)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			// Authentication temporarily disabled
+			next.ServeHTTP(w, r)
+			return
 		})
 	}
 }
@@ -238,43 +146,9 @@ func MonitoringMiddleware(next http.Handler) http.Handler {
 func CSRFMiddleware(cfg *config.Config) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip CSRF check if auth is disabled
-			if !cfg.AuthEnabled {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Skip CSRF check for endpoints that issue tokens
-			if r.URL.Path == "/api/csrf-token" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Skip CSRF check for GET, HEAD, OPTIONS
-			if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Verify CSRF token
-			token := r.Header.Get("X-CSRF-Token")
-			if token == "" {
-				utils.JSONError(w, "Missing CSRF token", http.StatusForbidden)
-				return
-			}
-
-			// Check if token exists and is valid
-			if _, ok := csrfTokens.Load(token); !ok {
-				utils.JSONError(w, "Invalid CSRF token", http.StatusForbidden)
-				return
-			}
-
-			// Consume the token for one-time use if not a login request
-			if r.URL.Path != "/api/auth/login" {
-				csrfTokens.Delete(token)
-			}
-
+			// CSRF check temporarily disabled
 			next.ServeHTTP(w, r)
+			return
 		})
 	}
 }

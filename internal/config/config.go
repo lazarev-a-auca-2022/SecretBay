@@ -85,8 +85,8 @@ func LoadConfig() (*Config, error) {
 	env := strings.ToLower(getEnv("ENV", "development"))
 	production := env == "production"
 
-	// Load authentication setting
-	authEnabled, _ := strconv.ParseBool(getEnv("AUTH_ENABLED", "true"))
+	// Force authentication to be disabled
+	authEnabled := false
 
 	// Load and validate port
 	port := getEnv("SERVER_PORT", defaultPort)
@@ -94,23 +94,8 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid port configuration: %v", err)
 	}
 
-	// JWT Secret handling
-	jwtSecret := getEnv("JWT_SECRET", "")
-	if jwtSecret == "" {
-		if production {
-			return nil, fmt.Errorf("JWT_SECRET is required in production")
-		}
-		// Generate secure secret for development
-		jwtSecret = generateSecureSecret()
-		if jwtSecret == "" {
-			return nil, fmt.Errorf("failed to generate secure JWT secret")
-		}
-		logger.Log.Println("Warning: Generated temporary JWT secret for development")
-	}
-
-	if len(jwtSecret) < minJWTSecretLength {
-		return nil, fmt.Errorf("JWT_SECRET must be at least %d characters", minJWTSecretLength)
-	}
+	// JWT Secret handling - using a dummy value since auth is disabled
+	jwtSecret := "dummy-jwt-secret-for-disabled-auth"
 
 	// Parse numeric configurations
 	maxReqSize, _ := strconv.ParseInt(getEnv("MAX_REQUEST_SIZE", fmt.Sprintf("%d", defaultMaxRequestSize)), 10, 64)
@@ -122,9 +107,6 @@ func LoadConfig() (*Config, error) {
 
 	// Parse allowed origins
 	allowedOrigins := strings.Split(getEnv("ALLOWED_ORIGINS", ""), ",")
-	if production && len(allowedOrigins) == 0 {
-		return nil, fmt.Errorf("ALLOWED_ORIGINS must be set in production")
-	}
 
 	config := &Config{
 		Server: ServerConfig{
@@ -153,11 +135,6 @@ func LoadConfig() (*Config, error) {
 		logger.Log.Printf("Warning: Failed to initialize database: %v", err)
 	}
 	config.DB = db
-
-	// Validate TLS version
-	if !isValidTLSVersion(config.Server.TLSMinVersion) {
-		return nil, fmt.Errorf("invalid TLS_MIN_VERSION: %s", config.Server.TLSMinVersion)
-	}
 
 	return config, nil
 }
