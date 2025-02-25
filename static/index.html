@@ -5,17 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VPN Management</title>
     <link rel="stylesheet" href="styles.css">
-    <script>
-        // Initialize headers before any other script runs
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('jwt');
-            if (token) {
-                const headers = new Headers();
-                headers.append('Authorization', `Bearer ${token}`);
-                window._headers = headers;
-            }
-        });
-    </script>
 </head>
 <body>
     <div class="container">

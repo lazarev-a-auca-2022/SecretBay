@@ -1,5 +1,4 @@
-// Authentication and CSRF token management (temporarily disabled)
-let csrfToken = 'disabled';  // Hardcoded token while auth is disabled
+// Basic HTTP retry functionality
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
@@ -7,6 +6,19 @@ const RETRY_DELAY = 1000;
 const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? `http://${window.location.host}`
     : `https://${window.location.host}`;
+
+// Helper function for retrying failed requests
+async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url, options);
+            return response;
+        } catch (error) {
+            if (i === retries - 1) throw error;
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, i)));
+        }
+    }
+}
 
 // Initialize form handling
 function initializeVPNForm() {
@@ -25,7 +37,7 @@ function initializeVPNForm() {
         errorDiv.style.display = 'none';
 
         try {
-            // Setup VPN (auth checks removed)
+            // Setup VPN
             const setupResponse = await fetchWithRetries(`${BASE_URL}/api/setup`, {
                 method: 'POST',
                 headers: {
@@ -41,29 +53,10 @@ function initializeVPNForm() {
                     auth_credential: document.getElementById('authCredential')?.value || '',
                     vpn_type: document.getElementById('vpnType')?.value || ''
                 })
-            }).catch(error => {
-                console.error('Failed to setup VPN:', error);
-                window.location.href = '/error/backend-down.html';
-                return null;
             });
-
-            if (!setupResponse) return;
-
-            const setupContentType = setupResponse.headers.get('content-type');
-            if (setupContentType && setupContentType.includes('text/html')) {
-                window.location.href = '/error/backend-down.html';
-                return;
-            }
-
-            const setupData = await setupResponse.json().catch(err => {
-                console.error('Failed to parse JSON:', err);
-                window.location.href = '/error/backend-down.html';
-                return null;
-            });
-
-            if (!setupData) return;
 
             if (!setupResponse.ok) {
+                const setupData = await setupResponse.json();
                 throw new Error(setupData.error || 'Failed to setup VPN');
             }
 
@@ -71,22 +64,20 @@ function initializeVPNForm() {
             resultDiv.style.color = 'green';
             resultDiv.style.display = 'block';
 
-            // Download config (auth checks removed)
+            // Download config
             const serverIp = document.getElementById('serverIp')?.value || '';
             const username = document.getElementById('username')?.value || '';
             const credential = document.getElementById('authCredential')?.value || '';
 
             const downloadResponse = await fetchWithRetries(`${BASE_URL}/api/config/download?server_ip=${encodeURIComponent(serverIp)}&username=${encodeURIComponent(username)}&credential=${encodeURIComponent(credential)}`, {
                 headers: {
+                    'Accept': 'application/octet-stream',
                     'Origin': window.location.origin
                 },
                 credentials: 'include'
-            }).catch(error => {
-                console.error('Failed to download config:', error);
-                throw new Error('Failed to download configuration: Network error');
             });
 
-            if (!downloadResponse || !downloadResponse.ok) {
+            if (!downloadResponse.ok) {
                 throw new Error('Failed to download configuration');
             }
 
@@ -115,7 +106,7 @@ function initializeVPNForm() {
     });
 }
 
-// Initialize immediately without auth checks
+// Initialize form on page load
 document.addEventListener('DOMContentLoaded', () => {
     initializeVPNForm();
 });
