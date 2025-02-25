@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         // Check authentication status only on the VPN setup page
         if (isVPNSetupPage()) {
-            const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
+            const authResponse = await fetchWithRetries(`${BASE_URL}/auth/status`, {
                 headers: {
                     'Accept': 'application/json',
                     'Origin': window.location.origin

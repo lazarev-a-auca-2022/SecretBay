@@ -131,8 +131,8 @@ func main() {
 	// Add base security headers middleware
 	router.Use(api.SecurityHeadersMiddleware)
 
-	// Register auth status endpoint at root level, before static files
-	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	// Register auth status endpoint at root level with correct path
+	router.HandleFunc("/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
 
 	// Handle static files first, before any API routes
 	staticRouter := router.PathPrefix("/").Subrouter()
