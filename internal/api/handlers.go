@@ -583,9 +583,12 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Validate headers first
-		if err := validateHeaders(w, r); err != nil {
-			return // validateHeaders already sent the error response
+		// Skip validation for HTTP/2 requests
+		if r.ProtoMajor != 2 {
+			// Validate headers for HTTP/1.1 requests
+			if err := validateHeaders(w, r); err != nil {
+				return
+			}
 		}
 
 		// Handle CORS
@@ -604,11 +607,12 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Set content type
+		// Set content type and headers
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 		w.Header().Set("Transfer-Encoding", "identity")
 
-		// Prepare response - only include enabled status
+		// Simple response with just enabled status
 		response := map[string]bool{
 			"enabled": cfg.AuthEnabled,
 		}
@@ -621,10 +625,8 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Set content length explicitly
+		// Set content length and write response in one go
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(responseBytes)))
-
-		// Write in a single operation
 		w.Write(responseBytes)
 	}
 }
