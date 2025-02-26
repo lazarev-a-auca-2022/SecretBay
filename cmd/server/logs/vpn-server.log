@@ -1843,3 +1843,232 @@
 2025/02/26 04:31:45 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
 2025/02/26 04:31:45 config.go:108: Warning: Generated temporary JWT secret for development
 2025/02/26 04:31:45 config.go:153: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 middleware.go:176: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:22:07 middleware.go:211: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:22:07 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:22:07 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:22:07 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_14867ca7-c885-4111-8fb2-69a8c234624b.ovpn
+2025/02/26 07:22:07 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 07:22:07 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 07:22:07 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:22:07 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:22:07 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:22:07 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:22:07 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:22:07 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:22:07 middleware.go:176: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:22:07 middleware.go:211: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:22:07 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:22:07 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:22:07 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_0914eac7-09be-4210-a725-d9afeeae73e2.ovpn
+2025/02/26 07:22:07 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 07:22:07 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 07:22:07 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:22:07 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:22:07 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:22:07 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:22:07 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:22:07 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 07:22:07 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-26 01:22:07.6673703 +0000 UTC Details: Path:}
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:22:07 handlers.go:396: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 07:22:07 handlers.go:424: LoginHandler: Successful login for user: test@example.com
+2025/02/26 07:22:07 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:22:07 handlers.go:390: LoginHandler: Missing credentials
+2025/02/26 07:22:07 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 07:22:07 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-26 01:22:07.668426 +0000 UTC Details: Path:}
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 07:22:07 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-26 01:22:07.7266756 +0000 UTC Details: Path:}
+2025/02/26 07:22:07 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 07:22:07 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-26 01:22:07.7266756 +0000 UTC Details: Path:}
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 middleware.go:124: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 07:22:07 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 07:22:07 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-26 01:22:07.7355484 +0000 UTC Details: Path:}
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:22:07 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:19 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:19 middleware.go:176: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:25:19 middleware.go:211: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:25:19 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:25:19 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:25:19 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_98f8e1b9-6185-48c2-a109-3ad4ad8d5e3b.ovpn
+2025/02/26 07:25:19 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 07:25:19 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 07:25:19 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:25:19 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:25:19 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:25:19 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:25:19 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:25:19 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:25:19 middleware.go:176: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:25:19 middleware.go:211: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:25:19 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:25:19 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:25:19 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_a14077d3-440b-4f8a-b4c9-fb6c6441c008.ovpn
+2025/02/26 07:25:19 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 07:25:19 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 07:25:19 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:25:19 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:25:19 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:25:19 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:25:19 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:25:19 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:25:19 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:19 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:19 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:20 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:20 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 07:25:20 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-26 01:25:20.0845609 +0000 UTC Details: Path:}
+2025/02/26 07:25:20 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:20 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:25:20 handlers.go:396: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 07:25:20 handlers.go:424: LoginHandler: Successful login for user: test@example.com
+2025/02/26 07:25:20 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:25:20 handlers.go:390: LoginHandler: Missing credentials
+2025/02/26 07:25:20 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 07:25:20 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-26 01:25:20.0856308 +0000 UTC Details: Path:}
+2025/02/26 07:25:20 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:20 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 07:25:20 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-26 01:25:20.1392087 +0000 UTC Details: Path:}
+2025/02/26 07:25:20 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 07:25:20 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-26 01:25:20.1392087 +0000 UTC Details: Path:}
+2025/02/26 07:25:20 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:20 middleware.go:124: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 07:25:20 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 07:25:20 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-26 01:25:20.1419672 +0000 UTC Details: Path:}
+2025/02/26 07:25:20 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:20 system_metrics.go:100: Error tracked: Bad Request: Invalid Accept header
+2025/02/26 07:25:20 http.go:35: Error response: {Error:Invalid Accept header Code:Bad Request RequestID: Timestamp:2025-02-26 01:25:20.1436364 +0000 UTC Details: Path:}
+2025/02/26 07:25:20 system_metrics.go:100: Error tracked: Forbidden: Invalid origin
+2025/02/26 07:25:20 http.go:35: Error response: {Error:Invalid origin Code:Forbidden RequestID: Timestamp:2025-02-26 01:25:20.1436364 +0000 UTC Details: Path:}
+2025/02/26 07:25:20 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:25:20 config.go:135: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 middleware.go:176: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:26:39 middleware.go:211: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:26:39 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:26:39 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:26:39 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_50d6a6cc-5222-459d-9fc2-683c96e2238e.ovpn
+2025/02/26 07:26:39 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 07:26:39 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 07:26:39 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:26:39 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:26:39 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:26:39 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:26:39 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:26:39 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:26:39 middleware.go:176: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:26:39 middleware.go:211: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:26:39 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:26:39 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:26:39 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_d1cee345-55c4-4994-bf91-498be3f3218c.ovpn
+2025/02/26 07:26:39 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 07:26:39 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 07:26:39 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:26:39 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:26:39 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:26:39 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:26:39 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:26:39 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 07:26:39 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-26 01:26:39.779196 +0000 UTC Details: Path:}
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:26:39 handlers.go:396: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 07:26:39 handlers.go:424: LoginHandler: Successful login for user: test@example.com
+2025/02/26 07:26:39 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:26:39 handlers.go:390: LoginHandler: Missing credentials
+2025/02/26 07:26:39 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 07:26:39 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-26 01:26:39.7807862 +0000 UTC Details: Path:}
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 07:26:39 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-26 01:26:39.8340606 +0000 UTC Details: Path:}
+2025/02/26 07:26:39 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 07:26:39 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-26 01:26:39.8340606 +0000 UTC Details: Path:}
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 middleware.go:124: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 07:26:39 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 07:26:39 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-26 01:26:39.836655 +0000 UTC Details: Path:}
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 system_metrics.go:100: Error tracked: Bad Request: Invalid Accept header
+2025/02/26 07:26:39 http.go:35: Error response: {Error:Invalid Accept header Code:Bad Request RequestID: Timestamp:2025-02-26 01:26:39.8387883 +0000 UTC Details: Path:}
+2025/02/26 07:26:39 system_metrics.go:100: Error tracked: Forbidden: Invalid origin
+2025/02/26 07:26:39 http.go:35: Error response: {Error:Invalid origin Code:Forbidden RequestID: Timestamp:2025-02-26 01:26:39.8387883 +0000 UTC Details: Path:}
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:26:39 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 middleware.go:201: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:35:00 middleware.go:236: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:35:00 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:35:00 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:35:00 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\openvpn_2b8659f6-fb89-4de0-9349-d18ed612b850.ovpn
+2025/02/26 07:35:00 openvpn.go:17: Starting OpenVPN setup
+2025/02/26 07:35:00 openvpn.go:163: OpenVPN setup completed successfully
+2025/02/26 07:35:00 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:35:00 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:35:00 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:35:00 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:35:00 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:35:00 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:35:00 middleware.go:201: CSRFTokenHandler: Received GET request from 192.0.2.1:1234
+2025/02/26 07:35:00 middleware.go:236: CSRFTokenHandler: Successfully generated token for 192.0.2.1:1234
+2025/02/26 07:35:00 handlers.go:49: SetupVPNHandler: Processing request
+2025/02/26 07:35:00 handlers.go:432: generateVPNConfigPath: Generating VPN config path
+2025/02/26 07:35:00 handlers.go:436: generateVPNConfigPath: Generated path: \etc\vpn-configs\ios_vpn_d8cdd189-0fd9-49c0-ba5d-4c01a2831918.ovpn
+2025/02/26 07:35:00 strongswan.go:39: Starting StrongSwan setup
+2025/02/26 07:35:00 strongswan.go:180: StrongSwan setup completed successfully
+2025/02/26 07:35:00 security.go:16: Starting SetupFail2Ban
+2025/02/26 07:35:00 security.go:87: Starting DisableUnnecessaryServices
+2025/02/26 07:35:00 handlers.go:273: generatePassword: Generating new password
+2025/02/26 07:35:00 handlers.go:290: generatePassword: Password generated successfully
+2025/02/26 07:35:00 security.go:129: Starting ChangeRootPassword
+2025/02/26 07:35:00 handlers.go:159: SetupVPNHandler: Setup completed successfully
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Unauthorized: No authorization token
+2025/02/26 07:35:00 http.go:35: Error response: {Error:No authorization token Code:Unauthorized RequestID: Timestamp:2025-02-26 01:35:00.7578436 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 auth.go:69: Error validating JWT: token is malformed: token contains an invalid number of segments
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Unauthorized: Invalid token
+2025/02/26 07:35:00 http.go:35: Error response: {Error:Invalid token Code:Unauthorized RequestID: Timestamp:2025-02-26 01:35:00.7583912 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Forbidden: Access denied
+2025/02/26 07:35:00 http.go:35: Error response: {Error:Access denied Code:Forbidden RequestID: Timestamp:2025-02-26 01:35:00.8625787 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:35:00 handlers.go:396: LoginHandler: Login attempt for user: test@example.com
+2025/02/26 07:35:00 handlers.go:424: LoginHandler: Successful login for user: test@example.com
+2025/02/26 07:35:00 handlers.go:376: LoginHandler: Request received
+2025/02/26 07:35:00 handlers.go:390: LoginHandler: Missing credentials
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Bad Request: Missing credentials
+2025/02/26 07:35:00 http.go:35: Error response: {Error:Missing credentials Code:Bad Request RequestID: Timestamp:2025-02-26 01:35:00.8648058 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Bad Request: invalid email format
+2025/02/26 07:35:00 http.go:35: Error response: {Error:invalid email format Code:Bad Request RequestID: Timestamp:2025-02-26 01:35:00.9204964 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Bad Request: password must be at least 8 characters long
+2025/02/26 07:35:00 http.go:35: Error response: {Error:password must be at least 8 characters long Code:Bad Request RequestID: Timestamp:2025-02-26 01:35:00.9204964 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 middleware.go:149: Rate limit exceeded for IP: 192.168.1.1:12345
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Too Many Requests: Rate limit exceeded
+2025/02/26 07:35:00 http.go:35: Error response: {Error:Rate limit exceeded Code:Too Many Requests RequestID: Timestamp:2025-02-26 01:35:00.9230277 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Bad Request: Invalid Accept header
+2025/02/26 07:35:00 http.go:35: Error response: {Error:Invalid Accept header Code:Bad Request RequestID: Timestamp:2025-02-26 01:35:00.9246126 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 system_metrics.go:100: Error tracked: Forbidden: Invalid origin
+2025/02/26 07:35:00 http.go:35: Error response: {Error:Invalid origin Code:Forbidden RequestID: Timestamp:2025-02-26 01:35:00.9246126 +0000 UTC Details: Path:}
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2025/02/26 07:35:00 config.go:142: Warning: Failed to initialize database: error pinging database: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.

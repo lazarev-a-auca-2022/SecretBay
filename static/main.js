@@ -44,13 +44,12 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     }
 }
 
-// Check if we're on the VPN setup page
+// Helper function to check if we're on the VPN setup page
 function isVPNSetupPage() {
-    return window.location.pathname === '/' || window.location.pathname === '/index.html';
+    return document.querySelector('#vpnForm') !== null;
 }
 
-// Wait for DOM content to be fully loaded and initialize the form
-function waitForElement(selector, timeout = 2000) {
+function waitForElement(selector, timeout = 5000) {
     return new Promise((resolve, reject) => {
         const element = document.querySelector(selector);
         if (element) {
@@ -74,25 +73,41 @@ function waitForElement(selector, timeout = 2000) {
         // Timeout after specified duration
         setTimeout(() => {
             observer.disconnect();
-            reject(new Error(`Element ${selector} not found after ${timeout}ms`));
+            // Don't reject, just resolve with null
+            resolve(null);
+            console.warn(`Element ${selector} not found after ${timeout}ms`);
         }, timeout);
     });
 }
 
-// Initialize form handling
+// Helper function to create fallback elements
+function createFallbackElement(type, id) {
+    const el = document.createElement(type);
+    el.id = id;
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    return el;
+}
+
 async function initializeVPNForm() {
     if (!isVPNSetupPage()) {
         return;
     }
 
     try {
-        // Wait for all required elements
+        // Wait for form - this is the most critical element
         const form = await waitForElement('#vpnForm');
+        if (!form) {
+            console.error('VPN form not found - skipping initialization');
+            return;
+        }
+        
+        // Create elements object with fallbacks for missing elements
         const elements = {
             form,
-            result: await waitForElement('#result'),
-            error: await waitForElement('#downloadError'),
-            loading: document.querySelector('#loading'), // Optional
+            result: await waitForElement('#result') || createFallbackElement('div', 'result'),
+            error: await waitForElement('#downloadError') || createFallbackElement('div', 'downloadError'),
+            loading: document.querySelector('#loading'),
             serverIp: await waitForElement('#serverIp'),
             username: await waitForElement('#username'),
             authMethod: await waitForElement('#authMethod'),
@@ -100,7 +115,14 @@ async function initializeVPNForm() {
             vpnType: await waitForElement('#vpnType')
         };
 
-        // Attach submit handler once we have all elements
+        // Check if required form elements exist
+        if (!elements.serverIp || !elements.username || !elements.authMethod || 
+            !elements.authCredential || !elements.vpnType) {
+            console.error('Required form elements missing - cannot initialize form');
+            return;
+        }
+
+        // Now safely add the event listener
         elements.form.addEventListener('submit', async (e) => {
             e.preventDefault();
             elements.result.style.display = 'none';
@@ -184,12 +206,20 @@ async function init() {
         return;
     }
 
+    // Start form initialization first to allow parallel loading
+    const formInitPromise = initializeVPNForm().catch(error => {
+        console.error('Form initialization error:', error);
+    });
+
     try {
-        // Check auth status with proper headers
-        const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
+        // Simpler, more reliable fetch without using fetchWithRetries
+        const response = await fetch(`${BASE_URL}/api/auth/status`, {
             method: 'GET',
             headers: {
-                'Origin': window.location.origin
+                'Accept': 'application/json',
+                'Origin': window.location.origin,
+                'Cache-Control': 'no-cache',
+                'Connection': 'close' // Force HTTP/1.1 behavior
             },
             credentials: 'include'
         }).catch(error => {
@@ -197,7 +227,7 @@ async function init() {
             return { json: () => Promise.resolve({ enabled: false }) };
         });
 
-        const authData = await authResponse.json().catch(() => ({ enabled: false }));
+        const authData = await response.json().catch(() => ({ enabled: false }));
         console.log('Auth status response:', authData);
 
         if (authData?.enabled && !authData?.authenticated) {
@@ -206,16 +236,11 @@ async function init() {
         }
     } catch (error) {
         console.error('Auth check failed, continuing anyway:', error);
-        // Continue despite auth failure
     }
 
-    // Initialize form regardless of auth check result
-    await initializeVPNForm();
+    // Wait for form initialization to complete
+    await formInitPromise;
 }
 
-// Remove the problematic startInit() call that was causing duplicate initialization
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', init);

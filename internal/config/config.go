@@ -85,8 +85,8 @@ func LoadConfig() (*Config, error) {
 	env := strings.ToLower(getEnv("ENV", "development"))
 	production := env == "production"
 
-	// Force authentication to be disabled
-	authEnabled := false
+	// Allow auth to be enabled via environment
+	authEnabled := getEnv("AUTH_ENABLED", "true") == "true"
 
 	// Load and validate port
 	port := getEnv("SERVER_PORT", defaultPort)
@@ -94,8 +94,15 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid port configuration: %v", err)
 	}
 
-	// JWT Secret handling - using a dummy value since auth is disabled
-	jwtSecret := "dummy-jwt-secret-for-disabled-auth"
+	// JWT Secret handling
+	jwtSecret := getEnv("JWT_SECRET", "")
+	if jwtSecret == "" {
+		if authEnabled {
+			jwtSecret = "test-secret-that-meets-minimum-length-32char"
+		} else {
+			jwtSecret = "dummy-jwt-secret-for-disabled-auth"
+		}
+	}
 
 	// Parse numeric configurations
 	maxReqSize, _ := strconv.ParseInt(getEnv("MAX_REQUEST_SIZE", fmt.Sprintf("%d", defaultMaxRequestSize)), 10, 64)

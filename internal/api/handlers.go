@@ -583,33 +583,20 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Handle CORS immediately
-		origin := r.Header.Get("Origin")
-		if origin != "" && isValidOrigin(origin) {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
-			w.Header().Set("Vary", "Origin")
-		}
-
-		// Handle preflight
+		// Handle CORS preflight immediately
 		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
+			handleCORS(w, r)
 			return
 		}
 
-		// Set content type after CORS headers but before writing
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Connection", "close") // Prevent keep-alive issues
-
-		// Skip header validation for HTTP/2 connections
-		if r.ProtoMajor != 2 {
-			// For HTTP/1.1, perform validation as normal
-			if err := validateHeaders(w, r); err != nil {
-				return
-			}
+		// Validate headers first
+		if err := validateHeaders(w, r); err != nil {
+			return // validateHeaders already sent the error response
 		}
+
+		// Set content type and disable chunked encoding
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Transfer-Encoding", "identity")
 
 		// Prepare response
 		response := AuthStatusResponse{
@@ -621,23 +608,19 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			response.Authenticated = true
 		}
 
-		// Marshal response before writing
+		// Use direct encoding to avoid chunked transfer issues
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
-			logger.Log.Printf("AuthStatusHandler: Error marshaling response: %v", err)
+			logger.Log.Printf("AuthStatusHandler: Error marshaling: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		// Set content length to prevent chunked encoding
+		// Set content length explicitly
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(responseBytes)))
 
-		// Write the response in a single write
-		_, err = w.Write(responseBytes)
-		if err != nil {
-			logger.Log.Printf("AuthStatusHandler: Error writing response: %v", err)
-			return
-		}
+		// Write in a single operation
+		w.Write(responseBytes)
 	}
 }
 
@@ -652,19 +635,13 @@ func handleCORS(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateHeaders(w http.ResponseWriter, r *http.Request) error {
-	isHTTP2 := r.ProtoMajor == 2
-	accept := r.Header.Get("Accept")
-
-	// HTTP/1.1: Require Accept header
-	if !isHTTP2 && (accept == "" || !strings.Contains(accept, "application/json")) {
-		utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
-		return fmt.Errorf("invalid accept header")
-	}
-
-	// HTTP/2: Only validate if Accept header is present
-	if isHTTP2 && accept != "" && !strings.Contains(accept, "application/json") {
-		utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
-		return fmt.Errorf("invalid accept header")
+	// For HTTP/1.1, require Accept header
+	if r.ProtoMajor == 1 {
+		accept := r.Header.Get("Accept")
+		if accept == "" || !strings.Contains(accept, "application/json") {
+			utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
+			return fmt.Errorf("invalid accept header")
+		}
 	}
 
 	// Validate Origin if present
@@ -675,6 +652,9 @@ func validateHeaders(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("invalid origin")
 		}
 		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
 		w.Header().Set("Vary", "Origin")
 	}
 

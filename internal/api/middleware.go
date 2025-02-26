@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/utils"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
@@ -53,9 +55,32 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Authentication temporarily disabled
-			next.ServeHTTP(w, r)
-			return
+			if !cfg.AuthEnabled {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				utils.JSONError(w, "No authorization token", http.StatusUnauthorized)
+				return
+			}
+
+			if !strings.HasPrefix(authHeader, "Bearer ") {
+				utils.JSONError(w, "Invalid authorization header", http.StatusUnauthorized)
+				return
+			}
+
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			username, err := auth.ValidateJWT(tokenString, cfg)
+			if err != nil {
+				utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// Add username to context
+			ctx := context.WithValue(r.Context(), "username", username)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
