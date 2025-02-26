@@ -38,38 +38,61 @@ function initializeVPNForm() {
 
     // Wait for DOM to be fully loaded
     const initForm = () => {
-        const vpnForm = document.getElementById('vpnForm');
-        const resultDiv = document.getElementById('result');
-        const errorDiv = document.getElementById('downloadError');
-        const loadingDiv = document.getElementById('loading');
-
-        // Check if all required elements exist
-        if (!vpnForm || !resultDiv || !errorDiv) {
+        // Pre-check if form exists to avoid null issues
+        if (!document.getElementById('vpnForm')) {
             if (window.initRetries === undefined) {
                 window.initRetries = 0;
             }
             
-            if (window.initRetries < 10) { // Max 10 retries (1 second total)
+            if (window.initRetries < 10) {
                 window.initRetries++;
                 setTimeout(initForm, 100);
                 return;
-            } else {
-                console.error('Failed to initialize form after 10 retries');
-                return;
             }
+            console.error('VPN form not found after maximum retries');
+            return;
         }
 
-        // Reset retry counter
+        const elements = {
+            form: document.getElementById('vpnForm'),
+            result: document.getElementById('result'),
+            error: document.getElementById('downloadError'),
+            loading: document.getElementById('loading'),
+            serverIp: document.getElementById('serverIp'),
+            username: document.getElementById('username'),
+            authMethod: document.getElementById('authMethod'),
+            authCredential: document.getElementById('authCredential'),
+            vpnType: document.getElementById('vpnType')
+        };
+
+        // Verify all required elements exist
+        const requiredElements = ['form', 'result', 'error'];
+        const missingElements = requiredElements.filter(el => !elements[el]);
+        
+        if (missingElements.length > 0) {
+            console.error('Missing required elements:', missingElements.join(', '));
+            return;
+        }
+
+        // Reset retry counter since we found the form
         window.initRetries = 0;
 
-        // Rest of the form initialization code
-        vpnForm.addEventListener('submit', async (e) => {
+        // Attach submit handler
+        elements.form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            resultDiv.style.display = 'none';
-            errorDiv.style.display = 'none';
-            if (loadingDiv) loadingDiv.style.display = 'block';
+            elements.result.style.display = 'none';
+            elements.error.style.display = 'none';
+            if (elements.loading) elements.loading.style.display = 'block';
 
             try {
+                const formData = {
+                    server_ip: elements.serverIp?.value || '',
+                    username: elements.username?.value || '',
+                    auth_method: elements.authMethod?.value || '',
+                    auth_credential: elements.authCredential?.value || '',
+                    vpn_type: elements.vpnType?.value || ''
+                };
+
                 // Setup VPN
                 const setupResponse = await fetchWithRetries(`${BASE_URL}/api/setup`, {
                     method: 'POST',
@@ -79,13 +102,7 @@ function initializeVPNForm() {
                         'Origin': window.location.origin
                     },
                     credentials: 'include',
-                    body: JSON.stringify({
-                        server_ip: document.getElementById('serverIp')?.value || '',
-                        username: document.getElementById('username')?.value || '',
-                        auth_method: document.getElementById('authMethod')?.value || '',
-                        auth_credential: document.getElementById('authCredential')?.value || '',
-                        vpn_type: document.getElementById('vpnType')?.value || ''
-                    })
+                    body: JSON.stringify(formData)
                 });
 
                 if (!setupResponse.ok) {
@@ -93,22 +110,25 @@ function initializeVPNForm() {
                     throw new Error(setupData.error || 'Failed to setup VPN');
                 }
 
-                resultDiv.textContent = 'VPN setup successful! Downloading configuration...';
-                resultDiv.style.color = 'green';
-                resultDiv.style.display = 'block';
+                elements.result.textContent = 'VPN setup successful! Downloading configuration...';
+                elements.result.style.color = 'green';
+                elements.result.style.display = 'block';
 
                 // Download config
-                const serverIp = document.getElementById('serverIp')?.value || '';
-                const username = document.getElementById('username')?.value || '';
-                const credential = document.getElementById('authCredential')?.value || '';
-
-                const downloadResponse = await fetchWithRetries(`${BASE_URL}/api/config/download?server_ip=${encodeURIComponent(serverIp)}&username=${encodeURIComponent(username)}&credential=${encodeURIComponent(credential)}`, {
-                    headers: {
-                        'Accept': 'application/octet-stream',
-                        'Origin': window.location.origin
-                    },
-                    credentials: 'include'
-                });
+                const downloadResponse = await fetchWithRetries(
+                    `${BASE_URL}/api/config/download?` + new URLSearchParams({
+                        server_ip: formData.server_ip,
+                        username: formData.username,
+                        credential: formData.auth_credential
+                    }),
+                    {
+                        headers: {
+                            'Accept': 'application/octet-stream',
+                            'Origin': window.location.origin
+                        },
+                        credentials: 'include'
+                    }
+                );
 
                 if (!downloadResponse.ok) {
                     throw new Error('Failed to download configuration');
@@ -125,24 +145,28 @@ function initializeVPNForm() {
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
 
-                resultDiv.textContent += '\nConfiguration downloaded successfully!';
+                elements.result.textContent += '\nConfiguration downloaded successfully!';
             } catch (error) {
                 console.error('Setup error:', error);
                 if (error.message?.includes('Could not connect') || error.message?.includes('Network error')) {
                     window.location.href = '/error/backend-down.html';
                 } else {
-                    errorDiv.textContent = error.message || 'An unexpected error occurred';
-                    errorDiv.style.display = 'block';
-                    resultDiv.style.display = 'none';
+                    elements.error.textContent = error.message || 'An unexpected error occurred';
+                    elements.error.style.display = 'block';
+                    elements.result.style.display = 'none';
                 }
             } finally {
-                if (loadingDiv) loadingDiv.style.display = 'none';
+                if (elements.loading) elements.loading.style.display = 'none';
             }
         });
     };
 
     // Start the initialization
-    initForm();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initForm);
+    } else {
+        initForm();
+    }
 }
 
 // Initialize form on page load

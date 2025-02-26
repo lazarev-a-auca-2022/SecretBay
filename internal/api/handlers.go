@@ -587,18 +587,12 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Set basic headers early to prevent connection resets
-		w.Header().Set("Content-Type", "application/json")
+		// Set security headers and content type early
 		setSecurityHeaders(w)
+		w.Header().Set("Content-Length", "27") // Fixed length for {"enabled":true} or {"enabled":false}
+		w.Header().Set("Connection", "close")  // Prevent keep-alive issues
 
-		// For HTTP/2, we're more lenient with Accept header requirements
-		if r.ProtoMajor != 2 {
-			if err := validateHeaders(w, r); err != nil {
-				return // validateHeaders already set the error response
-			}
-		}
-
-		// Set CORS headers if needed
+		// Set CORS headers
 		origin := r.Header.Get("Origin")
 		if origin != "" && isValidOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -606,24 +600,12 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			w.Header().Set("Vary", "Origin")
 		}
 
-		// Clear any previous write failures and prepare response
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
-
-		// Prepare response
-		response := AuthStatusResponse{
-			Enabled: cfg.AuthEnabled,
-		}
-
-		// Write response with error handling
-		encoder := json.NewEncoder(w)
-		encoder.SetEscapeHTML(false) // Prevent unnecessary escaping
-		if err := encoder.Encode(response); err != nil {
-			logger.Log.Printf("AuthStatusHandler: Failed to encode response: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			encoder.Encode(map[string]string{"error": "Internal server error"})
-			return
+		// Write response in a single write to prevent chunking
+		enabled := cfg.AuthEnabled
+		if enabled {
+			w.Write([]byte(`{"enabled":true}`))
+		} else {
+			w.Write([]byte(`{"enabled":false}`))
 		}
 	}
 }
