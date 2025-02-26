@@ -37,7 +37,8 @@ type StatusResponse struct {
 
 // AuthStatusResponse represents the auth status response
 type AuthStatusResponse struct {
-	Enabled bool `json:"enabled"`
+	Enabled       bool `json:"enabled"`
+	Authenticated bool `json:"authenticated"`
 }
 
 // SetupVPNHandler returns an http.HandlerFunc that handles VPN setup requests.
@@ -582,10 +583,6 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set headers immediately to prevent connection resets
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Connection", "close") // Prevent keep-alive issues
-
 		// Handle CORS immediately
 		origin := r.Header.Get("Origin")
 		if origin != "" && isValidOrigin(origin) {
@@ -602,12 +599,29 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
+		// Set content type after CORS headers but before writing
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Connection", "close") // Prevent keep-alive issues
+
+		// Skip header validation for HTTP/2 connections
+		if r.ProtoMajor != 2 {
+			// For HTTP/1.1, perform validation as normal
+			if err := validateHeaders(w, r); err != nil {
+				return
+			}
+		}
+
 		// Prepare response
 		response := AuthStatusResponse{
 			Enabled: cfg.AuthEnabled,
 		}
 
-		// Marshal response before writing headers
+		// Check authentication
+		if username := r.Context().Value("username"); username != nil {
+			response.Authenticated = true
+		}
+
+		// Marshal response before writing
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
 			logger.Log.Printf("AuthStatusHandler: Error marshaling response: %v", err)

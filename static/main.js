@@ -1,6 +1,6 @@
 // Basic HTTP retry functionality
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000;
+const RETRY_DELAY = 1000; // 1 second base delay
 
 // Configure base URL based on environment
 const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -16,12 +16,13 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
                 headers: {
                     ...options.headers,
                     'Accept': 'application/json',
-                    'Cache-Control': 'no-cache'
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'close' // Force connection close to prevent H2 issues
                 }
             });
             
-            // Handle non-OK responses
-            if (!response.ok) {
+            // Check for specific status codes that might be successful despite not being 200
+            if (!response.ok && response.status !== 204) {
                 // Try to parse error message
                 let errorMessage;
                 try {
@@ -184,34 +185,32 @@ async function init() {
     }
 
     try {
-        // Check auth status with proper headers and no keep-alive
+        // Check auth status with proper headers
         const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
             method: 'GET',
             headers: {
-                'Accept': 'application/json',
-                'Origin': window.location.origin,
-                'Connection': 'close'
+                'Origin': window.location.origin
             },
-            credentials: 'include',
-            cache: 'no-cache',
-            keepalive: false
+            credentials: 'include'
+        }).catch(error => {
+            console.warn("Auth check failed, continuing anyway:", error);
+            return { json: () => Promise.resolve({ enabled: false }) };
         });
 
-        const authData = await authResponse.json();
+        const authData = await authResponse.json().catch(() => ({ enabled: false }));
         console.log('Auth status response:', authData);
 
         if (authData?.enabled && !authData?.authenticated) {
             window.location.replace('/login.html');
             return;
         }
-
-        // Initialize form only after successful auth check
-        await initializeVPNForm();
     } catch (error) {
-        console.error('Auth check failed:', error);
-        // Continue with form initialization despite auth failure
-        await initializeVPNForm();
+        console.error('Auth check failed, continuing anyway:', error);
+        // Continue despite auth failure
     }
+
+    // Initialize form regardless of auth check result
+    await initializeVPNForm();
 }
 
 // Remove the problematic startInit() call that was causing duplicate initialization
