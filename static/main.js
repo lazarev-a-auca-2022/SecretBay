@@ -11,14 +11,33 @@ const BASE_URL = window.location.hostname === 'localhost' || window.location.hos
 async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     for (let i = 0; i < retries; i++) {
         try {
-            const response = await fetch(url, options);
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            // Handle non-OK responses
             if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data.error || `Request failed with status ${response.status}`);
+                // Try to parse error message
+                let errorMessage;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error;
+                } catch (e) {
+                    errorMessage = `Request failed with status ${response.status}`;
+                }
+                throw new Error(errorMessage);
             }
+            
             return response;
         } catch (error) {
+            console.warn(`Attempt ${i + 1} failed:`, error);
             if (i === retries - 1) throw error;
+            // Exponential backoff
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, i)));
         }
     }
@@ -165,45 +184,39 @@ async function init() {
     }
 
     try {
-        // Check auth status first, before any DOM manipulation
+        // Check auth status with proper headers and no keep-alive
         const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
+            method: 'GET',
             headers: {
                 'Accept': 'application/json',
-                'Origin': window.location.origin
+                'Origin': window.location.origin,
+                'Connection': 'close'
             },
             credentials: 'include',
-            cache: 'no-cache' // Prevent caching
+            cache: 'no-cache',
+            keepalive: false
         });
 
         const authData = await authResponse.json();
+        console.log('Auth status response:', authData);
+
         if (authData?.enabled && !authData?.authenticated) {
             window.location.replace('/login.html');
             return;
         }
-    } catch (error) {
-        console.warn('Auth status check failed:', error);
-        // Log more details about the error
-        if (error.message) console.warn('Error message:', error.message);
-        if (error.response) console.warn('Response status:', error.response.status);
-    }
 
-    // Only proceed with form initialization if we're still on the page
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        // Initialize form only after successful auth check
         await initializeVPNForm();
-    } else {
-        document.addEventListener('DOMContentLoaded', async () => {
-            await initializeVPNForm();
-        });
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        // Continue with form initialization despite auth failure
+        await initializeVPNForm();
     }
 }
 
-// Start initialization based on document state
-function startInit() {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+// Remove the problematic startInit() call that was causing duplicate initialization
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
 }
-
-startInit();

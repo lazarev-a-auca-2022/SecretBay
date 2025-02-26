@@ -582,32 +582,46 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Handle preflight first
-		if r.Method == http.MethodOptions {
-			handleCORS(w, r)
-			return
-		}
-
-		// Set headers first
+		// Set headers immediately to prevent connection resets
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Connection", "close") // Prevent keep-alive issues
 
-		// Set CORS headers
+		// Handle CORS immediately
 		origin := r.Header.Get("Origin")
 		if origin != "" && isValidOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
 			w.Header().Set("Vary", "Origin")
 		}
 
-		// Simple response without chunking
+		// Handle preflight
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Prepare response
 		response := AuthStatusResponse{
 			Enabled: cfg.AuthEnabled,
 		}
 
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			logger.Log.Printf("AuthStatusHandler: Error encoding response: %v", err)
+		// Marshal response before writing headers
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			logger.Log.Printf("AuthStatusHandler: Error marshaling response: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Set content length to prevent chunked encoding
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(responseBytes)))
+
+		// Write the response in a single write
+		_, err = w.Write(responseBytes)
+		if err != nil {
+			logger.Log.Printf("AuthStatusHandler: Error writing response: %v", err)
 			return
 		}
 	}
