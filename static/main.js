@@ -12,9 +12,9 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     for (let i = 0; i < retries; i++) {
         try {
             const response = await fetch(url, options);
-            if (!response.ok && response.status === 400) {
+            if (!response.ok) {
                 const data = await response.json().catch(() => ({}));
-                throw new Error(data.error || 'Bad request');
+                throw new Error(data.error || `Request failed with status ${response.status}`);
             }
             return response;
         } catch (error) {
@@ -41,19 +41,33 @@ function initializeVPNForm() {
         const vpnForm = document.getElementById('vpnForm');
         const resultDiv = document.getElementById('result');
         const errorDiv = document.getElementById('downloadError');
+        const loadingDiv = document.getElementById('loading');
 
         // Check if all required elements exist
         if (!vpnForm || !resultDiv || !errorDiv) {
-            console.warn('Required form elements not found, retrying in 100ms...');
-            setTimeout(initForm, 100);
-            return;
+            if (window.initRetries === undefined) {
+                window.initRetries = 0;
+            }
+            
+            if (window.initRetries < 10) { // Max 10 retries (1 second total)
+                window.initRetries++;
+                setTimeout(initForm, 100);
+                return;
+            } else {
+                console.error('Failed to initialize form after 10 retries');
+                return;
+            }
         }
+
+        // Reset retry counter
+        window.initRetries = 0;
 
         // Rest of the form initialization code
         vpnForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             resultDiv.style.display = 'none';
             errorDiv.style.display = 'none';
+            if (loadingDiv) loadingDiv.style.display = 'block';
 
             try {
                 // Setup VPN
@@ -121,6 +135,8 @@ function initializeVPNForm() {
                     errorDiv.style.display = 'block';
                     resultDiv.style.display = 'none';
                 }
+            } finally {
+                if (loadingDiv) loadingDiv.style.display = 'none';
             }
         });
     };
@@ -134,24 +150,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         // Check authentication status only on the VPN setup page
         if (isVPNSetupPage()) {
-            const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
-                headers: {
-                    'Accept': 'application/json',
-                    'Origin': window.location.origin
-                },
-                credentials: 'include'
-            }).catch(error => {
-                console.warn('Auth status check failed:', error);
-                // Don't redirect on auth check failure, just continue
-                return null;
-            });
+            try {
+                const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
+                    },
+                    credentials: 'include'
+                });
 
-            if (authResponse?.ok) {
                 const authData = await authResponse.json();
                 if (authData?.enabled && !authData?.authenticated) {
                     window.location.replace('/login.html');
                     return;
                 }
+            } catch (error) {
+                console.warn('Auth status check failed:', error);
+                // Don't redirect on auth check failure, just continue with form initialization
             }
         }
 
