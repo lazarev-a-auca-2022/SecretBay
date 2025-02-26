@@ -583,29 +583,34 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Handle CORS preflight immediately
-		if r.Method == http.MethodOptions {
-			handleCORS(w, r)
-			return
-		}
-
 		// Validate headers first
 		if err := validateHeaders(w, r); err != nil {
 			return // validateHeaders already sent the error response
 		}
 
-		// Set content type and disable chunked encoding
+		// Handle CORS
+		origin := r.Header.Get("Origin")
+		if origin != "" && isValidOrigin(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
+			w.Header().Set("Vary", "Origin")
+		}
+
+		// Handle preflight
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Set content type
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Transfer-Encoding", "identity")
 
-		// Prepare response
-		response := AuthStatusResponse{
-			Enabled: cfg.AuthEnabled,
-		}
-
-		// Check authentication
-		if username := r.Context().Value("username"); username != nil {
-			response.Authenticated = true
+		// Prepare response - only include enabled status
+		response := map[string]bool{
+			"enabled": cfg.AuthEnabled,
 		}
 
 		// Use direct encoding to avoid chunked transfer issues
@@ -635,10 +640,15 @@ func handleCORS(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateHeaders(w http.ResponseWriter, r *http.Request) error {
+	// Skip validation for OPTIONS requests
+	if r.Method == http.MethodOptions {
+		return nil
+	}
+
 	// For HTTP/1.1, require Accept header
 	if r.ProtoMajor == 1 {
 		accept := r.Header.Get("Accept")
-		if accept == "" || !strings.Contains(accept, "application/json") {
+		if accept == "" || (!strings.Contains(accept, "application/json") && !strings.Contains(accept, "*/*")) {
 			utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
 			return fmt.Errorf("invalid accept header")
 		}
@@ -651,11 +661,6 @@ func validateHeaders(w http.ResponseWriter, r *http.Request) error {
 			utils.JSONError(w, "Invalid origin", http.StatusForbidden)
 			return fmt.Errorf("invalid origin")
 		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
-		w.Header().Set("Vary", "Origin")
 	}
 
 	return nil
