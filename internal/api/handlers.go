@@ -250,8 +250,9 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
 
-	// Auth endpoints - publicly accessible
-	router.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	// Auth endpoints - publicly accessible with both paths
+	router.HandleFunc("/api/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS") // Keep old path for compatibility
 	router.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
@@ -587,10 +588,9 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Set security headers and content type early
-		setSecurityHeaders(w)
-		w.Header().Set("Content-Length", "27") // Fixed length for {"enabled":true} or {"enabled":false}
-		w.Header().Set("Connection", "close")  // Prevent keep-alive issues
+		// Set headers first
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
 
 		// Set CORS headers
 		origin := r.Header.Get("Origin")
@@ -600,12 +600,15 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			w.Header().Set("Vary", "Origin")
 		}
 
-		// Write response in a single write to prevent chunking
-		enabled := cfg.AuthEnabled
-		if enabled {
-			w.Write([]byte(`{"enabled":true}`))
-		} else {
-			w.Write([]byte(`{"enabled":false}`))
+		// Simple response without chunking
+		response := AuthStatusResponse{
+			Enabled: cfg.AuthEnabled,
+		}
+
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			logger.Log.Printf("AuthStatusHandler: Error encoding response: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
 		}
 	}
 }
