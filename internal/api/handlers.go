@@ -590,7 +590,6 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 				return
 			}
 		}
-
 		// Handle CORS
 		origin := r.Header.Get("Origin")
 		if origin != "" && isValidOrigin(origin) {
@@ -600,21 +599,37 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
 			w.Header().Set("Vary", "Origin")
 		}
-
 		// Handle preflight
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
 		// Set content type and headers
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 		w.Header().Set("Transfer-Encoding", "identity")
 
-		// Simple response with just enabled status
-		response := map[string]bool{
-			"enabled": cfg.AuthEnabled,
+		// Check authentication status - either auth is disabled or we have a valid token
+		isAuthenticated := !cfg.AuthEnabled
+
+		// Only check token if auth is enabled
+		if cfg.AuthEnabled {
+			// Extract token from Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+				// Verify the token using ValidateJWT instead of VerifyToken
+				_, err := auth.ValidateJWT(tokenString, cfg)
+				if err == nil {
+					isAuthenticated = true
+				}
+			}
+		}
+
+		// Use the AuthStatusResponse struct
+		response := AuthStatusResponse{
+			Enabled:       cfg.AuthEnabled,
+			Authenticated: isAuthenticated,
 		}
 
 		// Use direct encoding to avoid chunked transfer issues
@@ -624,7 +639,6 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-
 		// Set content length and write response in one go
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(responseBytes)))
 		w.Write(responseBytes)
