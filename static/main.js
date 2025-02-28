@@ -91,13 +91,14 @@ function createFallbackElement(type, id) {
 
 async function initializeVPNForm() {
     try {
-        // Wait for all required form elements
+        // Wait for the form element first, and exit early if it's not present
         const form = await waitForElement('#vpnForm');
         if (!form) {
             console.log('VPN form not found on this page');
             return;
         }
         
+        // Only proceed if we have the form element
         const elements = {
             form: form,
             serverIp: await waitForElement('#serverIp'),
@@ -107,22 +108,22 @@ async function initializeVPNForm() {
             vpnType: await waitForElement('#vpnType'),
             result: await waitForElement('#result') || createFallbackElement('div', 'result'),
             error: await waitForElement('#downloadError') || createFallbackElement('div', 'downloadError'),
-            loading: await waitForElement('#loading')
+            loading: await waitForElement('#loading') || createFallbackElement('div', 'loading')
         };
 
-        // Only proceed if all critical elements were found
-        if (!elements.form || !elements.serverIp || !elements.username || 
-            !elements.authCredential || !elements.vpnType) {
+        // Check if critical elements are missing before proceeding
+        if (!elements.serverIp || !elements.username || 
+            !elements.authCredential || !elements.vpnType || !elements.authMethod) {
             console.error('Required form elements missing - cannot initialize form');
             return;
         }
         
-        // Now safely add the event listener
+        // Now safely add the event listener - we verified form is not null above
         elements.form.addEventListener('submit', async (e) => {
             e.preventDefault();
             elements.result.style.display = 'none';
             elements.error.style.display = 'none';
-            if (elements.loading) elements.loading.style.display = 'block';
+            elements.loading.style.display = 'block';
 
             try {
                 const formData = {
@@ -187,7 +188,7 @@ async function initializeVPNForm() {
                     elements.result.style.display = 'none';
                 }
             } finally {
-                if (elements.loading) elements.loading.style.display = 'none';
+                elements.loading.style.display = 'none';
             }
         });
     } catch (error) {
@@ -196,53 +197,53 @@ async function initializeVPNForm() {
 }
 
 async function init() {
-    if (!isVPNSetupPage()) {
-        return;
-    }
-
-    // Start form initialization
-    const formInitPromise = initializeVPNForm().catch(error => {
-        console.error('Form initialization error:', error);
-    });
-
     try {
+        // Check if we're on the VPN setup page before trying to initialize the form
+        if (isVPNSetupPage()) {
+            // Start form initialization
+            initializeVPNForm().catch(error => {
+                console.error('Form initialization error:', error);
+            });
+        } else {
+            console.log('Not on VPN setup page, skipping form initialization');
+        }
+
         // Use fetch with explicit headers and timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
         
-        const response = await fetch(`${BASE_URL}/api/auth/status`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Origin': window.location.origin,
-                'Cache-Control': 'no-cache',
-                'Connection': 'close' // Force HTTP/1.1 behavior
-            },
-            credentials: 'include',
-            signal: controller.signal
-        }).catch(error => {
-            console.warn("Auth check failed, continuing anyway:", error);
-            return { ok: true, json: () => Promise.resolve({ enabled: false }) };
-        });
-        
-        clearTimeout(timeoutId);
+        try {
+            const response = await fetch(`${BASE_URL}/api/auth/status`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin,
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'close' // Force HTTP/1.1 behavior
+                },
+                credentials: 'include',
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+                const authData = await response.json();
+                console.log('Auth status response:', authData);
 
-        if (response.ok) {
-            const authData = await response.json().catch(() => ({ enabled: false }));
-            console.log('Auth status response:', authData);
-
-            if (authData?.enabled && !authData?.authenticated) {
-                window.location.replace('/login.html');
-                return;
+                if (authData?.enabled && !authData?.authenticated) {
+                    window.location.replace('/login.html');
+                    return;
+                }
             }
+        } catch (error) {
+            clearTimeout(timeoutId);
+            console.error("Error checking authentication:", error);
+            // Gracefully degrade - continue without authentication
         }
     } catch (error) {
-        console.error("Error checking authentication:", error);
-        // Gracefully degrade - continue without authentication
+        console.error("Critical initialization error:", error);
     }
-
-    // Wait for form initialization to complete
-    await formInitPromise;
 }
 
 // Initialize on page load
