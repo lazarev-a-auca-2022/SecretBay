@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/sshclient"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
@@ -39,23 +40,31 @@ func (s *StrongSwanSetup) Setup() error {
 	logger.Log.Println("Starting StrongSwan setup")
 
 	// Generate secure VPN password
+	logger.Log.Println("Generating secure VPN password...")
 	vpnPassword := generateStrongVPNPassword()
+	logger.Log.Println("Secure password generated successfully")
 
 	// Package installation with enhanced security packages
+	logger.Log.Println("Step 1/6: Updating system and installing StrongSwan packages...")
 	cmds := []string{
 		"sudo apt update && sudo apt upgrade -y",
 		"sudo apt install -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl",
 	}
 
-	for _, cmd := range cmds {
+	for i, cmd := range cmds {
+		logger.Log.Printf("Installation step %d/%d: Running command", i+1, len(cmds))
 		out, err := s.SSHClient.RunCommand(cmd)
 		if err != nil {
-			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, out, err)
+			logger.Log.Printf("Command failed: Output: %s, Error: %v", out, err)
 			return fmt.Errorf("package installation failed: %v", err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
+	logger.Log.Println("Packages installed successfully")
 
 	// Secure certificate generation with stronger parameters
+	logger.Log.Println("Step 2/6: Generating secure certificates...")
 	certSetup := []string{
 		"sudo mkdir -p /etc/ipsec.d/{cacerts,certs,private}",
 		"sudo chmod 700 /etc/ipsec.d/{cacerts,certs,private}",
@@ -67,15 +76,20 @@ func (s *StrongSwanSetup) Setup() error {
 		fmt.Sprintf("cd /etc/ipsec.d && sudo ipsec pki --pub --in private/server.key.pem | sudo ipsec pki --issue --lifetime 1825 --cacert cacerts/ca.cert.pem --cakey private/ca.key.pem --dn 'CN=%s' --san '%s' --flag serverAuth --flag ikeIntermediate --outform pem > certs/server.cert.pem", s.ServerIP, s.ServerIP),
 	}
 
-	for _, cmd := range certSetup {
+	for i, cmd := range certSetup {
+		logger.Log.Printf("Certificate setup step %d/%d: %s", i+1, len(certSetup), cmd)
 		out, err := s.SSHClient.RunCommand(cmd)
 		if err != nil {
-			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, out, err)
+			logger.Log.Printf("Command failed: Output: %s, Error: %v", out, err)
 			return fmt.Errorf("certificate generation failed: %v", err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
+	logger.Log.Println("Certificates generated successfully")
 
 	// Enhanced StrongSwan configuration with modern crypto
+	logger.Log.Println("Step 3/6: Creating StrongSwan configuration...")
 	strongswanConf := fmt.Sprintf(`config setup
     charondebug="ike 2, knl 2, cfg 2"
     uniqueids=no
@@ -113,21 +127,33 @@ conn ikev2-vpn
     auto=add`, s.ServerIP)
 
 	// Write main config
+	logger.Log.Println("Writing IPsec configuration file...")
 	if out, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.conf", strongswanConf)); err != nil {
 		logger.Log.Printf("Command failed: Output: %s, Error: %v", out, err)
 		return fmt.Errorf("failed to write ipsec.conf: %v", err)
 	}
+	logger.Log.Println("IPsec configuration written successfully")
 
 	// Secure secrets configuration with generated password
+	logger.Log.Println("Step 4/6: Setting up secure secrets...")
 	secretsConf := fmt.Sprintf(`: RSA "server.key.pem"
 %%any : EAP "%s"`, vpnPassword)
 
+	logger.Log.Println("Writing IPsec secrets file...")
 	if out, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/ipsec.secrets", secretsConf)); err != nil {
 		logger.Log.Printf("Command failed: Output: %s, Error: %v", out, err)
 		return fmt.Errorf("failed to write ipsec.secrets: %v", err)
 	}
+	logger.Log.Println("IPsec secrets written successfully")
+
+	// Create VPN configs directory
+	logger.Log.Println("Creating directory for VPN configurations...")
+	if out, err := s.SSHClient.RunCommand("sudo mkdir -p /etc/vpn-configs && sudo chmod 755 /etc/vpn-configs"); err != nil {
+		logger.Log.Printf("Warning: Failed to create VPN configs directory: %v, Output: %s", err, out)
+	}
 
 	// Secure permissions
+	logger.Log.Println("Step 5/6: Setting up system security...")
 	securityCmds := []string{
 		"sudo chmod 600 /etc/ipsec.secrets",
 		"sudo chmod 644 /etc/ipsec.conf",
@@ -137,28 +163,37 @@ conn ikev2-vpn
 		"sudo sysctl -p",
 	}
 
-	for _, cmd := range securityCmds {
+	for i, cmd := range securityCmds {
+		logger.Log.Printf("Security step %d/%d: %s", i+1, len(securityCmds), cmd)
 		out, err := s.SSHClient.RunCommand(cmd)
 		if err != nil {
 			logger.Log.Printf("Warning: Security command failed: %s, Output: %s, Error: %v", cmd, out, err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
+	logger.Log.Println("Security settings applied")
 
 	// Configure and start service
+	logger.Log.Println("Step 6/6: Starting and enabling StrongSwan service...")
 	serviceCmds := []string{
 		"sudo systemctl restart strongswan-starter",
 		"sudo systemctl enable strongswan-starter",
 	}
 
-	for _, cmd := range serviceCmds {
+	for i, cmd := range serviceCmds {
+		logger.Log.Printf("Service step %d/%d: %s", i+1, len(serviceCmds), cmd)
 		out, err := s.SSHClient.RunCommand(cmd)
 		if err != nil {
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, out, err)
 			return fmt.Errorf("service configuration failed: %v", err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// Verify service status
+	logger.Log.Println("Verifying StrongSwan service status...")
 	out, err := s.SSHClient.RunCommand("systemctl is-active strongswan-starter")
 	if err != nil {
 		logger.Log.Printf("Service status check failed: Output: %s, Error: %v", out, err)
@@ -170,11 +205,15 @@ conn ikev2-vpn
 		logger.Log.Printf("Service is not active, status: %s", trimmedStatus)
 		return fmt.Errorf("StrongSwan service is not active, status: %s", trimmedStatus)
 	}
+	logger.Log.Println("StrongSwan service is active and running")
 
 	// Save the VPN credentials securely
+	logger.Log.Println("Saving VPN credentials...")
 	credsOutput := fmt.Sprintf("VPN_USERNAME=vpnuser\nVPN_PASSWORD=%s", vpnPassword)
 	if out, err := s.SSHClient.RunCommand(fmt.Sprintf("echo '%s' | sudo tee /etc/vpn-configs/credentials.txt && sudo chmod 600 /etc/vpn-configs/credentials.txt", credsOutput)); err != nil {
 		logger.Log.Printf("Warning: Failed to save credentials: %v, Output: %s", err, out)
+	} else {
+		logger.Log.Println("VPN credentials saved to /etc/vpn-configs/credentials.txt")
 	}
 
 	logger.Log.Println("StrongSwan setup completed successfully")

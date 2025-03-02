@@ -3,6 +3,7 @@ package vpn
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/sshclient"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
@@ -17,20 +18,26 @@ func (o *OpenVPNSetup) Setup() error {
 	logger.Log.Println("Starting OpenVPN setup")
 
 	// Update and install required packages
+	logger.Log.Println("Step 1/6: Updating system and installing packages...")
 	cmds := []string{
 		"sudo apt update && sudo apt upgrade -y",
 		"sudo apt install -y openvpn easy-rsa fail2ban ufw openssl",
 	}
 
 	for _, cmd := range cmds {
+		logger.Log.Printf("Running command: %s", cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("package installation failed: %v", err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
+	logger.Log.Println("Packages installed successfully")
 
 	// Clean up any existing easy-rsa directory and create new setup
+	logger.Log.Println("Step 2/6: Setting up PKI infrastructure...")
 	setupCmds := []string{
 		"sudo rm -rf ~/easy-rsa",           // Remove existing directory
 		"sudo rm -rf /etc/openvpn/certs/*", // Clean up existing certs
@@ -52,15 +59,20 @@ func (o *OpenVPNSetup) Setup() error {
 		"sudo chmod -R 600 /etc/openvpn/certs/*",
 	}
 
-	for _, cmd := range setupCmds {
+	for i, cmd := range setupCmds {
+		logger.Log.Printf("PKI setup %d/%d: %s", i+1, len(setupCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("PKI setup failed: %v", err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
+	logger.Log.Println("PKI setup completed successfully")
 
 	// Enhanced OpenVPN server configuration
+	logger.Log.Println("Step 3/6: Creating OpenVPN server configuration...")
 	serverConfig := `port 1194
 proto udp
 dev tun
@@ -96,6 +108,7 @@ script-security 2
 verify-client-cert require`
 
 	// Create log directory and set permissions
+	logger.Log.Println("Step 4/6: Setting up log directories...")
 	logSetupCmds := []string{
 		"sudo mkdir -p /var/log/openvpn",
 		"sudo chown nobody:nogroup /var/log/openvpn",
@@ -103,21 +116,34 @@ verify-client-cert require`
 	}
 
 	for _, cmd := range logSetupCmds {
+		logger.Log.Printf("Running command: %s", cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
 			logger.Log.Printf("Warning: Log directory setup failed: %s, Output: %s, Error: %v", cmd, output, err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// Write server config
+	logger.Log.Println("Writing server configuration...")
 	cmd := fmt.Sprintf("echo '%s' | sudo tee /etc/openvpn/server.conf", serverConfig)
 	output, err := o.SSHClient.RunCommand(cmd)
 	if err != nil {
-		logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", serverConfig, output, err)
+		logger.Log.Printf("Command failed: Output: %s, Error: %v", output, err)
 		return fmt.Errorf("failed to write server config: %v", err)
 	}
 
+	// Create directory for client configs
+	logger.Log.Println("Creating directory for client configs...")
+	createClientDirCmd := "sudo mkdir -p /etc/vpn-configs && sudo chmod 755 /etc/vpn-configs"
+	_, err = o.SSHClient.RunCommand(createClientDirCmd)
+	if err != nil {
+		logger.Log.Printf("Warning: Failed to create client config directory: %v", err)
+	}
+
 	// Configure system settings
+	logger.Log.Println("Step 5/6: Configuring system settings...")
 	sysctlCmds := []string{
 		"echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-openvpn.conf",
 		"echo 'net.ipv4.conf.all.forwarding=1' | sudo tee -a /etc/sysctl.d/99-openvpn.conf",
@@ -125,14 +151,18 @@ verify-client-cert require`
 	}
 
 	for _, cmd := range sysctlCmds {
+		logger.Log.Printf("Running command: %s", cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("system configuration failed: %v", err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// Start and enable OpenVPN service
+	logger.Log.Println("Step 6/6: Starting OpenVPN service...")
 	serviceCmds := []string{
 		"sudo systemctl daemon-reload",
 		"sudo systemctl start openvpn@server",
@@ -140,14 +170,18 @@ verify-client-cert require`
 	}
 
 	for _, cmd := range serviceCmds {
+		logger.Log.Printf("Running command: %s", cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("service activation failed: %v", err)
 		}
+		// Force immediate flush of logs
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	// Verify service status
+	logger.Log.Println("Verifying OpenVPN service status...")
 	status, err := o.SSHClient.RunCommand("systemctl is-active openvpn@server")
 	if err != nil {
 		logger.Log.Printf("Service status check failed: Output: %s, Error: %v", status, err)
@@ -158,6 +192,30 @@ verify-client-cert require`
 	if trimmedStatus != "active" {
 		logger.Log.Printf("Service is not active, status: %s", trimmedStatus)
 		return fmt.Errorf("OpenVPN service is not active, status: %s", trimmedStatus)
+	}
+
+	// Generate client config
+	logger.Log.Println("Generating client configuration...")
+	clientConfig := fmt.Sprintf(`client
+dev tun
+proto udp
+remote %s 1194
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+cipher AES-256-GCM
+auth SHA512
+verb 3
+key-direction 1`, o.ServerIP)
+
+	clientConfigCmd := fmt.Sprintf("echo '%s' | sudo tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig)
+	_, err = o.SSHClient.RunCommand(clientConfigCmd)
+	if err != nil {
+		logger.Log.Printf("Warning: Failed to generate client config: %v", err)
+	} else {
+		logger.Log.Println("Client configuration created at /etc/vpn-configs/openvpn_config.ovpn")
 	}
 
 	logger.Log.Println("OpenVPN setup completed successfully")

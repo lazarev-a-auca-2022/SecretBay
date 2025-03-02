@@ -6,6 +6,7 @@
 package logger
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -20,7 +21,32 @@ var (
 	// Log is the global logger instance
 	Log *log.Logger
 	mu  sync.Mutex
+
+	// Store the writers for flushing
+	logWriters []io.Writer
+
+	// Store buffered writers that need flushing
+	bufferedWriters []flushableWriter
 )
+
+// flushableWriter is an interface for writers that can be flushed
+type flushableWriter interface {
+	io.Writer
+	Flush() error
+}
+
+// bufferedWriterImpl implements the flushableWriter interface
+type bufferedWriterImpl struct {
+	writer *bufio.Writer
+}
+
+func (bw *bufferedWriterImpl) Write(p []byte) (n int, err error) {
+	return bw.writer.Write(p)
+}
+
+func (bw *bufferedWriterImpl) Flush() error {
+	return bw.writer.Flush()
+}
 
 const (
 	// maxLogSize defines the maximum size of a log file before rotation (10MB)
@@ -46,8 +72,10 @@ var sensitivePatterns = []*regexp.Regexp{
 }
 
 func init() {
-	// Create multi-writer to write to both file and stdout
-	writers := []io.Writer{os.Stdout}
+	// Create a buffered writer for stdout to prevent blocking
+	stdoutWriter := NewBufferedWriter(os.Stdout)
+	logWriters = []io.Writer{stdoutWriter}
+	bufferedWriters = append(bufferedWriters, stdoutWriter)
 
 	// Only write to file if not in Docker
 	if os.Getenv("DOCKER_CONTAINER") != "true" {
@@ -59,15 +87,24 @@ func init() {
 			if err != nil {
 				log.Printf("Failed to open log file: %v", err)
 			} else {
-				writers = append(writers, file)
+				fileWriter := NewBufferedWriter(file)
+				logWriters = append(logWriters, fileWriter)
+				bufferedWriters = append(bufferedWriters, fileWriter)
 				go rotateLogFiles()
 			}
 		}
 	}
 
 	// Create multi-writer
-	multiWriter := io.MultiWriter(writers...)
+	multiWriter := io.MultiWriter(logWriters...)
 	Log = log.New(multiWriter, "", log.Ldate|log.Ltime|log.Lshortfile)
+}
+
+// NewBufferedWriter creates a buffered writer that can be flushed
+func NewBufferedWriter(w io.Writer) flushableWriter {
+	// Create a buffered writer with a generous buffer size for efficiency
+	buffered := bufio.NewWriterSize(w, 4096)
+	return &bufferedWriterImpl{writer: buffered}
 }
 
 // sanitizeMessage redacts sensitive information from log messages.
@@ -88,6 +125,9 @@ func Printf(format string, v ...interface{}) {
 	message := fmt.Sprintf(format, v...)
 	sanitized := sanitizeMessage(message)
 	Log.Output(2, sanitized)
+
+	// Flush all writers immediately
+	FlushAll()
 }
 
 // Println logs a message after sanitizing sensitive information.
@@ -99,6 +139,16 @@ func Println(v ...interface{}) {
 	message := fmt.Sprintln(v...)
 	sanitized := sanitizeMessage(message)
 	Log.Output(2, sanitized)
+
+	// Flush all writers immediately
+	FlushAll()
+}
+
+// FlushAll forces a flush on all writers that support it
+func FlushAll() {
+	for _, writer := range bufferedWriters {
+		_ = writer.Flush()
+	}
 }
 
 func rotateLogFiles() {
@@ -139,7 +189,27 @@ func rotateLogFiles() {
 		// Create new log file
 		file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0640)
 		if err == nil {
-			Log.SetOutput(file)
+			// Update the writer
+			fileWriter := NewBufferedWriter(file)
+
+			// Replace file writer in our slices
+			for i, w := range logWriters {
+				if _, ok := w.(flushableWriter); ok {
+					logWriters[i] = fileWriter
+					break
+				}
+			}
+
+			for i, w := range bufferedWriters {
+				if _, ok := w.(flushableWriter); ok {
+					bufferedWriters[i] = fileWriter
+					break
+				}
+			}
+
+			// Recreate the multi-writer
+			multiWriter := io.MultiWriter(logWriters...)
+			Log.SetOutput(multiWriter)
 		}
 
 		mu.Unlock()

@@ -607,7 +607,6 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 		// Set content type and security headers
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-		w.Header().Set("Transfer-Encoding", "identity")
 
 		// THEN perform validation - with less strict rules for HTTP/1.1 requests
 		if r.ProtoMajor != 2 {
@@ -640,16 +639,9 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			Authenticated: isAuthenticated,
 		}
 
-		// Use direct encoding to avoid chunked transfer issues
-		responseBytes, err := json.Marshal(response)
-		if err != nil {
-			logger.Log.Printf("AuthStatusHandler: Error marshaling: %v", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-		// Set content length and write response in one go
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(responseBytes)))
-		w.Write(responseBytes)
+		// Use standard encoding instead of direct marshaling to avoid response issues
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
 	}
 }
 
