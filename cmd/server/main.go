@@ -131,15 +131,20 @@ func main() {
 	// Add base security headers middleware
 	router.Use(api.SecurityHeadersMiddleware)
 
-	// Public endpoints and auth endpoints at root level
+	// Create public routes subrouter
+	publicRouter := router.PathPrefix("/api").Subrouter()
+
+	// Public endpoints
+	publicRouter.HandleFunc("/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	publicRouter.HandleFunc("/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	publicRouter.HandleFunc("/auth/register", api.RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
+
+	// Health and metrics endpoints
 	router.HandleFunc("/health", api.HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", api.MetricsHandler(cfg)).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
-	router.HandleFunc("/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS") // Legacy support
-	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/auth/register", api.RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
-	// Handle static files first, before any API routes
+	// Handle static files
 	staticRouter := router.PathPrefix("/").Subrouter()
 	fs := http.FileServer(http.Dir("./static"))
 
@@ -187,18 +192,18 @@ func main() {
 		fs.ServeHTTP(w, r)
 	}).Methods("GET")
 
-	// Create public routes subrouter that bypasses authentication
-	publicRouter := router.PathPrefix("/api").Subrouter()
-	publicRouter.HandleFunc("/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
-	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
-	publicRouter.HandleFunc("/auth/register", api.RegisterHandler(db, cfg)).Methods("POST", "OPTIONS")
-
 	// Protected API routes
 	apiRouter := router.PathPrefix("/api").Subrouter()
 	apiRouter.Use(api.RateLimitMiddleware(api.NewRateLimiter(time.Minute, 100)))
 	apiRouter.Use(api.JWTAuthenticationMiddleware(cfg))
 	apiRouter.Use(api.CSRFMiddleware(cfg))
-	api.SetupRoutes(apiRouter, cfg)
+
+	// Protected endpoints
+	apiRouter.HandleFunc("/setup", api.SetupVPNHandler(cfg)).Methods("POST")
+	apiRouter.HandleFunc("/vpn/status", api.StatusHandler(cfg)).Methods("GET")
+	apiRouter.HandleFunc("/config/download", api.DownloadConfigHandler()).Methods("GET")
+	apiRouter.HandleFunc("/backup", api.BackupHandler(cfg)).Methods("POST")
+	apiRouter.HandleFunc("/restore", api.RestoreHandler(cfg)).Methods("POST")
 
 	// TLS Configuration
 	tlsConfig := &tls.Config{

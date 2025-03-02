@@ -250,23 +250,26 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	// Public endpoints that don't need auth
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
-	router.HandleFunc("/csrf-token", CSRFTokenHandler()).Methods("GET", "OPTIONS")
 
-	// Auth endpoints with proper path prefixes
-	router.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
-	router.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
-	router.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
+	// API endpoints with /api prefix
+	apiRouter := router.PathPrefix("/api").Subrouter()
+
+	// Public API endpoints
+	apiRouter.HandleFunc("/csrf-token", CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
 	// Protected API routes
-	apiRouter := router.PathPrefix("/api").Subrouter()
-	apiRouter.Use(JWTAuthenticationMiddleware(cfg))
-	apiRouter.Use(CSRFMiddleware(cfg))
+	protectedRouter := apiRouter.PathPrefix("").Subrouter()
+	protectedRouter.Use(JWTAuthenticationMiddleware(cfg))
+	protectedRouter.Use(CSRFMiddleware(cfg))
 
-	apiRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-	apiRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
-	apiRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
-	apiRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
-	apiRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
+	protectedRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
+	protectedRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
+	protectedRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+	protectedRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
+	protectedRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
 }
 
 func generatePassword() (string, error) {
