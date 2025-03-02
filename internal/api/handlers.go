@@ -40,6 +40,13 @@ type AuthStatusResponse struct {
 	Authenticated bool `json:"authenticated"`
 }
 
+type VPNStatusResponse struct {
+	Status    string `json:"status"`
+	IsRunning bool   `json:"is_running"`
+	ServerIP  string `json:"server_ip,omitempty"`
+	VPNType   string `json:"vpn_type,omitempty"`
+}
+
 // SetupVPNHandler returns an http.HandlerFunc that handles VPN setup requests.
 // It validates the request, connects to the remote server via SSH, sets up the
 // requested VPN type, and returns the configuration.
@@ -274,7 +281,7 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	protectedRouter.Use(CSRFMiddleware(cfg))
 
 	protectedRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-	protectedRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
+	protectedRouter.HandleFunc("/vpn/status", VPNStatusHandler(cfg)).Methods("GET")                     // Added VPN status endpoint
 	protectedRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")              // Legacy path
 	protectedRouter.HandleFunc("/config/download/client", DownloadClientConfigHandler()).Methods("GET") // New client config endpoint
 	protectedRouter.HandleFunc("/config/download/server", DownloadServerConfigHandler()).Methods("GET") // New server config endpoint
@@ -876,4 +883,61 @@ func verifyConfigExists(client *sshclient.SSHClient, configPath string) (bool, e
 		return false, fmt.Errorf("error checking config file: %v", err)
 	}
 	return strings.TrimSpace(out) == "exists", nil
+}
+
+// VPNStatusHandler returns an http.HandlerFunc that handles VPN status requests
+func VPNStatusHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Log.Println("VPNStatusHandler: Processing request")
+
+		// Extract server IP from query parameters
+		serverIP := r.URL.Query().Get("server_ip")
+		if serverIP == "" {
+			utils.JSONError(w, "Missing server_ip parameter", http.StatusBadRequest)
+			return
+		}
+
+		// Get username from context (set by JWT middleware)
+		username := r.Context().Value("username")
+		if username == nil {
+			logger.Log.Println("VPNStatusHandler: Unauthorized access attempt")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Connect to server via SSH
+		sshClient, err := sshclient.NewSSHClient(serverIP, username.(string), "key", "")
+		if err != nil {
+			logger.Log.Printf("VPNStatusHandler: SSH connection failed: %v", err)
+			utils.JSONError(w, fmt.Sprintf("Failed to connect to server: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer sshClient.Close()
+
+		// Check OpenVPN status
+		ovpnStatus, _ := sshClient.RunCommand("systemctl is-active openvpn")
+		strongswanStatus, _ := sshClient.RunCommand("systemctl is-active strongswan")
+
+		var vpnType string
+		var isRunning bool
+
+		if strings.TrimSpace(ovpnStatus) == "active" {
+			vpnType = "openvpn"
+			isRunning = true
+		} else if strings.TrimSpace(strongswanStatus) == "active" {
+			vpnType = "ios_vpn"
+			isRunning = true
+		}
+
+		response := VPNStatusResponse{
+			Status:    "ok",
+			IsRunning: isRunning,
+			ServerIP:  serverIP,
+			VPNType:   vpnType,
+		}
+
+		logger.Log.Println("VPNStatusHandler: Sending response")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
 }

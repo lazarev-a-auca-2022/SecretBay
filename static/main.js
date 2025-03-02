@@ -195,7 +195,7 @@ async function downloadFile(url, filename, params) {
 async function initializeVPNForm() {
     try {
         // Wait for the form element first
-        const form = document.querySelector('#vpnForm');
+        const form = await waitForElement('#vpnForm');
         if (!form) {
             console.log('VPN form not found on this page');
             return; // Exit early if form doesn't exist
@@ -235,28 +235,34 @@ async function initializeVPNForm() {
             credential: '',
             vpnType: ''
         };
-        
-        // Add click handlers for download buttons
-        elements.downloadClientBtn.addEventListener('click', async () => {
-            elements.statusText.textContent = 'Downloading client configuration...';
-            await downloadFile(
-                `${BASE_URL}/api/config/download/client`, 
-                currentCredentials.vpnType === 'openvpn' ? 'client.ovpn' : 'vpn_config.mobileconfig',
-                currentCredentials
-            );
-            elements.statusText.textContent = 'Client configuration downloaded';
-        });
-        
-        elements.downloadServerBtn.addEventListener('click', async () => {
-            elements.statusText.textContent = 'Downloading server configuration...';
-            await downloadFile(
-                `${BASE_URL}/api/config/download/server`, 
-                'server.conf',
-                currentCredentials
-            );
-            elements.statusText.textContent = 'Server configuration downloaded';
-        });
-        
+
+        // Initialize download buttons only after they're shown
+        const initializeDownloadButtons = () => {
+            if (elements.downloadClientBtn) {
+                elements.downloadClientBtn.addEventListener('click', async () => {
+                    elements.statusText.textContent = 'Downloading client configuration...';
+                    await downloadFile(
+                        `${BASE_URL}/api/config/download/client`,
+                        currentCredentials.vpnType === 'openvpn' ? 'client.ovpn' : 'vpn_config.mobileconfig',
+                        currentCredentials
+                    );
+                    elements.statusText.textContent = 'Client configuration downloaded';
+                });
+            }
+            
+            if (elements.downloadServerBtn) {
+                elements.downloadServerBtn.addEventListener('click', async () => {
+                    elements.statusText.textContent = 'Downloading server configuration...';
+                    await downloadFile(
+                        `${BASE_URL}/api/config/download/server`,
+                        'server.conf',
+                        currentCredentials
+                    );
+                    elements.statusText.textContent = 'Server configuration downloaded';
+                });
+            }
+        };
+
         // Now safely add the event listener - form is guaranteed to exist at this point
         elements.form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -280,8 +286,15 @@ async function initializeVPNForm() {
                     credentials: 'include'
                 });
 
-                const authStatus = await authResponse.json();
-                if (!authStatus.authenticated) {
+                let authStatus;
+                try {
+                    authStatus = await authResponse.json();
+                } catch (jsonError) {
+                    console.error('Error parsing auth status:', jsonError);
+                    throw new Error('Invalid response from server');
+                }
+
+                if (!authStatus?.authenticated) {
                     throw new Error('Authentication required');
                 }
 
@@ -322,6 +335,8 @@ async function initializeVPNForm() {
                 elements.result.style.display = 'block';
                 elements.downloads.style.display = 'flex';
 
+                // Initialize download buttons after showing them
+                initializeDownloadButtons();
             } catch (error) {
                 console.error('Setup error:', error);
                 progress.error(error.message);
