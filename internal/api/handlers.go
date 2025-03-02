@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
@@ -60,8 +59,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		setupID := uuid.New().String()
-		configPath := generateVPNConfigPath(req.VPNType, setupID)
+		// The setupID variable was declared but not used, removing it
 
 		// Determine the authentication method
 		var authMethod string
@@ -83,6 +81,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		}
 		defer sshClient.Close()
 
+		var vpnConfig string
 		switch req.VPNType {
 		case "openvpn":
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
@@ -91,6 +90,8 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 				return
 			}
+			vpnConfig = "/etc/vpn-configs/openvpn_config.ovpn"
+
 		case "ios_vpn":
 			strongswan := vpn.StrongSwanSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := strongswan.Setup(); err != nil {
@@ -98,17 +99,24 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 				return
 			}
+			vpnConfig = "/etc/vpn-configs/ios_vpn.mobileconfig"
 
-			// Generate mobile config
-			configPath, err = strongswan.GenerateMobileConfig(req.Username)
-			if err != nil {
-				logger.Log.Printf("SetupVPNHandler: Mobile config generation failed: %v", err)
-				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
-				return
-			}
 		default:
 			logger.Log.Printf("SetupVPNHandler: Unsupported VPN type: %s", req.VPNType)
 			utils.JSONError(w, "Unsupported VPN type", http.StatusBadRequest)
+			return
+		}
+
+		// Verify the config file exists after setup
+		exists, err := verifyConfigExists(sshClient, vpnConfig)
+		if err != nil {
+			logger.Log.Printf("SetupVPNHandler: Error verifying config file: %v", err)
+			utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
+			return
+		}
+		if !exists {
+			logger.Log.Printf("SetupVPNHandler: Config file not found after setup: %s", vpnConfig)
+			utils.JSONError(w, "VPN setup completed but config file not found", http.StatusInternalServerError)
 			return
 		}
 
@@ -152,7 +160,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		response := models.VPNSetupResponse{
-			VPNConfig:   configPath,
+			VPNConfig:   vpnConfig,
 			NewPassword: newPassword,
 		}
 
@@ -859,4 +867,13 @@ func DownloadServerConfigHandler() http.HandlerFunc {
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 		w.Write([]byte(configContent))
 	}
+}
+
+// verifyConfigExists checks if a config file exists on the remote server
+func verifyConfigExists(client *sshclient.SSHClient, configPath string) (bool, error) {
+	out, err := client.RunCommand(fmt.Sprintf("test -f %s && echo exists || echo notfound", configPath))
+	if err != nil {
+		return false, fmt.Errorf("error checking config file: %v", err)
+	}
+	return strings.TrimSpace(out) == "exists", nil
 }

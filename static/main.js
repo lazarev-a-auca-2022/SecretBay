@@ -22,7 +22,7 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     for (let i = 0; i < retries; i++) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased timeout to 30 seconds
             
             const response = await fetch(url, {
                 ...options,
@@ -30,23 +30,18 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
                 headers: {
                     ...options.headers,
                     'Accept': 'application/json',
+                    'Content-Type': 'application/json',
                     'Cache-Control': 'no-cache'
-                }
+                },
+                credentials: 'include'
             });
             
             clearTimeout(timeoutId);
             
             // Check for specific status codes that might be successful despite not being 200
             if (!response.ok && response.status !== 204) {
-                // Try to parse error message
-                let errorMessage;
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error;
-                } catch (e) {
-                    errorMessage = `Request failed with status ${response.status}`;
-                }
-                throw new Error(errorMessage);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
             
             return response;
@@ -57,6 +52,7 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, i)));
         }
     }
+    throw new Error('Max retries reached');
 }
 
 // Helper function to check if we're on the VPN setup page
@@ -278,6 +274,17 @@ async function initializeVPNForm() {
             const progress = simulateProgress(elements.progressBar, elements.statusText);
 
             try {
+                // First verify auth status
+                const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                const authStatus = await authResponse.json();
+                if (!authStatus.authenticated) {
+                    throw new Error('Authentication required');
+                }
+
                 const formData = {
                     server_ip: elements.serverIp.value || '',
                     username: elements.username.value || '',

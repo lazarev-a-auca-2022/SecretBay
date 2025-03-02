@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -52,34 +51,68 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// JWTAuthenticationMiddleware wraps handlers requiring JWT authentication
 func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !cfg.AuthEnabled {
+			// Set CORS headers first
+			origin := r.Header.Get("Origin")
+			if origin != "" && isValidOrigin(origin) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
+			}
+
+			// Handle preflight requests immediately
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			// Skip auth check for auth-related endpoints
+			if r.URL.Path == "/api/auth/status" || r.URL.Path == "/api/auth/login" {
 				next.ServeHTTP(w, r)
 				return
 			}
 
+			// Get token from Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				utils.JSONError(w, "No authorization token", http.StatusUnauthorized)
+				http.Error(w, "Authorization header missing", http.StatusUnauthorized)
 				return
 			}
 
-			if !strings.HasPrefix(authHeader, "Bearer ") {
-				utils.JSONError(w, "Invalid authorization header", http.StatusUnauthorized)
-				return
+			// Remove "Bearer " prefix if present
+			token := authHeader
+			if len(authHeader) > 7 && authHeader[0:7] == "Bearer " {
+				token = authHeader[7:]
 			}
 
-			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-			username, err := auth.ValidateJWT(tokenString, cfg)
+			// Verify token
+			claims, err := auth.ValidateJWT(token, cfg)
 			if err != nil {
-				utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
+				tokenErr, ok := err.(*auth.TokenError)
+				if ok {
+					switch tokenErr.Type {
+					case "Expired":
+						http.Error(w, "Token has expired", http.StatusUnauthorized)
+					case "Malformed":
+						http.Error(w, "Invalid token format", http.StatusBadRequest)
+					case "InvalidSignature":
+						http.Error(w, "Invalid token signature", http.StatusUnauthorized)
+					default:
+						http.Error(w, "Invalid token", http.StatusUnauthorized)
+					}
+				} else {
+					http.Error(w, "Invalid token", http.StatusUnauthorized)
+				}
 				return
 			}
 
-			// Add username to context
-			ctx := context.WithValue(r.Context(), "username", username)
+			// Add claims to request context
+			ctx := auth.AddUserClaimsToContext(r.Context(), claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -167,13 +200,33 @@ func MonitoringMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// CSRFMiddleware adds CSRF protection
-func CSRFMiddleware(cfg *config.Config) func(next http.Handler) http.Handler {
+// CSRFMiddleware wraps handlers with CSRF protection
+func CSRFMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// CSRF check temporarily disabled
+			// Don't check CSRF for OPTIONS requests
+			if r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Set security headers
+			setSecurityHeaders(w)
+
+			// Get the CSRF token from the header or query parameter
+			token := r.Header.Get("X-CSRF-Token")
+			if token == "" {
+				token = r.URL.Query().Get("csrf_token")
+			}
+
+			// Verify token
+			if !auth.VerifyCSRFToken(token, cfg) {
+				logger.Log.Printf("Invalid CSRF token: %s", token)
+				http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+				return
+			}
+
 			next.ServeHTTP(w, r)
-			return
 		})
 	}
 }

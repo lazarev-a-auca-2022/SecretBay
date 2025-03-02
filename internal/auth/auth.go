@@ -1,7 +1,12 @@
 package auth
 
 import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"sync"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -9,6 +14,17 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
 )
 
+// Store CSRF tokens with expiration
+var (
+	csrfTokens = make(map[string]time.Time)
+	csrfMutex  sync.RWMutex
+)
+
+const (
+	csrfTokenExpiration = 1 * time.Hour
+)
+
+// Claims represents the JWT claims structure
 type Claims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
@@ -21,6 +37,24 @@ type TokenError struct {
 
 func (e *TokenError) Error() string {
 	return e.Message
+}
+
+type contextKey string
+
+const (
+	// UserClaimsKey is the key used to store user claims in the context
+	UserClaimsKey contextKey = "user_claims"
+)
+
+// AddUserClaimsToContext adds JWT claims to the request context
+func AddUserClaimsToContext(ctx context.Context, claims *Claims) context.Context {
+	return context.WithValue(ctx, UserClaimsKey, claims)
+}
+
+// GetUserClaimsFromContext retrieves JWT claims from the request context
+func GetUserClaimsFromContext(ctx context.Context) (*Claims, bool) {
+	claims, ok := ctx.Value(UserClaimsKey).(*Claims)
+	return claims, ok
 }
 
 func GenerateJWT(username string, cfg *config.Config) (string, error) {
@@ -67,7 +101,7 @@ func ValidateJWT(tokenStr string, cfg *config.Config) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, claims, keyFunc, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil {
 		logger.Log.Printf("Error validating JWT: %v", err)
-		
+
 		if err.Error() == "token has expired" {
 			return nil, &TokenError{Type: "Expired", Message: "token has expired"}
 		} else if err.Error() == "token contains an invalid number of segments" {
@@ -90,4 +124,77 @@ func ValidateJWT(tokenStr string, cfg *config.Config) (*Claims, error) {
 	}
 
 	return claims, nil
+}
+
+// VerifyCSRFToken verifies the CSRF token
+func VerifyCSRFToken(token string, cfg *config.Config) bool {
+	if token == "" {
+		return false
+	}
+
+	csrfMutex.RLock()
+	expirationTime, exists := csrfTokens[token]
+	csrfMutex.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	// Check if token has expired
+	if time.Now().After(expirationTime) {
+		csrfMutex.Lock()
+		delete(csrfTokens, token)
+		csrfMutex.Unlock()
+		return false
+	}
+
+	// Verify HMAC
+	mac := hmac.New(sha256.New, []byte(cfg.JWTSecret))
+	mac.Write([]byte(token))
+	expectedMAC := mac.Sum(nil)
+	actualMAC, err := base64.URLEncoding.DecodeString(token)
+	if err != nil {
+		return false
+	}
+
+	return hmac.Equal(actualMAC, expectedMAC)
+}
+
+// StoreCSRFToken stores a CSRF token with expiration
+func StoreCSRFToken(token string) {
+	csrfMutex.Lock()
+	defer csrfMutex.Unlock()
+
+	// Store token with expiration time
+	csrfTokens[token] = time.Now().Add(csrfTokenExpiration)
+
+	// Schedule cleanup of expired token
+	time.AfterFunc(csrfTokenExpiration, func() {
+		csrfMutex.Lock()
+		delete(csrfTokens, token)
+		csrfMutex.Unlock()
+	})
+}
+
+// CleanupExpiredCSRFTokens removes expired CSRF tokens
+func CleanupExpiredCSRFTokens() {
+	csrfMutex.Lock()
+	defer csrfMutex.Unlock()
+
+	now := time.Now()
+	for token, expiration := range csrfTokens {
+		if now.After(expiration) {
+			delete(csrfTokens, token)
+		}
+	}
+}
+
+// init starts a background goroutine to periodically cleanup expired tokens
+func init() {
+	go func() {
+		for {
+			time.Sleep(10 * time.Minute)
+			CleanupExpiredCSRFTokens()
+		}
+	}()
 }
