@@ -7,6 +7,16 @@ const BASE_URL = window.location.hostname === 'localhost' || window.location.hos
     ? `http://${window.location.host}`
     : `https://${window.location.host}`;
 
+// Setup stages and their weights for progress calculation
+const SETUP_STAGES = [
+    { name: "Installing packages", weight: 20 },
+    { name: "Generating certificates", weight: 15 },
+    { name: "Configuring VPN", weight: 35 },
+    { name: "Setting up security", weight: 15 },
+    { name: "Starting services", weight: 10 },
+    { name: "Finalizing configuration", weight: 5 }
+];
+
 // Helper function for retrying failed requests
 async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     for (let i = 0; i < retries; i++) {
@@ -94,6 +104,98 @@ function createFallbackElement(type, id) {
     return el;
 }
 
+// Function to simulate progress based on stages
+function simulateProgress(progressBar, statusElement) {
+    let currentStage = 0;
+    let currentProgress = 0;
+    let stageProgress = 0;
+    
+    // Calculate total weight
+    const totalWeight = SETUP_STAGES.reduce((sum, stage) => sum + stage.weight, 0);
+    
+    // Update status text and progress bar
+    const updateProgress = () => {
+        const stage = SETUP_STAGES[currentStage];
+        statusElement.textContent = stage.name + "...";
+        
+        // Calculate overall progress percentage
+        let previousStagesWeight = 0;
+        for (let i = 0; i < currentStage; i++) {
+            previousStagesWeight += SETUP_STAGES[i].weight;
+        }
+        
+        const stageContribution = (stageProgress / 100) * stage.weight;
+        currentProgress = Math.min(((previousStagesWeight + stageContribution) / totalWeight) * 100, 99);
+        
+        // Update progress bar
+        progressBar.style.width = currentProgress.toFixed(1) + '%';
+    };
+    
+    // Start progress simulation
+    updateProgress();
+    
+    // Simulate progress through stages
+    const interval = setInterval(() => {
+        stageProgress += Math.random() * 3; // Random increment
+        
+        if (stageProgress >= 100) {
+            currentStage++;
+            stageProgress = 0;
+            
+            if (currentStage >= SETUP_STAGES.length) {
+                clearInterval(interval);
+                return;
+            }
+        }
+        
+        updateProgress();
+    }, 250);
+    
+    return {
+        complete: () => {
+            clearInterval(interval);
+            progressBar.style.width = '100%';
+            statusElement.textContent = 'Setup completed successfully!';
+        },
+        error: (message) => {
+            clearInterval(interval);
+            statusElement.textContent = `Error: ${message}`;
+            statusElement.style.color = '#d9534f';
+        }
+    };
+}
+
+// Function to download a file from a URL
+async function downloadFile(url, filename, params) {
+    try {
+        const response = await fetchWithRetries(
+            url + (params ? '?' + new URLSearchParams(params) : ''),
+            {
+                headers: {
+                    'Accept': 'application/octet-stream',
+                    'Origin': window.location.origin
+                },
+                credentials: 'include'
+            }
+        );
+
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+        return true;
+    } catch (error) {
+        console.error(`Error downloading ${filename}:`, error);
+        return false;
+    }
+}
+
 async function initializeVPNForm() {
     try {
         // Wait for the form element first
@@ -111,9 +213,16 @@ async function initializeVPNForm() {
             authMethod: document.querySelector('#authMethod'),
             authCredential: document.querySelector('#authCredential'),
             vpnType: document.querySelector('#vpnType'),
+            setupButton: document.querySelector('#setupButton'),
             result: document.querySelector('#result') || createFallbackElement('div', 'result'),
             error: document.querySelector('#downloadError') || createFallbackElement('div', 'downloadError'),
-            loading: document.querySelector('#loading') || createFallbackElement('div', 'loading')
+            loading: document.querySelector('#loading') || createFallbackElement('div', 'loading'),
+            progress: document.querySelector('#setupProgress'),
+            progressBar: document.querySelector('#setupProgressBar'),
+            statusText: document.querySelector('#setupStatus'),
+            downloads: document.querySelector('#downloads'),
+            downloadClientBtn: document.querySelector('#downloadClientConfig'),
+            downloadServerBtn: document.querySelector('#downloadServerConfig')
         };
 
         // Check if critical elements are missing before proceeding
@@ -123,12 +232,50 @@ async function initializeVPNForm() {
             return; // Exit early if required elements are missing
         }
         
+        // Store credentials for later use with download buttons
+        let currentCredentials = {
+            serverIp: '',
+            username: '',
+            credential: '',
+            vpnType: ''
+        };
+        
+        // Add click handlers for download buttons
+        elements.downloadClientBtn.addEventListener('click', async () => {
+            elements.statusText.textContent = 'Downloading client configuration...';
+            await downloadFile(
+                `${BASE_URL}/api/config/download/client`, 
+                currentCredentials.vpnType === 'openvpn' ? 'client.ovpn' : 'vpn_config.mobileconfig',
+                currentCredentials
+            );
+            elements.statusText.textContent = 'Client configuration downloaded';
+        });
+        
+        elements.downloadServerBtn.addEventListener('click', async () => {
+            elements.statusText.textContent = 'Downloading server configuration...';
+            await downloadFile(
+                `${BASE_URL}/api/config/download/server`, 
+                'server.conf',
+                currentCredentials
+            );
+            elements.statusText.textContent = 'Server configuration downloaded';
+        });
+        
         // Now safely add the event listener - form is guaranteed to exist at this point
         elements.form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // Hide previous results and errors
             elements.result.style.display = 'none';
             elements.error.style.display = 'none';
-            elements.loading.style.display = 'block';
+            elements.downloads.style.display = 'none';
+            
+            // Show progress tracking UI
+            elements.form.style.display = 'none';
+            elements.progress.style.display = 'block';
+            
+            // Start progress animation
+            const progress = simulateProgress(elements.progressBar, elements.statusText);
 
             try {
                 const formData = {
@@ -137,6 +284,14 @@ async function initializeVPNForm() {
                     auth_method: elements.authMethod.value || '',
                     auth_credential: elements.authCredential.value || '',
                     vpn_type: elements.vpnType.value || ''
+                };
+                
+                // Store credentials for download buttons
+                currentCredentials = {
+                    serverIp: formData.server_ip,
+                    username: formData.username,
+                    credential: formData.auth_credential,
+                    vpnType: formData.vpn_type
                 };
 
                 // Setup VPN with retries
@@ -151,49 +306,26 @@ async function initializeVPNForm() {
                     body: JSON.stringify(formData)
                 });
 
-                elements.result.textContent = 'VPN setup successful! Downloading configuration...';
-                elements.result.style.color = 'green';
+                // Complete the progress bar animation
+                progress.complete();
+                
+                // Show success message and download buttons
+                elements.result.textContent = 'VPN setup completed successfully!';
+                elements.result.className = 'success';
                 elements.result.style.display = 'block';
+                elements.downloads.style.display = 'flex';
 
-                // Download config with retries
-                const downloadResponse = await fetchWithRetries(
-                    `${BASE_URL}/api/config/download?` + new URLSearchParams({
-                        server_ip: formData.server_ip,
-                        username: formData.username,
-                        credential: formData.auth_credential
-                    }),
-                    {
-                        headers: {
-                            'Accept': 'application/octet-stream',
-                            'Origin': window.location.origin
-                        },
-                        credentials: 'include'
-                    }
-                );
-
-                const blob = await downloadResponse.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = "vpn_config";
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-
-                elements.result.textContent += '\nConfiguration downloaded successfully!';
             } catch (error) {
                 console.error('Setup error:', error);
+                progress.error(error.message);
+                
                 if (error.message?.includes('Could not connect') || error.message?.includes('Network error')) {
                     window.location.href = '/error/backend-down.html';
                 } else {
                     elements.error.textContent = error.message || 'An unexpected error occurred';
                     elements.error.style.display = 'block';
-                    elements.result.style.display = 'none';
+                    elements.form.style.display = 'block';  // Show the form again
                 }
-            } finally {
-                elements.loading.style.display = 'none';
             }
         });
     } catch (error) {

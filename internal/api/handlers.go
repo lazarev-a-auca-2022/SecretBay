@@ -267,7 +267,9 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 
 	protectedRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
 	protectedRouter.HandleFunc("/vpn/status", StatusHandler(cfg)).Methods("GET")
-	protectedRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+	protectedRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")              // Legacy path
+	protectedRouter.HandleFunc("/config/download/client", DownloadClientConfigHandler()).Methods("GET") // New client config endpoint
+	protectedRouter.HandleFunc("/config/download/server", DownloadServerConfigHandler()).Methods("GET") // New server config endpoint
 	protectedRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
 	protectedRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
 }
@@ -708,4 +710,161 @@ func isValidOrigin(origin string) bool {
 	}
 
 	return false
+}
+
+// DownloadClientConfigHandler handles downloading the client VPN configuration file
+func DownloadClientConfigHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get required query parameters
+		serverIP := r.URL.Query().Get("serverIp")
+		if serverIP == "" {
+			http.Error(w, "Missing serverIp parameter", http.StatusBadRequest)
+			return
+		}
+
+		username := r.URL.Query().Get("username")
+		if username == "" {
+			username = "root"
+		}
+
+		credential := r.URL.Query().Get("credential")
+		if credential == "" {
+			http.Error(w, "Missing credential parameter", http.StatusBadRequest)
+			return
+		}
+
+		vpnType := r.URL.Query().Get("vpnType")
+		if vpnType != "openvpn" && vpnType != "ios_vpn" {
+			vpnType = "openvpn" // Default to OpenVPN if not specified
+		}
+
+		// Initialize SSH client with the provided credentials
+		sshClient, err := sshclient.NewSSHClient(serverIP, username, "password", credential)
+		if err != nil {
+			logger.Log.Printf("DownloadClientConfigHandler: SSH connection failed: %v", err)
+			http.Error(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer sshClient.Close()
+
+		// Define config file path based on VPN type
+		var configPath string
+		if vpnType == "openvpn" {
+			configPath = "/etc/vpn-configs/openvpn_config.ovpn"
+		} else {
+			configPath = "/etc/vpn-configs/ios_vpn.mobileconfig"
+		}
+
+		// Check whether VPN config file exists
+		out, err := sshClient.RunCommand(fmt.Sprintf("test -f %s && echo exists || echo notfound", configPath))
+		if err != nil {
+			logger.Log.Printf("DownloadClientConfigHandler: Error checking VPN client config: %v", err)
+			http.Error(w, fmt.Sprintf("Error checking VPN client config: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		if out != "exists\n" {
+			http.Error(w, "No VPN client configuration found on the remote host", http.StatusNotFound)
+			return
+		}
+
+		// Read the configuration file
+		configContent, err := sshClient.RunCommand(fmt.Sprintf("cat %s", configPath))
+		if err != nil {
+			logger.Log.Printf("DownloadClientConfigHandler: Failed to read client config file: %v", err)
+			http.Error(w, fmt.Sprintf("Failed to read client config file: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Set appropriate filename and content type
+		filename := "client.ovpn"
+		contentType := "application/octet-stream"
+
+		if vpnType == "ios_vpn" {
+			filename = "vpn_config.mobileconfig"
+			contentType = "application/x-apple-aspen-config"
+		}
+
+		// Send the file
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		w.Write([]byte(configContent))
+	}
+}
+
+// DownloadServerConfigHandler handles downloading the VPN server configuration file
+func DownloadServerConfigHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get required query parameters
+		serverIP := r.URL.Query().Get("serverIp")
+		if serverIP == "" {
+			http.Error(w, "Missing serverIp parameter", http.StatusBadRequest)
+			return
+		}
+
+		username := r.URL.Query().Get("username")
+		if username == "" {
+			username = "root"
+		}
+
+		credential := r.URL.Query().Get("credential")
+		if credential == "" {
+			http.Error(w, "Missing credential parameter", http.StatusBadRequest)
+			return
+		}
+
+		vpnType := r.URL.Query().Get("vpnType")
+		if vpnType != "openvpn" && vpnType != "ios_vpn" {
+			vpnType = "openvpn" // Default to OpenVPN if not specified
+		}
+
+		// Initialize SSH client with the provided credentials
+		sshClient, err := sshclient.NewSSHClient(serverIP, username, "password", credential)
+		if err != nil {
+			logger.Log.Printf("DownloadServerConfigHandler: SSH connection failed: %v", err)
+			http.Error(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer sshClient.Close()
+
+		// Define server config file path based on VPN type
+		var configPath string
+		if vpnType == "openvpn" {
+			configPath = "/etc/openvpn/server.conf"
+		} else {
+			configPath = "/etc/ipsec.conf"
+		}
+
+		// Check whether server config file exists
+		out, err := sshClient.RunCommand(fmt.Sprintf("test -f %s && echo exists || echo notfound", configPath))
+		if err != nil {
+			logger.Log.Printf("DownloadServerConfigHandler: Error checking VPN server config: %v", err)
+			http.Error(w, fmt.Sprintf("Error checking VPN server config: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		if out != "exists\n" {
+			http.Error(w, "No VPN server configuration found on the remote host", http.StatusNotFound)
+			return
+		}
+
+		// Read the server configuration file
+		configContent, err := sshClient.RunCommand(fmt.Sprintf("cat %s", configPath))
+		if err != nil {
+			logger.Log.Printf("DownloadServerConfigHandler: Failed to read server config file: %v", err)
+			http.Error(w, fmt.Sprintf("Failed to read server config file: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Set appropriate filename based on VPN type
+		filename := "server.conf"
+		if vpnType == "ios_vpn" {
+			filename = "ipsec.conf"
+		}
+
+		// Send the file
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		w.Write([]byte(configContent))
+	}
 }

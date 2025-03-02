@@ -37,10 +37,20 @@
                     <option value="ios_vpn">iOS VPN (StrongSwan)</option>
                 </select>
             </div>
-            <button type="submit">Setup VPN</button>
+            <button type="submit" id="setupButton">Setup VPN</button>
             <div id="downloadError" style="color:red; display:none;"></div>
         </form>
+        <div id="setupProgress" style="display: none;">
+            <div class="progress-container">
+                <div class="progress-bar" id="setupProgressBar"></div>
+            </div>
+            <div id="setupStatus">Initializing setup...</div>
+        </div>
         <div id="result"></div>
+        <div id="downloads" class="download-buttons" style="display: none;">
+            <button id="downloadClientConfig" class="download-button">Download Client Config</button>
+            <button id="downloadServerConfig" class="download-button">Download Server Config</button>
+        </div>
     </div>
     <!-- Place the main.js script at the end of body -->
     <script src="main.js"></script>

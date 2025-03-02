@@ -136,18 +136,17 @@ func (s *SecuritySetup) ChangeRootPassword(newPassword string) error {
 	// Escape special characters in password
 	escapedPassword := strings.Replace(newPassword, "'", "'\"'\"'", -1)
 
-	// Change password and enforce password policies
-	cmds := []string{
-		fmt.Sprintf("echo 'root:%s' | sudo chpasswd", escapedPassword),
-		"sudo chage -d 0 root", // Force password change on next login
-		"sudo sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS   90/' /etc/login.defs", // Max password age
-		"sudo sed -i 's/^PASS_MIN_DAYS.*/PASS_MIN_DAYS   1/' /etc/login.defs",  // Min password age
-	}
+	// Change password using a single sudo session
+	cmd := fmt.Sprintf(`sudo sh -c '
+echo "root:%s" | chpasswd
+chage -d 0 root
+sed -i "s/^PASS_MAX_DAYS.*/PASS_MAX_DAYS   90/" /etc/login.defs
+sed -i "s/^PASS_MIN_DAYS.*/PASS_MIN_DAYS   1/" /etc/login.defs
+'`, escapedPassword)
 
-	for _, cmd := range cmds {
-		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
-			return fmt.Errorf("failed to update password configuration: %v", err)
-		}
+	output, err := s.SSHClient.RunCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to update password configuration: %v, output: %s", err, output)
 	}
 
 	return nil
