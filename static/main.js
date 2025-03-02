@@ -11,15 +11,20 @@ const BASE_URL = window.location.hostname === 'localhost' || window.location.hos
 async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     for (let i = 0; i < retries; i++) {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
             const response = await fetch(url, {
                 ...options,
+                signal: controller.signal,
                 headers: {
                     ...options.headers,
                     'Accept': 'application/json',
                     'Cache-Control': 'no-cache'
-                    // Removed 'Connection': 'close' as it causes server issues
                 }
             });
+            
+            clearTimeout(timeoutId);
             
             // Check for specific status codes that might be successful despite not being 200
             if (!response.ok && response.status !== 204) {
@@ -91,11 +96,11 @@ function createFallbackElement(type, id) {
 
 async function initializeVPNForm() {
     try {
-        // Wait for the form element first, and exit early if it's not present
+        // Wait for the form element first
         const form = document.querySelector('#vpnForm');
         if (!form) {
             console.log('VPN form not found on this page');
-            return;
+            return; // Exit early if form doesn't exist
         }
         
         // Only proceed if we have the form element
@@ -115,10 +120,10 @@ async function initializeVPNForm() {
         if (!elements.serverIp || !elements.username || 
             !elements.authCredential || !elements.vpnType || !elements.authMethod) {
             console.error('Required form elements missing - cannot initialize form');
-            return;
+            return; // Exit early if required elements are missing
         }
         
-        // Now safely add the event listener - verify form exists before attaching
+        // Now safely add the event listener - form is guaranteed to exist at this point
         elements.form.addEventListener('submit', async (e) => {
             e.preventDefault();
             elements.result.style.display = 'none';
@@ -218,7 +223,7 @@ async function init() {
 
         // Use fetch with explicit headers and timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
         try {
             const response = await fetch(`${BASE_URL}/api/auth/status`, {
