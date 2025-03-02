@@ -1,8 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -210,6 +208,12 @@ func CSRFMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
+			// Skip CSRF check for these endpoints
+			if r.URL.Path == "/api/csrf-token" || r.URL.Path == "/api/auth/status" || r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// Set security headers
 			setSecurityHeaders(w)
 
@@ -219,9 +223,16 @@ func CSRFMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 				token = r.URL.Query().Get("csrf_token")
 			}
 
+			// Log the token being verified (truncated for security)
+			if token != "" && len(token) > 10 {
+				logger.Log.Printf("Verifying CSRF token: %s... for path: %s", token[:10], r.URL.Path)
+			} else {
+				logger.Log.Printf("Missing or invalid CSRF token format for path: %s", r.URL.Path)
+			}
+
 			// Verify token
 			if !auth.VerifyCSRFToken(token, cfg) {
-				logger.Log.Printf("Invalid CSRF token: %s", token)
+				logger.Log.Printf("Invalid CSRF token rejected for path: %s", r.URL.Path)
 				http.Error(w, "Invalid CSRF token", http.StatusForbidden)
 				return
 			}
@@ -229,23 +240,6 @@ func CSRFMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// GenerateCSRFToken generates a new CSRF token
-func GenerateCSRFToken() string {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return ""
-	}
-	token := base64.URLEncoding.EncodeToString(b)
-	csrfTokens.Store(token, true)
-
-	// Cleanup old tokens after 1 hour
-	time.AfterFunc(1*time.Hour, func() {
-		csrfTokens.Delete(token)
-	})
-
-	return token
 }
 
 // CSRFTokenHandler returns a new CSRF token
@@ -258,7 +252,9 @@ func CSRFTokenHandler() http.HandlerFunc {
 		if origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization, X-CSRF-Token")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
 		}
 
 		// Handle preflight OPTIONS request
@@ -270,10 +266,10 @@ func CSRFTokenHandler() http.HandlerFunc {
 		// Set Content-Type for the actual response
 		w.Header().Set("Content-Type", "application/json")
 
-		// Generate and store token
-		token := GenerateCSRFToken()
-		if token == "" {
-			logger.Log.Printf("CSRFTokenHandler: Failed to generate token for request from %s", r.RemoteAddr)
+		// Use the improved token generation function from auth package
+		token, err := auth.GenerateCSRFToken()
+		if err != nil || token == "" {
+			logger.Log.Printf("CSRFTokenHandler: Failed to generate token: %v", err)
 			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
 			return
 		}
@@ -286,7 +282,7 @@ func CSRFTokenHandler() http.HandlerFunc {
 			return
 		}
 
-		logger.Log.Printf("CSRFTokenHandler: Successfully generated token for %s", r.RemoteAddr)
+		logger.Log.Printf("CSRFTokenHandler: Successfully generated token: %s... for %s", token[:10], r.RemoteAddr)
 	}
 }
 
