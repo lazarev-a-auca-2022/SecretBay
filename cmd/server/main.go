@@ -131,18 +131,13 @@ func main() {
 	// Add base security headers middleware
 	router.Use(api.SecurityHeadersMiddleware)
 
-	// Create public routes subrouter
-	publicRouter := router.PathPrefix("/api").Subrouter()
-
-	// Public endpoints
-	publicRouter.HandleFunc("/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
-	publicRouter.HandleFunc("/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
-	publicRouter.HandleFunc("/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
-	publicRouter.HandleFunc("/auth/register", api.RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
-
-	// Health and metrics endpoints
+	// Public endpoints (no auth required)
 	router.HandleFunc("/health", api.HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", api.MetricsHandler(cfg)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/auth/register", api.RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
 	// Handle static files
 	staticRouter := router.PathPrefix("/").Subrouter()
