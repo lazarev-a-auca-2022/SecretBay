@@ -247,13 +247,13 @@ func isInternalIP(ip string) bool {
 }
 
 func SetupRoutes(router *mux.Router, cfg *config.Config) {
-	// Public endpoints that don't need auth or CSRF
+	// Public endpoints that don't need auth
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
+	router.HandleFunc("/csrf-token", CSRFTokenHandler()).Methods("GET", "OPTIONS")
 
-	// Auth endpoints - publicly accessible with both paths
-	router.HandleFunc("/api/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
-	router.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS") // Keep old path for compatibility
+	// Auth endpoints with proper path prefixes
+	router.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
 
