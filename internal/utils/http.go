@@ -22,6 +22,15 @@ type ErrorResponse struct {
 
 // JSONError writes a structured JSON error response
 func JSONError(w http.ResponseWriter, message string, code int) {
+	// Set CORS headers first to ensure they're present in error responses
+	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "" {
+		// Only set CORS headers if they haven't been set already
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
+		w.Header().Set("Vary", "Origin")
+	}
+
 	resp := ErrorResponse{
 		Error:     message,
 		Code:      http.StatusText(code),
@@ -41,6 +50,15 @@ func JSONError(w http.ResponseWriter, message string, code int) {
 
 // JSONErrorWithDetails writes a detailed error response with optional fields
 func JSONErrorWithDetails(w http.ResponseWriter, err error, code int, requestID string, path string) {
+	// Set CORS headers first to ensure they're present in error responses
+	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "" {
+		// Only set CORS headers if they haven't been set already
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
+		w.Header().Set("Vary", "Origin")
+	}
+
 	resp := ErrorResponse{
 		Error:     err.Error(),
 		Code:      http.StatusText(code),
@@ -72,6 +90,15 @@ type ValidationError struct {
 
 // JSONValidationError writes a validation error response
 func JSONValidationError(w http.ResponseWriter, errors []ValidationError) {
+	// Set CORS headers first to ensure they're present in error responses
+	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "" {
+		// Only set CORS headers if they haven't been set already
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
+		w.Header().Set("Vary", "Origin")
+	}
+
 	resp := ErrorResponse{
 		Error:     "Validation Error",
 		Code:      http.StatusText(http.StatusBadRequest),

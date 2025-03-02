@@ -583,14 +583,7 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Skip validation for HTTP/2 requests
-		if r.ProtoMajor != 2 {
-			// Validate headers for HTTP/1.1 requests
-			if err := validateHeaders(w, r); err != nil {
-				return
-			}
-		}
-		// Handle CORS
+		// Set CORS headers FIRST
 		origin := r.Header.Get("Origin")
 		if origin != "" && isValidOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -599,15 +592,25 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
 			w.Header().Set("Vary", "Origin")
 		}
-		// Handle preflight
+
+		// Handle preflight immediately
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		// Set content type and headers
+
+		// Set content type and security headers
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 		w.Header().Set("Transfer-Encoding", "identity")
+
+		// THEN perform validation - with less strict rules for HTTP/1.1 requests
+		if r.ProtoMajor != 2 {
+			if err := validateHeaders(w, r); err != nil {
+				// Error response already has CORS headers since we set them first
+				return
+			}
+		}
 
 		// Check authentication status - either auth is disabled or we have a valid token
 		isAuthenticated := !cfg.AuthEnabled
@@ -661,13 +664,11 @@ func validateHeaders(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	// For HTTP/1.1, require Accept header
-	if r.ProtoMajor == 1 {
-		accept := r.Header.Get("Accept")
-		if accept == "" || (!strings.Contains(accept, "application/json") && !strings.Contains(accept, "*/*")) {
-			utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
-			return fmt.Errorf("invalid accept header")
-		}
+	// Relax Accept header validation - only check if it's provided and not allowed
+	accept := r.Header.Get("Accept")
+	if accept != "" && !strings.Contains(accept, "application/json") && !strings.Contains(accept, "*/*") {
+		utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
+		return fmt.Errorf("invalid accept header")
 	}
 
 	// Validate Origin if present
