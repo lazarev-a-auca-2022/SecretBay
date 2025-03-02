@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/logger"
@@ -20,12 +21,56 @@ type ErrorResponse struct {
 	Path      string    `json:"path,omitempty"`
 }
 
+// isAllowedOrigin checks if the origin is in the allowed list
+func isAllowedOrigin(origin string) bool {
+	allowedOrigins := []string{
+		"http://localhost",
+		"http://127.0.0.1",
+		"https://secretbay.me",
+	}
+
+	for _, allowed := range allowedOrigins {
+		if strings.HasPrefix(origin, allowed) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// setCORSHeaders sets appropriate CORS headers considering credentials
+func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
+	// Only set if not already set
+	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "" {
+		// Get origin from request header
+		origin := r.Header.Get("Origin")
+		if origin != "" && isAllowedOrigin(origin) {
+			// When using credentials, we must specify the exact origin (not wildcard *)
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else {
+			// Fall back to wildcard if no valid origin (won't work with credentials)
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
+		w.Header().Set("Vary", "Origin")
+	}
+}
+
 // JSONError writes a structured JSON error response
 func JSONError(w http.ResponseWriter, message string, code int) {
 	// Set CORS headers first to ensure they're present in error responses
 	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "" {
-		// Only set CORS headers if they haven't been set already
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Get origin from header if possible
+		if origin := w.Header().Get("Origin"); origin != "" && isAllowedOrigin(origin) {
+			// When using credentials, we must specify the exact origin (not wildcard *)
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else {
+			// Fall back to wildcard if no valid origin (won't work with credentials)
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
 		w.Header().Set("Vary", "Origin")
@@ -52,8 +97,15 @@ func JSONError(w http.ResponseWriter, message string, code int) {
 func JSONErrorWithDetails(w http.ResponseWriter, err error, code int, requestID string, path string) {
 	// Set CORS headers first to ensure they're present in error responses
 	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "" {
-		// Only set CORS headers if they haven't been set already
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Get origin from header if possible
+		if origin := w.Header().Get("Origin"); origin != "" && isAllowedOrigin(origin) {
+			// When using credentials, we must specify the exact origin (not wildcard *)
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else {
+			// Fall back to wildcard if no valid origin (won't work with credentials)
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
 		w.Header().Set("Vary", "Origin")
@@ -92,8 +144,15 @@ type ValidationError struct {
 func JSONValidationError(w http.ResponseWriter, errors []ValidationError) {
 	// Set CORS headers first to ensure they're present in error responses
 	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "" {
-		// Only set CORS headers if they haven't been set already
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Get origin from header if possible
+		if origin := w.Header().Get("Origin"); origin != "" && isAllowedOrigin(origin) {
+			// When using credentials, we must specify the exact origin (not wildcard *)
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else {
+			// Fall back to wildcard if no valid origin (won't work with credentials)
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
 		w.Header().Set("Vary", "Origin")
