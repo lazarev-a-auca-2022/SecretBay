@@ -603,7 +603,7 @@ func RegisterHandler(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 // AuthStatusHandler returns an http.HandlerFunc that handles auth status checks
 func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers FIRST
+		// Set CORS headers FIRST - before writing any response
 		origin := r.Header.Get("Origin")
 		if origin != "" && isValidOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -613,20 +613,19 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			w.Header().Set("Vary", "Origin")
 		}
 
+		// Set content type and security headers
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+
 		// Handle preflight immediately
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// Set content type and security headers
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-
-		// THEN perform validation - with less strict rules for HTTP/1.1 requests
+		// Handle header validation
 		if r.ProtoMajor != 2 {
 			if err := validateHeaders(w, r); err != nil {
-				// Error response already has CORS headers since we set them first
 				return
 			}
 		}
@@ -636,11 +635,9 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Only check token if auth is enabled
 		if cfg.AuthEnabled {
-			// Extract token from Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-				// Verify the token using ValidateJWT instead of VerifyToken
 				_, err := auth.ValidateJWT(tokenString, cfg)
 				if err == nil {
 					isAuthenticated = true
@@ -648,15 +645,19 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			}
 		}
 
-		// Use the AuthStatusResponse struct
+		// Create response object
 		response := AuthStatusResponse{
 			Enabled:       cfg.AuthEnabled,
 			Authenticated: isAuthenticated,
 		}
 
-		// Use standard encoding instead of direct marshaling to avoid response issues
+		// Write response - ensure no other data is written before or after
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			logger.Log.Printf("AuthStatusHandler: Error encoding response: %v", err)
+			http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
