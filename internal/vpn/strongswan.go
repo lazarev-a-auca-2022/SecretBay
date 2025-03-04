@@ -44,12 +44,23 @@ func (s *StrongSwanSetup) Setup() error {
 	vpnPassword := generateStrongVPNPassword()
 	logger.Log.Println("Secure password generated successfully")
 
-	// First try to clean any stuck locks
+	// First try to clean any stuck locks and fix package state
 	cleanupCmds := []string{
-		"sudo rm -f /var/lib/dpkg/lock-frontend",
-		"sudo rm -f /var/lib/dpkg/lock",
+		// Kill any stuck apt/dpkg processes
+		"sudo killall apt apt-get dpkg",
+		// Remove locks
+		"sudo rm -f /var/lib/apt/lists/lock",
 		"sudo rm -f /var/cache/apt/archives/lock",
+		"sudo rm -f /var/lib/dpkg/lock*",
+		// Clean package cache
+		"sudo apt-get clean",
+		"sudo apt-get autoclean",
+		// Fix interrupted dpkg
 		"sudo dpkg --configure -a",
+		// Clean and update package cache
+		"sudo apt-get clean",
+		"sudo rm -rf /var/lib/apt/lists/*",
+		"sudo apt-get update --fix-missing",
 	}
 
 	for _, cmd := range cleanupCmds {
@@ -61,12 +72,18 @@ func (s *StrongSwanSetup) Setup() error {
 		time.Sleep(2 * time.Second)
 	}
 
+	// Wait for any existing apt processes to finish
+	waitCmd := `while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do sleep 1; done`
+	if _, err := s.SSHClient.RunCommand(waitCmd); err != nil {
+		logger.Log.Printf("Warning: Wait command failed: %v", err)
+	}
+
 	// Package installation with enhanced security packages
 	logger.Log.Println("Step 1/6: Updating system and installing StrongSwan packages...")
 	cmds := []string{
 		"sudo apt-get update",
-		"sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
-		"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl",
+		"sudo apt-get install -f", // Fix any broken dependencies first
+		"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl",
 	}
 
 	maxRetries := 3
@@ -79,6 +96,10 @@ func (s *StrongSwanSetup) Setup() error {
 				logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 				if attempt < maxRetries {
 					logger.Log.Printf("Waiting before retry...")
+					// Clean up and wait before retry
+					s.SSHClient.RunCommand("sudo apt-get clean")
+					s.SSHClient.RunCommand("sudo rm -rf /var/lib/apt/lists/*")
+					s.SSHClient.RunCommand("sudo apt-get update --fix-missing")
 					time.Sleep(time.Duration(attempt) * 10 * time.Second)
 					continue
 				}
