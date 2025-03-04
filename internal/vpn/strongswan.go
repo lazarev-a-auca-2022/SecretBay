@@ -44,22 +44,54 @@ func (s *StrongSwanSetup) Setup() error {
 	vpnPassword := generateStrongVPNPassword()
 	logger.Log.Println("Secure password generated successfully")
 
+	// First try to clean any stuck locks
+	cleanupCmds := []string{
+		"sudo rm -f /var/lib/dpkg/lock-frontend",
+		"sudo rm -f /var/lib/dpkg/lock",
+		"sudo rm -f /var/cache/apt/archives/lock",
+		"sudo dpkg --configure -a",
+	}
+
+	for _, cmd := range cleanupCmds {
+		logger.Log.Printf("Running cleanup command: %s", cmd)
+		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
+			logger.Log.Printf("Warning: Cleanup command failed: %s, Error: %v", cmd, err)
+			// Continue even if cleanup fails
+		}
+		time.Sleep(2 * time.Second)
+	}
+
 	// Package installation with enhanced security packages
 	logger.Log.Println("Step 1/6: Updating system and installing StrongSwan packages...")
 	cmds := []string{
-		"sudo apt update && sudo apt upgrade -y",
-		"sudo apt install -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl",
+		"sudo apt-get update",
+		"sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+		"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl",
 	}
 
-	for i, cmd := range cmds {
-		logger.Log.Printf("Installation step %d/%d: Running command", i+1, len(cmds))
-		out, err := s.SSHClient.RunCommand(cmd)
-		if err != nil {
-			logger.Log.Printf("Command failed: Output: %s, Error: %v", out, err)
-			return fmt.Errorf("package installation failed: %v", err)
+	maxRetries := 3
+	for _, cmd := range cmds {
+		success := false
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			logger.Log.Printf("Running command (attempt %d/%d): %s", attempt, maxRetries, cmd)
+			output, err := s.SSHClient.RunCommand(cmd)
+			if err != nil {
+				logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
+				if attempt < maxRetries {
+					logger.Log.Printf("Waiting before retry...")
+					time.Sleep(time.Duration(attempt) * 10 * time.Second)
+					continue
+				}
+				return fmt.Errorf("package installation failed after %d attempts: %v", maxRetries, err)
+			}
+			success = true
+			break
+		}
+		if !success {
+			return fmt.Errorf("package installation failed after %d attempts", maxRetries)
 		}
 		// Force immediate flush of logs
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 	}
 	logger.Log.Println("Packages installed successfully")
 
