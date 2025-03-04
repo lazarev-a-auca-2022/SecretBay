@@ -69,8 +69,11 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 				return
 			}
 
-			// Skip auth check for auth-related endpoints
-			if r.URL.Path == "/api/auth/status" || r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/csrf-token" {
+			// Skip auth check for auth-related endpoints and health checks
+			if r.URL.Path == "/api/auth/status" ||
+				r.URL.Path == "/api/auth/login" ||
+				r.URL.Path == "/api/csrf-token" ||
+				r.URL.Path == "/health" {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -81,7 +84,7 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				logger.Log.Printf("Auth failed: Authorization header missing for %s", r.URL.Path)
-				http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+				utils.JSONError(w, "Authorization required", http.StatusUnauthorized)
 				return
 			}
 
@@ -91,9 +94,11 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 				token = authHeader[7:]
 			} else {
 				logger.Log.Printf("Auth failed: Bearer prefix missing in Authorization header for %s", r.URL.Path)
+				utils.JSONError(w, "Invalid authorization format", http.StatusUnauthorized)
+				return
 			}
 
-			// Verify token
+			// Verify token with explicit error handling
 			claims, err := auth.ValidateJWT(token, cfg)
 			if err != nil {
 				tokenErr, ok := err.(*auth.TokenError)
@@ -101,28 +106,31 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 					switch tokenErr.Type {
 					case "Expired":
 						logger.Log.Printf("Auth failed: Token expired for %s", r.URL.Path)
-						http.Error(w, "Token has expired", http.StatusUnauthorized)
+						utils.JSONError(w, "Token has expired", http.StatusUnauthorized)
 					case "Malformed":
 						logger.Log.Printf("Auth failed: Malformed token for %s", r.URL.Path)
-						http.Error(w, "Invalid token format", http.StatusBadRequest)
+						utils.JSONError(w, "Invalid token format", http.StatusBadRequest)
 					case "InvalidSignature":
 						logger.Log.Printf("Auth failed: Invalid signature for %s", r.URL.Path)
-						http.Error(w, "Invalid token signature", http.StatusUnauthorized)
+						utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
 					default:
 						logger.Log.Printf("Auth failed: Invalid token for %s: %v", r.URL.Path, tokenErr)
-						http.Error(w, "Invalid token", http.StatusUnauthorized)
+						utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
 					}
 				} else {
 					logger.Log.Printf("Auth failed: Invalid token for %s: %v", r.URL.Path, err)
-					http.Error(w, "Invalid token", http.StatusUnauthorized)
+					utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
 				}
 				return
 			}
 
+			// Add claims to request context for use in handlers
+			ctx := auth.AddUserClaimsToContext(r.Context(), claims)
+
+			// Log successful authentication
 			logger.Log.Printf("Authentication successful for user %s accessing %s", claims.Username, r.URL.Path)
 
-			// Add claims to request context
-			ctx := auth.AddUserClaimsToContext(r.Context(), claims)
+			// Call next handler with updated context
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

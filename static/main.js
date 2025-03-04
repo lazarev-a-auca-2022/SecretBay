@@ -252,15 +252,54 @@ function isValidJWT(token) {
         // Try to parse the payload (middle part)
         const payload = JSON.parse(atob(parts[1]));
         
-        // Check expiration if present
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-            console.error('JWT token has expired');
+        // Check expiration with a 5-minute buffer for clock skew
+        if (payload.exp && Date.now() >= (payload.exp * 1000) - (5 * 60 * 1000)) {
+            console.error('JWT token has expired or is about to expire');
+            localStorage.removeItem('jwt');
+            return false;
+        }
+
+        // Validate required claims
+        if (!payload.username || !payload.sub || !payload.iss) {
+            console.error('JWT token missing required claims');
             return false;
         }
         
         return true;
     } catch (e) {
         console.error('Failed to parse JWT payload:', e);
+        return false;
+    }
+}
+
+// Helper function to refresh authentication state
+async function refreshAuthState() {
+    try {
+        const token = localStorage.getItem('jwt');
+        if (!token || !isValidJWT(token)) {
+            throw new Error('Invalid or expired token');
+        }
+
+        const response = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'Origin': window.location.origin
+            },
+            credentials: 'include'
+        });
+
+        const authData = await response.json();
+        if (!authData?.authenticated) {
+            throw new Error('Not authenticated');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Auth refresh failed:', error);
+        localStorage.removeItem('jwt');
+        window.location.replace('/login.html?auth_error=true');
         return false;
     }
 }
@@ -274,6 +313,11 @@ async function initializeVPNForm() {
             return; // Exit early if form doesn't exist
         }
         
+        // Verify authentication state before proceeding
+        if (!await refreshAuthState()) {
+            return;
+        }
+
         // Only proceed if we have the form element
         const elements = {
             form: form,
@@ -340,6 +384,11 @@ async function initializeVPNForm() {
         elements.form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Verify auth state before submitting
+            if (!await refreshAuthState()) {
+                return;
+            }
+
             // Hide previous results and errors
             elements.result.style.display = 'none';
             elements.error.style.display = 'none';

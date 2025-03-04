@@ -8,6 +8,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
 
+    // Clear any existing tokens if we're on the login page
+    // but keep token if we just registered successfully
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.get('registered')) {
+        localStorage.removeItem('jwt');
+    }
+
     // First check if authentication is enabled
     try {
         const token = localStorage.getItem('jwt');
@@ -45,7 +52,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Only remove token if we were redirected here due to an auth error
-    const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('auth_error')) {
         localStorage.removeItem('jwt');
     }
@@ -89,6 +95,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Function to validate login response
+    async function validateLoginResponse(response) {
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || `Login failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.token) {
+            throw new Error('Invalid response from server');
+        }
+
+        // Store token in localStorage
+        localStorage.setItem('jwt', data.token);
+
+        // Verify the token works by making an auth check
+        const authCheck = await fetch(`${BASE_URL}/api/auth/status`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${data.token}`,
+                'Origin': window.location.origin
+            },
+            credentials: 'include'
+        });
+
+        const authData = await authCheck.json();
+        if (!authData?.authenticated) {
+            localStorage.removeItem('jwt');
+            throw new Error('Authentication verification failed');
+        }
+
+        return data;
+    }
+
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         errorDiv.style.display = 'none';
@@ -115,18 +156,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 })
             });
 
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data.error || `Login failed: ${response.status}`);
-            }
+            // Validate login and store token
+            await validateLoginResponse(response);
 
-            const data = await response.json();
-            if (data.token) {
-                localStorage.setItem('jwt', data.token);
-                window.location.replace('/');
-            } else {
-                throw new Error('Invalid response from server');
-            }
+            // Redirect to main page after successful login and validation
+            window.location.replace('/');
         } catch (error) {
             console.error('Login error:', error);
             errorDiv.textContent = error.message;

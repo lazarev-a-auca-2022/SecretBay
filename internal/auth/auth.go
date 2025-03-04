@@ -128,48 +128,53 @@ func ValidateJWT(tokenStr string, cfg *config.Config) (*Claims, error) {
 // GenerateCSRFToken generates a secure random token and stores it in memory
 func GenerateCSRFToken() (string, error) {
 	// Generate 32 bytes of random data
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
+	randomBytes := make([]byte, 32)
+	if _, err := rand.Read(randomBytes); err != nil {
 		logger.Log.Printf("Error generating random bytes for CSRF token: %v", err)
 		return "", err
 	}
 
-	// Convert to base64 string
-	token := base64.URLEncoding.EncodeToString(bytes)
+	// Encode as base64
+	token := base64.URLEncoding.EncodeToString(randomBytes)
 
-	// Store the token with expiration
+	// Store token with expiration
 	StoreCSRFToken(token)
 
-	logger.Log.Printf("Generated new CSRF token: %s (truncated)", token[:10])
+	logger.Log.Printf("Generated new CSRF token: %s... (truncated)", token[:10])
 	return token, nil
 }
 
 // VerifyCSRFToken verifies the CSRF token exists and hasn't expired
 func VerifyCSRFToken(token string, cfg *config.Config) bool {
 	if token == "" {
-		logger.Log.Println("CSRF token validation failed: empty token")
 		return false
 	}
 
 	csrfMutex.RLock()
-	expirationTime, exists := csrfTokens[token]
+	expiration, exists := csrfTokens[token]
 	csrfMutex.RUnlock()
 
 	if !exists {
-		logger.Log.Printf("CSRF token validation failed: token not found in store: %s (truncated)", token[:10])
+		logger.Log.Printf("CSRF token not found in store: %s... (truncated)", token[:10])
 		return false
 	}
 
 	// Check if token has expired
-	if time.Now().After(expirationTime) {
+	if time.Now().After(expiration) {
+		logger.Log.Printf("CSRF token expired: %s... (truncated)", token[:10])
+		// Clean up expired token
 		csrfMutex.Lock()
 		delete(csrfTokens, token)
 		csrfMutex.Unlock()
-		logger.Log.Printf("CSRF token validation failed: token expired: %s (truncated)", token[:10])
 		return false
 	}
 
-	logger.Log.Printf("CSRF token validation successful: %s (truncated)", token[:10])
+	// Extend token expiration on successful verification
+	csrfMutex.Lock()
+	csrfTokens[token] = time.Now().Add(csrfTokenExpiration)
+	csrfMutex.Unlock()
+
+	logger.Log.Printf("CSRF token verified successfully: %s... (truncated)", token[:10])
 	return true
 }
 
@@ -181,12 +186,15 @@ func StoreCSRFToken(token string) {
 	// Store token with expiration time
 	expiration := time.Now().Add(csrfTokenExpiration)
 	csrfTokens[token] = expiration
-	logger.Log.Printf("Stored CSRF token: %s (truncated) with expiration: %v", token[:10], expiration)
+	logger.Log.Printf("Stored CSRF token: %s... (truncated) with expiration: %v", token[:10], expiration)
 
 	// Schedule cleanup of expired token
 	time.AfterFunc(csrfTokenExpiration, func() {
 		csrfMutex.Lock()
-		delete(csrfTokens, token)
+		if tokenExp, exists := csrfTokens[token]; exists && time.Now().After(tokenExp) {
+			delete(csrfTokens, token)
+			logger.Log.Printf("Cleaned up expired CSRF token: %s... (truncated)", token[:10])
+		}
 		csrfMutex.Unlock()
 	})
 }
@@ -199,7 +207,7 @@ func CleanupExpiredCSRFTokens() {
 	now := time.Now()
 	for token, expiration := range csrfTokens {
 		if now.After(expiration) {
-			logger.Log.Printf("Cleaning up expired CSRF token: %s (truncated)", token[:10])
+			logger.Log.Printf("Cleaning up expired CSRF token: %s... (truncated)", token[:10])
 			delete(csrfTokens, token)
 		}
 	}
@@ -207,9 +215,10 @@ func CleanupExpiredCSRFTokens() {
 
 // init starts a background goroutine to periodically cleanup expired tokens
 func init() {
+	// Run cleanup every hour
 	go func() {
 		for {
-			time.Sleep(10 * time.Minute)
+			time.Sleep(time.Hour)
 			CleanupExpiredCSRFTokens()
 		}
 	}()
