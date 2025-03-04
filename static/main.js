@@ -237,6 +237,34 @@ async function downloadFile(url, filename, params) {
     }
 }
 
+// Function to validate the JWT token's format (not its signature)
+function isValidJWT(token) {
+    if (!token) return false;
+    
+    // JWT tokens have 3 parts separated by dots
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+        console.error('Malformed JWT token: wrong number of segments');
+        return false;
+    }
+    
+    try {
+        // Try to parse the payload (middle part)
+        const payload = JSON.parse(atob(parts[1]));
+        
+        // Check expiration if present
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+            console.error('JWT token has expired');
+            return false;
+        }
+        
+        return true;
+    } catch (e) {
+        console.error('Failed to parse JWT payload:', e);
+        return false;
+    }
+}
+
 async function initializeVPNForm() {
     try {
         // Wait for the form element first
@@ -334,13 +362,30 @@ async function initializeVPNForm() {
                 let authStatus;
                 try {
                     authStatus = await authResponse.json();
+                    console.log('Auth status before setup:', authStatus);
                 } catch (jsonError) {
                     console.error('Error parsing auth status:', jsonError);
                     throw new Error('Invalid response from server');
                 }
 
+                // Check if we're authenticated
                 if (!authStatus?.authenticated) {
+                    console.error('Not authenticated according to auth status');
                     throw new Error('Authentication required');
+                }
+
+                // Check JWT token
+                const jwtToken = localStorage.getItem('jwt');
+                if (!jwtToken) {
+                    console.error('No JWT token found in localStorage');
+                    throw new Error('JWT token missing, please login again');
+                }
+
+                // Validate JWT format
+                if (!isValidJWT(jwtToken)) {
+                    console.error('JWT token validation failed');
+                    localStorage.removeItem('jwt'); // Clear invalid token
+                    throw new Error('Invalid authentication token, please login again');
                 }
 
                 const formData = {
@@ -360,24 +405,35 @@ async function initializeVPNForm() {
                 };
 
                 // Get CSRF token
+                console.log('Getting CSRF token...');
                 const csrfToken = await getCsrfToken();
                 if (!csrfToken) {
+                    console.error('Failed to get CSRF token');
                     throw new Error('Could not get CSRF token');
                 }
+                console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
 
-                // Get JWT token
-                const jwtToken = localStorage.getItem('jwt');
+                // Prepare headers with both tokens
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin,
+                    'X-CSRF-Token': csrfToken,
+                    'Authorization': `Bearer ${jwtToken}`
+                };
+
+                console.log('Sending setup request with headers:', 
+                    Object.entries(headers)
+                        .map(([k, v]) => k === 'Authorization' ? 
+                            `${k}: Bearer ${v.split(' ')[1].substring(0, 10)}...` : 
+                            `${k}: ${v.substring(0, 10)}...`)
+                        .join(', ')
+                );
 
                 // Setup VPN with retries
                 const setupResponse = await fetchWithRetries(`${BASE_URL}/api/setup`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Origin': window.location.origin,
-                        'X-CSRF-Token': csrfToken,
-                        'Authorization': jwtToken ? `Bearer ${jwtToken}` : ''
-                    },
+                    headers: headers,
                     credentials: 'include',
                     body: JSON.stringify(formData)
                 });
@@ -397,7 +453,10 @@ async function initializeVPNForm() {
                 console.error('Setup error:', error);
                 progress.error(error.message);
                 
-                if (error.message?.includes('Could not connect') || error.message?.includes('Network error')) {
+                if (error.message?.includes('JWT token')) {
+                    // Auth token issue - redirect to login
+                    window.location.href = '/login.html?auth_error=true';
+                } else if (error.message?.includes('Could not connect') || error.message?.includes('Network error')) {
                     window.location.href = '/error/backend-down.html';
                 } else {
                     elements.error.textContent = error.message || 'An unexpected error occurred';

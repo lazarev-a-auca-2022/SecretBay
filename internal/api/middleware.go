@@ -70,14 +70,17 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 			}
 
 			// Skip auth check for auth-related endpoints
-			if r.URL.Path == "/api/auth/status" || r.URL.Path == "/api/auth/login" {
+			if r.URL.Path == "/api/auth/status" || r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/csrf-token" {
 				next.ServeHTTP(w, r)
 				return
 			}
 
+			logger.Log.Printf("Authenticating request to %s", r.URL.Path)
+
 			// Get token from Authorization header
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				logger.Log.Printf("Auth failed: Authorization header missing for %s", r.URL.Path)
 				http.Error(w, "Authorization header missing", http.StatusUnauthorized)
 				return
 			}
@@ -86,6 +89,8 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 			token := authHeader
 			if len(authHeader) > 7 && authHeader[0:7] == "Bearer " {
 				token = authHeader[7:]
+			} else {
+				logger.Log.Printf("Auth failed: Bearer prefix missing in Authorization header for %s", r.URL.Path)
 			}
 
 			// Verify token
@@ -95,19 +100,26 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 				if ok {
 					switch tokenErr.Type {
 					case "Expired":
+						logger.Log.Printf("Auth failed: Token expired for %s", r.URL.Path)
 						http.Error(w, "Token has expired", http.StatusUnauthorized)
 					case "Malformed":
+						logger.Log.Printf("Auth failed: Malformed token for %s", r.URL.Path)
 						http.Error(w, "Invalid token format", http.StatusBadRequest)
 					case "InvalidSignature":
+						logger.Log.Printf("Auth failed: Invalid signature for %s", r.URL.Path)
 						http.Error(w, "Invalid token signature", http.StatusUnauthorized)
 					default:
+						logger.Log.Printf("Auth failed: Invalid token for %s: %v", r.URL.Path, tokenErr)
 						http.Error(w, "Invalid token", http.StatusUnauthorized)
 					}
 				} else {
+					logger.Log.Printf("Auth failed: Invalid token for %s: %v", r.URL.Path, err)
 					http.Error(w, "Invalid token", http.StatusUnauthorized)
 				}
 				return
 			}
+
+			logger.Log.Printf("Authentication successful for user %s accessing %s", claims.Username, r.URL.Path)
 
 			// Add claims to request context
 			ctx := auth.AddUserClaimsToContext(r.Context(), claims)
