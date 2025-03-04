@@ -127,7 +127,10 @@ func (s *SecuritySetup) DisableUnnecessaryServices() error {
 
 func (s *SecuritySetup) ChangeRootPassword(newPassword string) error {
 	logger.Log.Println("Starting ChangeRootPassword")
-
+	
+	// Print the new password during VPN setup
+	fmt.Println("New VPN Password:", newPassword)
+	
 	// Validate password
 	if len(newPassword) < 12 {
 		return fmt.Errorf("password too short")
