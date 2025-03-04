@@ -53,65 +53,25 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Set CORS headers first
-			origin := r.Header.Get("Origin")
-			if origin != "" && isValidOrigin(origin) {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization, X-CSRF-Token")
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Max-Age", "86400")
-				w.Header().Set("Vary", "Origin")
-			}
-
-			// Handle preflight requests immediately
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			// Set content type and security headers
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
-
-			// Skip auth check for public endpoints
-			if r.URL.Path == "/api/auth/status" ||
-				r.URL.Path == "/api/auth/login" ||
-				r.URL.Path == "/api/csrf-token" ||
-				r.URL.Path == "/health" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			logger.Log.Printf("Authenticating request to %s", r.URL.Path)
-
-			// Get token from Authorization header
+			// Get token from Authorization header or cookie
+			var tokenStr string
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				logger.Log.Printf("Auth failed: Authorization header missing for %s", r.URL.Path)
-				utils.JSONError(w, "Authorization required", http.StatusUnauthorized)
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			} else if cookie, err := r.Cookie("Authorization"); err == nil {
+				tokenStr = strings.TrimPrefix(cookie.Value, "Bearer ")
+			}
+
+			if tokenStr == "" {
+				logger.Log.Printf("Auth failed: No token provided for %s", r.URL.Path)
+				utils.JSONError(w, "Authentication required", http.StatusUnauthorized)
 				return
 			}
 
-			// Remove "Bearer " prefix if present
-			token := authHeader
-			if len(authHeader) > 7 && authHeader[0:7] == "Bearer " {
-				token = authHeader[7:]
-			} else {
-				logger.Log.Printf("Auth failed: Bearer prefix missing in Authorization header for %s", r.URL.Path)
-				utils.JSONError(w, "Invalid authorization format", http.StatusUnauthorized)
-				return
-			}
-
-			// Verify token with explicit error handling
-			claims, err := auth.ValidateJWT(token, cfg)
+			claims, err := auth.ValidateJWT(tokenStr, cfg)
 			if err != nil {
-				tokenErr, ok := err.(*auth.TokenError)
-				if ok {
+				if tokenErr, ok := err.(*auth.TokenError); ok {
 					switch tokenErr.Type {
-					case "Expired":
-						logger.Log.Printf("Auth failed: Token expired for %s", r.URL.Path)
-						utils.JSONError(w, "Token has expired", http.StatusUnauthorized)
 					case "Malformed":
 						logger.Log.Printf("Auth failed: Malformed token for %s", r.URL.Path)
 						utils.JSONError(w, "Invalid token format", http.StatusBadRequest)

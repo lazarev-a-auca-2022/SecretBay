@@ -308,12 +308,16 @@ async function refreshAuthState() {
             headers: {
                 'Accept': 'application/json',
                 'Authorization': `Bearer ${token}`,
-                'Origin': window.location.origin
+                'Origin': window.location.origin,
+                'Cache-Control': 'no-cache'
             },
             credentials: 'include'
         });
 
         const authData = await response.json();
+        if (!authData?.enabled) {
+            return true; // Auth is disabled, consider authenticated
+        }
         if (!authData?.authenticated) {
             throw new Error('Not authenticated');
         }

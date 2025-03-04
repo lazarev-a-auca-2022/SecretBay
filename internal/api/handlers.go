@@ -620,14 +620,22 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Only check token if auth is enabled
 		if cfg.AuthEnabled {
+			// Get token from Authorization header or cookie
+			var tokenStr string
 			authHeader := r.Header.Get("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
-				tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-				claims, err := auth.ValidateJWT(tokenString, cfg)
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			} else if cookie, err := r.Cookie("Authorization"); err == nil {
+				tokenStr = strings.TrimPrefix(cookie.Value, "Bearer ")
+			}
+
+			if tokenStr != "" {
+				claims, err := auth.ValidateJWT(tokenStr, cfg)
 				if err == nil && claims != nil {
 					isAuthenticated = true
 					// Add claims to request context for use by other handlers
 					r = r.WithContext(auth.AddUserClaimsToContext(r.Context(), claims))
+					logger.Log.Printf("Auth status check successful for user %s", claims.Username)
 				} else {
 					logger.Log.Printf("JWT validation failed: %v", err)
 				}

@@ -110,13 +110,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Store token in localStorage
         localStorage.setItem('jwt', data.token);
 
-        // Verify the token works by making an auth check
+        // Verify the token works by making an auth check with proper headers
         const authCheck = await fetch(`${BASE_URL}/api/auth/status`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
                 'Authorization': `Bearer ${data.token}`,
-                'Origin': window.location.origin
+                'Origin': window.location.origin,
+                'Cache-Control': 'no-cache'
             },
             credentials: 'include'
         });
