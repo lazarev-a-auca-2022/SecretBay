@@ -38,6 +38,13 @@ var (
 	activeOps sync.WaitGroup
 )
 
+// Define custom type for context keys
+type contextKey string
+
+const (
+	configContextKey contextKey = "config"
+)
+
 func main() {
 	versionFlag := flag.Bool("version", false, "Print version information")
 	flag.Parse()
@@ -134,7 +141,7 @@ func main() {
 	// Public endpoints (no auth required)
 	router.HandleFunc("/health", api.HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", api.MetricsHandler(cfg)).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler(cfg)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/auth/status", api.AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/auth/login", api.LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/auth/register", api.RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
@@ -145,8 +152,8 @@ func main() {
 
 	// Serve static files without any auth check for js/css
 	staticRouter.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Inject config into context
-		ctx := context.WithValue(r.Context(), "config", cfg)
+		// Inject config into context with custom key type
+		ctx := context.WithValue(r.Context(), configContextKey, cfg)
 		r = r.WithContext(ctx)
 
 		// Always serve .js, .css and error pages without auth

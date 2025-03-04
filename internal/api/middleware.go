@@ -20,7 +20,7 @@ var csrfTokens sync.Map
 // SecurityHeadersMiddleware ensures proper security headers are set
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set security headers
+		// Set security headers first
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -28,14 +28,14 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-		// Handle CORS
+		// Set CORS headers if origin is present
 		origin := r.Header.Get("Origin")
-		if origin != "" {
+		if origin != "" && isValidOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization, X-CSRF-Token")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Max-Age", "3600")
+			w.Header().Set("Access-Control-Max-Age", "86400")
 			w.Header().Set("Vary", "Origin")
 		}
 
@@ -58,9 +58,10 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 			if origin != "" && isValidOrigin(origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization, X-CSRF-Token")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
+				w.Header().Set("Access-Control-Max-Age", "86400")
+				w.Header().Set("Vary", "Origin")
 			}
 
 			// Handle preflight requests immediately
@@ -69,7 +70,11 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 				return
 			}
 
-			// Skip auth check for auth-related endpoints and health checks
+			// Set content type and security headers
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+
+			// Skip auth check for public endpoints
 			if r.URL.Path == "/api/auth/status" ||
 				r.URL.Path == "/api/auth/login" ||
 				r.URL.Path == "/api/csrf-token" ||
@@ -126,11 +131,7 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 
 			// Add claims to request context for use in handlers
 			ctx := auth.AddUserClaimsToContext(r.Context(), claims)
-
-			// Log successful authentication
 			logger.Log.Printf("Authentication successful for user %s accessing %s", claims.Username, r.URL.Path)
-
-			// Call next handler with updated context
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -222,9 +223,20 @@ func MonitoringMiddleware(next http.Handler) http.Handler {
 func CSRFMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set CORS headers first
+			origin := r.Header.Get("Origin")
+			if origin != "" && isValidOrigin(origin) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization, X-CSRF-Token")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Allow-Max-Age", "86400")
+				w.Header().Set("Vary", "Origin")
+			}
+
 			// Don't check CSRF for OPTIONS requests
 			if r.Method == http.MethodOptions {
-				next.ServeHTTP(w, r)
+				w.WriteHeader(http.StatusOK)
 				return
 			}
 
@@ -237,23 +249,23 @@ func CSRFMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			// Set security headers
 			setSecurityHeaders(w)
 
-			// Get the CSRF token from the header or query parameter
+			// Get the CSRF token from the header
 			token := r.Header.Get("X-CSRF-Token")
 			if token == "" {
-				token = r.URL.Query().Get("csrf_token")
+				logger.Log.Printf("Missing CSRF token for path: %s", r.URL.Path)
+				utils.JSONError(w, "CSRF token required", http.StatusForbidden)
+				return
 			}
 
 			// Log the token being verified (truncated for security)
-			if token != "" && len(token) > 10 {
+			if len(token) > 10 {
 				logger.Log.Printf("Verifying CSRF token: %s... for path: %s", token[:10], r.URL.Path)
-			} else {
-				logger.Log.Printf("Missing or invalid CSRF token format for path: %s", r.URL.Path)
 			}
 
 			// Verify token
 			if !auth.VerifyCSRFToken(token, cfg) {
 				logger.Log.Printf("Invalid CSRF token rejected for path: %s", r.URL.Path)
-				http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+				utils.JSONError(w, "Invalid CSRF token", http.StatusForbidden)
 				return
 			}
 
@@ -263,7 +275,7 @@ func CSRFMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 }
 
 // CSRFTokenHandler returns a new CSRF token
-func CSRFTokenHandler() http.HandlerFunc {
+func CSRFTokenHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Printf("CSRFTokenHandler: Received %s request from %s", r.Method, r.RemoteAddr)
 
@@ -274,7 +286,8 @@ func CSRFTokenHandler() http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization, X-CSRF-Token")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
+			w.Header().Set("Access-Control-Allow-Max-Age", "86400")
+			w.Header().Set("Vary", "Origin")
 		}
 
 		// Handle preflight OPTIONS request
@@ -283,16 +296,26 @@ func CSRFTokenHandler() http.HandlerFunc {
 			return
 		}
 
-		// Set Content-Type for the actual response
-		w.Header().Set("Content-Type", "application/json")
+		// Get token from Authorization header if available
+		var authUsername string
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			if claims, err := auth.ValidateJWT(tokenString, cfg); err == nil {
+				authUsername = claims.Username
+			}
+		}
 
-		// Use the improved token generation function from auth package
+		// Generate CSRF token
 		token, err := auth.GenerateCSRFToken()
 		if err != nil || token == "" {
 			logger.Log.Printf("CSRFTokenHandler: Failed to generate token: %v", err)
 			utils.JSONError(w, "Failed to generate CSRF token", http.StatusInternalServerError)
 			return
 		}
+
+		// Set Content-Type for the response
+		w.Header().Set("Content-Type", "application/json")
 
 		// Return token
 		w.WriteHeader(http.StatusOK)
@@ -302,14 +325,48 @@ func CSRFTokenHandler() http.HandlerFunc {
 			return
 		}
 
-		logger.Log.Printf("CSRFTokenHandler: Successfully generated token: %s... for %s", token[:10], r.RemoteAddr)
+		if authUsername != "" {
+			logger.Log.Printf("CSRFTokenHandler: Generated token for user %s: %s... from %s",
+				authUsername, token[:10], r.RemoteAddr)
+		} else {
+			logger.Log.Printf("CSRFTokenHandler: Generated token for anonymous user: %s... from %s",
+				token[:10], r.RemoteAddr)
+		}
 	}
+}
+
+// Update the route registration function
+func SetupRoutes(router *mux.Router, cfg *config.Config) {
+	// Public endpoints that don't need auth
+	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
+	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
+
+	// API endpoints with /api prefix
+	apiRouter := router.PathPrefix("/api").Subrouter()
+
+	// Public API endpoints
+	apiRouter.HandleFunc("/csrf-token", CSRFTokenHandler(cfg)).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
+
+	// Protected API routes
+	protectedRouter := apiRouter.PathPrefix("").Subrouter()
+	protectedRouter.Use(JWTAuthenticationMiddleware(cfg))
+	protectedRouter.Use(CSRFMiddleware(cfg))
+
+	protectedRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
+	protectedRouter.HandleFunc("/vpn/status", VPNStatusHandler(cfg)).Methods("GET")
+	protectedRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+	protectedRouter.HandleFunc("/config/download/client", DownloadClientConfigHandler()).Methods("GET")
+	protectedRouter.HandleFunc("/config/download/server", DownloadServerConfigHandler()).Methods("GET")
+	protectedRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
+	protectedRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
 }
 
 func SetupMiddleware(router *mux.Router, cfg *config.Config) {
 	router.Use(MonitoringMiddleware)
 	router.Use(SecurityHeadersMiddleware)
 	router.Use(RateLimitMiddleware(NewRateLimiter(time.Minute, 100)))
-	// Remove the global CSRF middleware - it will be applied only to protected routes
-	// router.Use(CSRFMiddleware(cfg))
+	// CSRF middleware is now applied only to protected routes
 }

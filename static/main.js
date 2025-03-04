@@ -58,24 +58,47 @@ async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased timeout to 30 seconds
             
+            const token = localStorage.getItem('jwt');
+            const defaultHeaders = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+                'Origin': window.location.origin
+            };
+
+            if (token) {
+                defaultHeaders['Authorization'] = `Bearer ${token}`;
+            }
+            
             const response = await fetch(url, {
                 ...options,
                 signal: controller.signal,
                 headers: {
-                    ...options.headers,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache'
+                    ...defaultHeaders,
+                    ...options.headers
                 },
                 credentials: 'include'
             });
             
             clearTimeout(timeoutId);
             
-            // Check for specific status codes that might be successful despite not being 200
-            if (!response.ok && response.status !== 204) {
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // Clear token and redirect on unauthorized
+                    localStorage.removeItem('jwt');
+                    window.location.replace('/login.html?auth_error=true');
+                    throw new Error('Authentication required');
+                }
+                
                 const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+                let errorMessage;
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.error || errorText;
+                } catch {
+                    errorMessage = errorText;
+                }
+                throw new Error(errorMessage);
             }
             
             return response;
@@ -402,10 +425,17 @@ async function initializeVPNForm() {
             const progress = simulateProgress(elements.progressBar, elements.statusText);
 
             try {
-                // First verify auth status
+                // First verify auth status with proper headers
+                const token = localStorage.getItem('jwt');
+                if (!token || !isValidJWT(token)) {
+                    throw new Error('JWT token missing or invalid');
+                }
+
                 const authResponse = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
                     method: 'GET',
-                    credentials: 'include'
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
                 });
 
                 let authStatus;
@@ -423,19 +453,14 @@ async function initializeVPNForm() {
                     throw new Error('Authentication required');
                 }
 
-                // Check JWT token
-                const jwtToken = localStorage.getItem('jwt');
-                if (!jwtToken) {
-                    console.error('No JWT token found in localStorage');
-                    throw new Error('JWT token missing, please login again');
+                // Get CSRF token
+                console.log('Getting CSRF token...');
+                const csrfToken = await getCsrfToken();
+                if (!csrfToken) {
+                    console.error('Failed to get CSRF token');
+                    throw new Error('Could not get CSRF token');
                 }
-
-                // Validate JWT format
-                if (!isValidJWT(jwtToken)) {
-                    console.error('JWT token validation failed');
-                    localStorage.removeItem('jwt'); // Clear invalid token
-                    throw new Error('Invalid authentication token, please login again');
-                }
+                console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
 
                 const formData = {
                     server_ip: elements.serverIp.value || '',
@@ -453,22 +478,13 @@ async function initializeVPNForm() {
                     vpnType: formData.vpn_type
                 };
 
-                // Get CSRF token
-                console.log('Getting CSRF token...');
-                const csrfToken = await getCsrfToken();
-                if (!csrfToken) {
-                    console.error('Failed to get CSRF token');
-                    throw new Error('Could not get CSRF token');
-                }
-                console.log('Got CSRF token:', csrfToken.substring(0, 10) + '...');
-
                 // Prepare headers with both tokens
                 const headers = {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Origin': window.location.origin,
                     'X-CSRF-Token': csrfToken,
-                    'Authorization': `Bearer ${jwtToken}`
+                    'Authorization': `Bearer ${token}`
                 };
 
                 console.log('Sending setup request with headers:', 
@@ -526,11 +542,21 @@ async function init() {
             if (document.readyState === "complete" || document.readyState === "interactive") {
                 initializeVPNForm().catch(error => {
                     console.error('Form initialization error:', error);
+                    if (error.message?.includes('Authentication required') || 
+                        error.message?.includes('JWT token') || 
+                        error.message?.includes('token expired')) {
+                        window.location.replace('/login.html?auth_error=true');
+                    }
                 });
             } else {
                 document.addEventListener('DOMContentLoaded', () => {
                     initializeVPNForm().catch(error => {
                         console.error('Form initialization error:', error);
+                        if (error.message?.includes('Authentication required') || 
+                            error.message?.includes('JWT token') || 
+                            error.message?.includes('token expired')) {
+                            window.location.replace('/login.html?auth_error=true');
+                        }
                     });
                 });
             }
@@ -538,10 +564,14 @@ async function init() {
             console.log('Not on VPN setup page, skipping form initialization');
         }
 
+        // Always verify auth state on page load
+        const authState = await refreshAuthState();
+        if (!authState && window.location.pathname !== '/login.html') {
+            window.location.replace('/login.html?auth_error=true');
+            return;
+        }
+
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-            
             const token = localStorage.getItem('jwt');
             const headers = {
                 'Accept': 'application/json',
@@ -550,38 +580,38 @@ async function init() {
             };
             
             if (token) {
+                if (!isValidJWT(token)) {
+                    // If token is invalid, clear it and redirect
+                    localStorage.removeItem('jwt');
+                    if (window.location.pathname !== '/login.html') {
+                        window.location.replace('/login.html?auth_error=true');
+                    }
+                    return;
+                }
                 headers['Authorization'] = `Bearer ${token}`;
             }
             
-            const response = await fetch(`${BASE_URL}/api/auth/status`, {
+            const response = await fetchWithRetries(`${BASE_URL}/api/auth/status`, {
                 method: 'GET',
                 headers: headers,
-                credentials: 'include',
-                signal: controller.signal
+                credentials: 'include'
             });
             
-            clearTimeout(timeoutId);
-            
-            let authData = null;
-            if (response.ok) {
-                const responseText = await response.text();
-                try {
-                    authData = responseText ? JSON.parse(responseText) : null;
-                    console.log('Auth status response:', authData);
+            let authData = await response.json();
+            console.log('Auth status response:', authData);
 
-                    if (authData?.enabled && !authData?.authenticated) {
-                        window.location.replace('/login.html');
-                        return;
-                    }
-                } catch (jsonError) {
-                    console.error('JSON parse error:', jsonError, 'Response text:', responseText);
-                    // Continue without authentication if JSON parsing fails
+            if (authData?.enabled && !authData?.authenticated) {
+                // Clear invalid token and redirect
+                localStorage.removeItem('jwt');
+                if (window.location.pathname !== '/login.html') {
+                    window.location.replace('/login.html');
                 }
+                return;
             }
+
         } catch (error) {
-            clearTimeout(timeoutId);
             console.error("Error checking authentication:", error);
-            // Gracefully degrade - continue without authentication
+            // On network error, let the user continue - they'll be redirected if auth is required
         }
     } catch (error) {
         console.error("Critical initialization error:", error);

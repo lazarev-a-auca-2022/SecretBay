@@ -15,7 +15,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -261,7 +260,8 @@ func isInternalIP(ip string) bool {
 	return false
 }
 
-func SetupRoutes(router *mux.Router, cfg *config.Config) {
+// RegisterRoutes sets up all API routes
+func RegisterRoutes(router *mux.Router, cfg *config.Config) {
 	// Public endpoints that don't need auth
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
@@ -270,7 +270,7 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	apiRouter := router.PathPrefix("/api").Subrouter()
 
 	// Public API endpoints
-	apiRouter.HandleFunc("/csrf-token", CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	apiRouter.HandleFunc("/csrf-token", CSRFTokenHandler(cfg)).Methods("GET", "OPTIONS")
 	apiRouter.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
 	apiRouter.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	apiRouter.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
@@ -281,10 +281,10 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 	protectedRouter.Use(CSRFMiddleware(cfg))
 
 	protectedRouter.HandleFunc("/setup", SetupVPNHandler(cfg)).Methods("POST")
-	protectedRouter.HandleFunc("/vpn/status", VPNStatusHandler(cfg)).Methods("GET")                     // Added VPN status endpoint
-	protectedRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")              // Legacy path
-	protectedRouter.HandleFunc("/config/download/client", DownloadClientConfigHandler()).Methods("GET") // New client config endpoint
-	protectedRouter.HandleFunc("/config/download/server", DownloadServerConfigHandler()).Methods("GET") // New server config endpoint
+	protectedRouter.HandleFunc("/vpn/status", VPNStatusHandler(cfg)).Methods("GET")
+	protectedRouter.HandleFunc("/config/download", DownloadConfigHandler()).Methods("GET")
+	protectedRouter.HandleFunc("/config/download/client", DownloadClientConfigHandler()).Methods("GET")
+	protectedRouter.HandleFunc("/config/download/server", DownloadServerConfigHandler()).Methods("GET")
 	protectedRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
 	protectedRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
 }
@@ -448,15 +448,6 @@ func LoginHandler(cfg *config.Config) http.HandlerFunc {
 	}
 }
 
-func generateVPNConfigPath(vpnType, setupID string) string {
-	logger.Log.Println("generateVPNConfigPath: Generating VPN config path")
-	configDir := "/etc/vpn-configs"
-	filename := fmt.Sprintf("%s_%s.ovpn", vpnType, setupID)
-	path := filepath.Join(configDir, filename)
-	logger.Log.Printf("generateVPNConfigPath: Generated path: %s", path)
-	return path
-}
-
 func BackupHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get server IP and credentials from JWT context
@@ -609,7 +600,8 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization, X-CSRF-Token")
+			w.Header().Set("Access-Control-Max-Age", "86400") // 24 hours
 			w.Header().Set("Vary", "Origin")
 		}
 
@@ -623,13 +615,6 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Handle header validation
-		if r.ProtoMajor != 2 {
-			if err := validateHeaders(w, r); err != nil {
-				return
-			}
-		}
-
 		// Check authentication status - either auth is disabled or we have a valid token
 		isAuthenticated := !cfg.AuthEnabled
 
@@ -638,9 +623,13 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			authHeader := r.Header.Get("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-				_, err := auth.ValidateJWT(tokenString, cfg)
-				if err == nil {
+				claims, err := auth.ValidateJWT(tokenString, cfg)
+				if err == nil && claims != nil {
 					isAuthenticated = true
+					// Add claims to request context for use by other handlers
+					r = r.WithContext(auth.AddUserClaimsToContext(r.Context(), claims))
+				} else {
+					logger.Log.Printf("JWT validation failed: %v", err)
 				}
 			}
 		}
@@ -651,49 +640,13 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			Authenticated: isAuthenticated,
 		}
 
-		// Write response - ensure no other data is written before or after
-		w.WriteHeader(http.StatusOK)
+		// Write response
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			logger.Log.Printf("AuthStatusHandler: Error encoding response: %v", err)
 			http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)
 			return
 		}
 	}
-}
-
-func handleCORS(w http.ResponseWriter, r *http.Request) {
-	origin := r.Header.Get("Origin")
-	if origin != "" && isValidOrigin(origin) {
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Authorization")
-	w.WriteHeader(http.StatusOK)
-}
-
-func validateHeaders(w http.ResponseWriter, r *http.Request) error {
-	// Skip validation for OPTIONS requests
-	if r.Method == http.MethodOptions {
-		return nil
-	}
-
-	// Relax Accept header validation - only check if it's provided and not allowed
-	accept := r.Header.Get("Accept")
-	if accept != "" && !strings.Contains(accept, "application/json") && !strings.Contains(accept, "*/*") {
-		utils.JSONError(w, "Invalid Accept header", http.StatusBadRequest)
-		return fmt.Errorf("invalid accept header")
-	}
-
-	// Validate Origin if present
-	origin := r.Header.Get("Origin")
-	if origin != "" {
-		if !isValidOrigin(origin) {
-			utils.JSONError(w, "Invalid origin", http.StatusForbidden)
-			return fmt.Errorf("invalid origin")
-		}
-	}
-
-	return nil
 }
 
 func setSecurityHeaders(w http.ResponseWriter) {

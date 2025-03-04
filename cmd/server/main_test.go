@@ -85,7 +85,7 @@ func TestVPNSetupRequest(t *testing.T) {
 	cfg.DB = db
 
 	router := mux.NewRouter()
-	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler()).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler(cfg)).Methods("GET", "OPTIONS")
 	api.SetupRoutes(router, cfg)
 
 	// Create mock SSH client with expected behaviors
@@ -1158,4 +1158,32 @@ func TestAuthStatusHandlerWithHTTP2(t *testing.T) {
 			assert.Contains(t, response, "enabled")
 		})
 	}
+}
+
+func TestCSRFTokenHandler(t *testing.T) {
+	// Create test configuration
+	cfg, err := config.LoadConfig()
+	assert.NoError(t, err)
+
+	// Create test router
+	router := mux.NewRouter()
+	router.HandleFunc("/api/csrf-token", api.CSRFTokenHandler(cfg)).Methods("GET", "OPTIONS")
+
+	// Create test server
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	// Test CSRF token generation
+	req, _ := http.NewRequest("GET", ts.URL+"/api/csrf-token", nil)
+	resp, err := http.DefaultClient.Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Parse response
+	var tokenResp struct {
+		Token string `json:"token"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&tokenResp)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, tokenResp.Token)
 }
