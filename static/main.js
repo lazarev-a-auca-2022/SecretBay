@@ -359,7 +359,6 @@ async function init() {
     try {
         // Check if we're on the VPN setup page before trying to initialize the form
         if (isVPNSetupPage()) {
-            // Wait for DOM to be fully loaded and ready
             if (document.readyState === "complete" || document.readyState === "interactive") {
                 initializeVPNForm().catch(error => {
                     console.error('Form initialization error:', error);
@@ -376,9 +375,8 @@ async function init() {
         }
 
         try {
-            // Use fetch with explicit headers and timeout
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
             
             const token = localStorage.getItem('jwt');
             const headers = {
@@ -400,13 +398,20 @@ async function init() {
             
             clearTimeout(timeoutId);
             
+            let authData = null;
             if (response.ok) {
-                const authData = await response.json();
-                console.log('Auth status response:', authData);
+                const responseText = await response.text();
+                try {
+                    authData = responseText ? JSON.parse(responseText) : null;
+                    console.log('Auth status response:', authData);
 
-                if (authData?.enabled && !authData?.authenticated) {
-                    window.location.replace('/login.html');
-                    return;
+                    if (authData?.enabled && !authData?.authenticated) {
+                        window.location.replace('/login.html');
+                        return;
+                    }
+                } catch (jsonError) {
+                    console.error('JSON parse error:', jsonError, 'Response text:', responseText);
+                    // Continue without authentication if JSON parsing fails
                 }
             }
         } catch (error) {
