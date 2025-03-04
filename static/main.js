@@ -17,6 +17,40 @@ const SETUP_STAGES = [
     { name: "Finalizing configuration", weight: 5 }
 ];
 
+// Function to get CSRF token with retries
+async function getCsrfToken(retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(`${BASE_URL}/api/csrf-token`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin,
+                    'Cache-Control': 'no-cache'
+                },
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (!data.token) {
+                throw new Error('No token in response');
+            }
+            return data.token;
+        } catch (error) {
+            console.error(`CSRF token fetch attempt ${i + 1} failed:`, error);
+            if (i === retries - 1) {
+                throw error;
+            }
+            // Wait before retrying, with exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+        }
+    }
+}
+
 // Helper function for retrying failed requests
 async function fetchWithRetries(url, options, retries = MAX_RETRIES) {
     for (let i = 0; i < retries; i++) {
@@ -164,12 +198,23 @@ function simulateProgress(progressBar, statusElement) {
 // Function to download a file from a URL
 async function downloadFile(url, filename, params) {
     try {
+        // Get CSRF token for the download request
+        const csrfToken = await getCsrfToken();
+        if (!csrfToken) {
+            throw new Error('Could not get CSRF token for download');
+        }
+
+        // Get JWT token
+        const jwtToken = localStorage.getItem('jwt');
+
         const response = await fetchWithRetries(
             url + (params ? '?' + new URLSearchParams(params) : ''),
             {
                 headers: {
                     'Accept': 'application/octet-stream',
-                    'Origin': window.location.origin
+                    'Origin': window.location.origin,
+                    'X-CSRF-Token': csrfToken,
+                    'Authorization': jwtToken ? `Bearer ${jwtToken}` : ''
                 },
                 credentials: 'include'
             }
@@ -314,13 +359,24 @@ async function initializeVPNForm() {
                     vpnType: formData.vpn_type
                 };
 
+                // Get CSRF token
+                const csrfToken = await getCsrfToken();
+                if (!csrfToken) {
+                    throw new Error('Could not get CSRF token');
+                }
+
+                // Get JWT token
+                const jwtToken = localStorage.getItem('jwt');
+
                 // Setup VPN with retries
                 const setupResponse = await fetchWithRetries(`${BASE_URL}/api/setup`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'Origin': window.location.origin
+                        'Origin': window.location.origin,
+                        'X-CSRF-Token': csrfToken,
+                        'Authorization': jwtToken ? `Bearer ${jwtToken}` : ''
                     },
                     credentials: 'include',
                     body: JSON.stringify(formData)
