@@ -53,6 +53,23 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Set CORS headers first for download endpoints
+			if strings.Contains(r.URL.Path, "/download") {
+				origin := r.Header.Get("Origin")
+				if origin != "" && isValidOrigin(origin) {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					w.Header().Set("Access-Control-Allow-Credentials", "true")
+					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+					w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token")
+					w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
+				}
+				
+				if r.Method == "OPTIONS" {
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+			}
+
 			// Get token from Authorization header or cookie
 			var tokenStr string
 			authHeader := r.Header.Get("Authorization")

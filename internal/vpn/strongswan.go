@@ -39,27 +39,34 @@ func generateStrongVPNPassword() string {
 func (s *StrongSwanSetup) Setup() error {
 	logger.Log.Println("Starting StrongSwan setup")
 
+	// Check disk space first
+	spaceCheckCmd := "df -h / | awk 'NR==2 {print $4}'"
+	if out, err := s.SSHClient.RunCommand(spaceCheckCmd); err == nil {
+		logger.Log.Printf("Available disk space: %s", out)
+	}
+
 	// Generate secure VPN password
 	logger.Log.Println("Generating secure VPN password...")
 	vpnPassword := generateStrongVPNPassword()
 	logger.Log.Println("Secure password generated successfully")
 
-	// First try to clean any stuck locks and fix package state
+	// Clean package archives more thoroughly
 	cleanupCmds := []string{
-		// Kill any stuck apt/dpkg processes
+		// First kill any stuck package managers
 		"sudo killall apt apt-get dpkg",
 		// Remove locks
 		"sudo rm -f /var/lib/apt/lists/lock",
 		"sudo rm -f /var/cache/apt/archives/lock",
 		"sudo rm -f /var/lib/dpkg/lock*",
-		// Clean package cache
+		// Clean package archives
 		"sudo apt-get clean",
 		"sudo apt-get autoclean",
-		// Fix interrupted dpkg
+		// Fix any broken packages
 		"sudo dpkg --configure -a",
-		// Clean and update package cache
-		"sudo apt-get clean",
+		// Clean package lists
 		"sudo rm -rf /var/lib/apt/lists/*",
+		"sudo rm -rf /var/cache/apt/archives/*.deb",
+		// Update package lists
 		"sudo apt-get update --fix-missing",
 	}
 

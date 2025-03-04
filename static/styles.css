@@ -107,6 +107,33 @@ button:hover {
 
 /* Download buttons */
 .download-buttons {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.download-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.download-button:hover {
+    background-color: #45a049;
+}
+
+.download-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.download-buttons {
     display: flex;
     gap: 10px;
     margin-top: 20px;

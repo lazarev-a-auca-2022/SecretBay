@@ -221,27 +221,28 @@ function simulateProgress(progressBar, statusElement) {
 // Function to download a file from a URL
 async function downloadFile(url, filename, params) {
     try {
-        // Get CSRF token for the download request
-        const csrfToken = await getCsrfToken();
-        if (!csrfToken) {
-            throw new Error('Could not get CSRF token for download');
+        const token = localStorage.getItem('jwt');
+        if (!token || !isValidJWT(token)) {
+            throw new Error('Authentication required');
         }
 
-        // Get JWT token
-        const jwtToken = localStorage.getItem('jwt');
+        const queryParams = new URLSearchParams({
+            serverIp: params.serverIp,
+            username: params.username,
+            credential: params.credential,
+            vpnType: params.vpnType
+        }).toString();
 
-        const response = await fetchWithRetries(
-            url + (params ? '?' + new URLSearchParams(params) : ''),
-            {
-                headers: {
-                    'Accept': 'application/octet-stream',
-                    'Origin': window.location.origin,
-                    'X-CSRF-Token': csrfToken,
-                    'Authorization': jwtToken ? `Bearer ${jwtToken}` : ''
-                },
-                credentials: 'include'
+        const response = await fetch(`${url}?${queryParams}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
-        );
+        });
+
+        if (!response.ok) {
+            throw new Error(`Download failed: ${response.statusText}`);
+        }
 
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
@@ -253,10 +254,11 @@ async function downloadFile(url, filename, params) {
         a.click();
         window.URL.revokeObjectURL(downloadUrl);
         document.body.removeChild(a);
-        return true;
     } catch (error) {
-        console.error(`Error downloading ${filename}:`, error);
-        return false;
+        console.error('Download error:', error);
+        const errorElement = document.getElementById('downloadError');
+        errorElement.textContent = error.message;
+        errorElement.style.display = 'block';
     }
 }
 
@@ -382,27 +384,28 @@ async function initializeVPNForm() {
 
         // Initialize download buttons only after they're shown
         const initializeDownloadButtons = () => {
-            if (elements.downloadClientBtn) {
-                elements.downloadClientBtn.addEventListener('click', async () => {
-                    elements.statusText.textContent = 'Downloading client configuration...';
+            const downloadClientBtn = document.getElementById('downloadClientConfig');
+            const downloadServerBtn = document.getElementById('downloadServerConfig');
+
+            if (downloadClientBtn) {
+                downloadClientBtn.addEventListener('click', async () => {
+                    const filename = currentCredentials.vpnType === 'openvpn' ? 'client.ovpn' : 'vpn_config.mobileconfig';
                     await downloadFile(
                         `${BASE_URL}/api/config/download/client`,
-                        currentCredentials.vpnType === 'openvpn' ? 'client.ovpn' : 'vpn_config.mobileconfig',
+                        filename,
                         currentCredentials
                     );
-                    elements.statusText.textContent = 'Client configuration downloaded';
                 });
             }
             
-            if (elements.downloadServerBtn) {
-                elements.downloadServerBtn.addEventListener('click', async () => {
-                    elements.statusText.textContent = 'Downloading server configuration...';
+            if (downloadServerBtn) {
+                downloadServerBtn.addEventListener('click', async () => {
+                    const filename = currentCredentials.vpnType === 'openvpn' ? 'server.conf' : 'ipsec.conf';
                     await downloadFile(
                         `${BASE_URL}/api/config/download/server`,
-                        'server.conf',
+                        filename,
                         currentCredentials
                     );
-                    elements.statusText.textContent = 'Server configuration downloaded';
                 });
             }
         };

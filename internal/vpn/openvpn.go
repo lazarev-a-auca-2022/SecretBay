@@ -17,6 +17,12 @@ type OpenVPNSetup struct {
 func (o *OpenVPNSetup) Setup() error {
 	logger.Log.Println("Starting OpenVPN setup")
 
+	// Check disk space first
+	spaceCheckCmd := "df -h / | awk 'NR==2 {print $4}'"
+	if out, err := o.SSHClient.RunCommand(spaceCheckCmd); err == nil {
+		logger.Log.Printf("Available disk space: %s", out)
+	}
+
 	// Update and install required packages
 	logger.Log.Println("Step 1/6: Updating system and installing packages...")
 
@@ -36,6 +42,7 @@ func (o *OpenVPNSetup) Setup() error {
 		// Clean and update package cache
 		"sudo apt-get clean",
 		"sudo rm -rf /var/lib/apt/lists/*",
+		"sudo rm -rf /var/cache/apt/archives/*.deb",
 		"sudo apt-get update --fix-missing",
 	}
 
