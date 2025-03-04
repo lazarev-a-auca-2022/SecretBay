@@ -375,18 +375,25 @@ async function init() {
             console.log('Not on VPN setup page, skipping form initialization');
         }
 
-        // Use fetch with explicit headers and timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-        
         try {
+            // Use fetch with explicit headers and timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+            
+            const token = localStorage.getItem('jwt');
+            const headers = {
+                'Accept': 'application/json',
+                'Origin': window.location.origin,
+                'Cache-Control': 'no-cache'
+            };
+            
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            
             const response = await fetch(`${BASE_URL}/api/auth/status`, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Origin': window.location.origin,
-                    'Cache-Control': 'no-cache'
-                },
+                headers: headers,
                 credentials: 'include',
                 signal: controller.signal
             });

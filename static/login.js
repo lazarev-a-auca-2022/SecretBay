@@ -10,11 +10,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // First check if authentication is enabled
     try {
+        const token = localStorage.getItem('jwt');
+        const headers = {
+            'Accept': 'application/json',
+            'Origin': window.location.origin
+        };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const authCheckResponse = await fetch(`${BASE_URL}/api/auth/status`, {
-            headers: {
-                'Accept': 'application/json',
-                'Origin': window.location.origin
-            },
+            headers: headers,
             credentials: 'include'
         });
         const authData = await authCheckResponse.json();
@@ -24,34 +31,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.location.replace('/');
             return;
         }
+
+        // If we're already authenticated and not here due to an error, redirect to main page
+        if (token && authData.authenticated) {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.get('auth_error')) {
+                window.location.replace('/');
+                return;
+            }
+        }
     } catch (error) {
         console.error('Error checking auth status:', error);
-    }
-
-    // If auth is enabled, continue with normal login flow
-    const token = localStorage.getItem('jwt');
-    if (token) {
-        try {
-            const response = await fetch(`${BASE_URL}/api/auth/status`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'Origin': window.location.origin
-                },
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                // Only redirect if we're not here due to an auth error
-                const urlParams = new URLSearchParams(window.location.search);
-                if (!urlParams.get('auth_error')) {
-                    window.location.replace('/');
-                    return;
-                }
-            }
-        } catch (error) {
-            console.error('Error checking auth status:', error);
-        }
     }
 
     // Only remove token if we were redirected here due to an auth error
