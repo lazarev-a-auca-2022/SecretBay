@@ -290,5 +290,6 @@ func SetupMiddleware(router *mux.Router, cfg *config.Config) {
 	router.Use(MonitoringMiddleware)
 	router.Use(SecurityHeadersMiddleware)
 	router.Use(RateLimitMiddleware(NewRateLimiter(time.Minute, 100)))
-	router.Use(CSRFMiddleware(cfg))
+	// Remove the global CSRF middleware - it will be applied only to protected routes
+	// router.Use(CSRFMiddleware(cfg))
 }
