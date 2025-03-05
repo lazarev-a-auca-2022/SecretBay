@@ -39,15 +39,65 @@ func generateStrongVPNPassword() string {
 func (s *StrongSwanSetup) Setup() error {
 	logger.Log.Println("Starting StrongSwan setup")
 
+	// First check if password has expired
+	logger.Log.Println("Checking for expired password...")
+	out, err := s.SSHClient.RunCommand("sudo -n true 2>&1")
+	if err != nil && strings.Contains(out, "password has expired") {
+		logger.Log.Println("Password has expired, attempting to reset...")
+
+		// Use shared password generation
+		newPassword, err := generatePassword()
+		if err != nil {
+			return fmt.Errorf("failed to generate new password: %v", err)
+		}
+
+		// Create a script to change password non-interactively
+		scriptContent := fmt.Sprintf(`#!/bin/bash
+expect << EOF
+spawn passwd
+expect "Current password:"
+send "%s\r"
+expect "New password:"
+send "%s\r"
+expect "Retype new password:"
+send "%s\r"
+expect eof
+EOF`, s.SSHClient.GetPassword(), newPassword, newPassword)
+
+		// Write and execute the script
+		if err := s.SSHClient.WriteFile("/tmp/change_pass.sh", scriptContent, 0700); err != nil {
+			return fmt.Errorf("failed to write password change script: %v", err)
+		}
+
+		// Install expect if not present
+		s.SSHClient.RunCommand("which expect || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y expect")
+
+		// Run the password change script
+		if out, err := s.SSHClient.RunCommand("bash /tmp/change_pass.sh"); err != nil {
+			logger.Log.Printf("Password change output: %s", out)
+			return fmt.Errorf("failed to change expired password: %v", err)
+		}
+
+		// Clean up the script
+		s.SSHClient.RunCommand("rm -f /tmp/change_pass.sh")
+
+		// Update the SSH client with new password
+		s.SSHClient.UpdatePassword(newPassword)
+		logger.Log.Println("Password changed successfully")
+	}
+
 	// Check disk space first
 	spaceCheckCmd := "df -h / | awk 'NR==2 {print $4}'"
 	if out, err := s.SSHClient.RunCommand(spaceCheckCmd); err == nil {
 		logger.Log.Printf("Available disk space: %s", out)
 	}
 
-	// Generate secure VPN password
+	// Generate secure VPN password using shared function
 	logger.Log.Println("Generating secure VPN password...")
-	vpnPassword := generateStrongVPNPassword()
+	vpnPassword, err := generatePassword()
+	if err != nil {
+		return fmt.Errorf("failed to generate VPN password: %v", err)
+	}
 	logger.Log.Println("Secure password generated successfully")
 
 	// Clean package archives more thoroughly
@@ -254,7 +304,7 @@ conn ikev2-vpn
 
 	// Verify service status
 	logger.Log.Println("Verifying StrongSwan service status...")
-	out, err := s.SSHClient.RunCommand("systemctl is-active strongswan-starter")
+	out, err = s.SSHClient.RunCommand("systemctl is-active strongswan-starter")
 	if err != nil {
 		logger.Log.Printf("Service status check failed: Output: %s, Error: %v", out, err)
 		return fmt.Errorf("StrongSwan service failed to start: %v", err)

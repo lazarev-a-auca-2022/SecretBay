@@ -33,6 +33,7 @@ type SSHClient struct {
 	// CloseFunc is the function used to close the connection
 	CloseFunc func()
 	mu        sync.Mutex
+	password  string
 }
 
 // SSHClientInterface defines the interface for SSH operations
@@ -183,6 +184,7 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 				client.Close()
 			}
 		},
+		password: authCredential,
 	}
 
 	return sshClient, nil
@@ -231,6 +233,49 @@ func (s *SSHClient) Close() {
 	if s.Client != nil {
 		s.Client.Close()
 	}
+}
+
+func (c *SSHClient) GetPassword() string {
+	return c.password
+}
+
+func (c *SSHClient) UpdatePassword(newPassword string) {
+	c.password = newPassword
+}
+
+func (c *SSHClient) WriteFile(path string, content string, mode uint32) error {
+	if c.Client == nil {
+		return fmt.Errorf("SSH client not connected")
+	}
+
+	session, err := c.Client.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create session: %v", err)
+	}
+	defer session.Close()
+
+	// Create the file with the specified mode
+	cmd := fmt.Sprintf("cat > %s && chmod %o %s", path, mode, path)
+	pipe, err := session.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stdin pipe: %v", err)
+	}
+
+	if err := session.Start(cmd); err != nil {
+		return fmt.Errorf("failed to start command: %v", err)
+	}
+
+	_, err = pipe.Write([]byte(content))
+	if err != nil {
+		return fmt.Errorf("failed to write content: %v", err)
+	}
+
+	pipe.Close()
+	if err := session.Wait(); err != nil {
+		return fmt.Errorf("command failed: %v", err)
+	}
+
+	return nil
 }
 
 func handleUnknownHost(host, knownHostsFile string) error {

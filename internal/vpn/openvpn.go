@@ -17,6 +17,53 @@ type OpenVPNSetup struct {
 func (o *OpenVPNSetup) Setup() error {
 	logger.Log.Println("Starting OpenVPN setup")
 
+	// First check if password has expired
+	logger.Log.Println("Checking for expired password...")
+	out, err := o.SSHClient.RunCommand("sudo -n true 2>&1")
+	if err != nil && strings.Contains(out, "password has expired") {
+		logger.Log.Println("Password has expired, attempting to reset...")
+
+		// Generate a new secure password using the shared function
+		newPassword, err := generatePassword()
+		if err != nil {
+			return fmt.Errorf("failed to generate new password: %v", err)
+		}
+
+		// Create a script to change password non-interactively
+		scriptContent := fmt.Sprintf(`#!/bin/bash
+expect << EOF
+spawn passwd
+expect "Current password:"
+send "%s\r"
+expect "New password:"
+send "%s\r"
+expect "Retype new password:"
+send "%s\r"
+expect eof
+EOF`, o.SSHClient.GetPassword(), newPassword, newPassword)
+
+		// Write and execute the script
+		if err := o.SSHClient.WriteFile("/tmp/change_pass.sh", scriptContent, 0700); err != nil {
+			return fmt.Errorf("failed to write password change script: %v", err)
+		}
+
+		// Install expect if not present
+		o.SSHClient.RunCommand("which expect || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y expect")
+
+		// Run the password change script
+		if out, err := o.SSHClient.RunCommand("bash /tmp/change_pass.sh"); err != nil {
+			logger.Log.Printf("Password change output: %s", out)
+			return fmt.Errorf("failed to change expired password: %v", err)
+		}
+
+		// Clean up the script
+		o.SSHClient.RunCommand("rm -f /tmp/change_pass.sh")
+
+		// Update the SSH client with new password
+		o.SSHClient.UpdatePassword(newPassword)
+		logger.Log.Println("Password changed successfully")
+	}
+
 	// Check disk space first
 	spaceCheckCmd := "df -h / | awk 'NR==2 {print $4}'"
 	if out, err := o.SSHClient.RunCommand(spaceCheckCmd); err == nil {
