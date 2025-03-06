@@ -22,6 +22,14 @@ type StrongSwanSetup struct {
 	ServerIP  string
 }
 
+// ConfigDetails contains paths and info about the generated configuration files
+type ConfigDetails struct {
+	ClientConfigPath string
+	ServerConfigPath string
+	Username         string
+	Password         string
+}
+
 func generateStrongVPNPassword() string {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
 	b := make([]byte, 32)
@@ -324,6 +332,18 @@ conn ikev2-vpn
 		logger.Log.Printf("Warning: Failed to save credentials: %v, Output: %s", err, out)
 	} else {
 		logger.Log.Println("VPN credentials saved to /etc/vpn-configs/credentials.txt")
+	}
+
+	// Generate mobileconfig for iOS
+	mobileConfigPath, err := s.GenerateMobileConfig("vpnuser")
+	if err != nil {
+		logger.Log.Printf("Warning: Failed to generate iOS mobileconfig: %v", err)
+	} else {
+		// Create a symlink with a standardized name for easier access
+		if _, err := s.SSHClient.RunCommand(fmt.Sprintf("sudo ln -sf %s /etc/vpn-configs/ios_vpn.mobileconfig", mobileConfigPath)); err != nil {
+			logger.Log.Printf("Warning: Failed to create symlink to mobileconfig: %v", err)
+		}
+		logger.Log.Printf("iOS mobileconfig generated at %s and linked to /etc/vpn-configs/ios_vpn.mobileconfig", mobileConfigPath)
 	}
 
 	logger.Log.Println("StrongSwan setup completed successfully")

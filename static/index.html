@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VPN Management</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
 </head>
 <body>
     <div class="container">
@@ -47,10 +48,15 @@
             <div id="setupStatus">Initializing setup...</div>
         </div>
         <div id="result"></div>
+        
+        <!-- Old download buttons container (will be hidden in the new implementation) -->
         <div id="downloads" class="download-buttons" style="display: none;">
             <button id="downloadClientConfig" class="download-button">Download Client Config</button>
             <button id="downloadServerConfig" class="download-button">Download Server Config</button>
         </div>
+        
+        <!-- New download links container -->
+        <div id="downloadLinks" class="download-links" style="display: none;"></div>
     </div>
     <!-- Place the main.js script at the end of body -->
     <script src="main.js"></script>

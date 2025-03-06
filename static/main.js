@@ -218,48 +218,22 @@ function simulateProgress(progressBar, statusElement) {
     };
 }
 
-// Function to download a file from a URL
-async function downloadFile(url, filename, params) {
-    try {
-        const token = localStorage.getItem('jwt');
-        if (!token || !isValidJWT(token)) {
-            throw new Error('Authentication required');
-        }
-
-        const queryParams = new URLSearchParams({
-            serverIp: params.serverIp,
-            username: params.username,
-            credential: params.credential,
-            vpnType: params.vpnType
-        }).toString();
-
-        const response = await fetch(`${url}?${queryParams}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Download failed: ${response.statusText}`);
-        }
-
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = downloadUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        document.body.removeChild(a);
-    } catch (error) {
-        console.error('Download error:', error);
-        const errorElement = document.getElementById('downloadError');
-        errorElement.textContent = error.message;
-        errorElement.style.display = 'block';
+// Function to generate download links instead of directly downloading files
+function generateDownloadLink(url, filename, params) {
+    const token = localStorage.getItem('jwt');
+    if (!token || !isValidJWT(token)) {
+        throw new Error('Authentication required');
     }
+
+    const queryParams = new URLSearchParams({
+        serverIp: params.serverIp,
+        username: params.username,
+        credential: params.credential,
+        vpnType: params.vpnType
+    }).toString();
+
+    // Return the full URL with query parameters
+    return `${url}?${queryParams}`;
 }
 
 // Function to validate the JWT token's format (not its signature)
@@ -363,8 +337,7 @@ async function initializeVPNForm() {
             progressBar: document.querySelector('#setupProgressBar'),
             statusText: document.querySelector('#setupStatus'),
             downloads: document.querySelector('#downloads'),
-            downloadClientBtn: document.querySelector('#downloadClientConfig'),
-            downloadServerBtn: document.querySelector('#downloadServerConfig')
+            downloadLinks: document.querySelector('#downloadLinks') || createFallbackElement('div', 'downloadLinks')
         };
 
         // Check if critical elements are missing before proceeding
@@ -374,7 +347,7 @@ async function initializeVPNForm() {
             return; // Exit early if required elements are missing
         }
         
-        // Store credentials for later use with download buttons
+        // Store credentials for later use with download links
         let currentCredentials = {
             serverIp: '',
             username: '',
@@ -382,31 +355,51 @@ async function initializeVPNForm() {
             vpnType: ''
         };
 
-        // Initialize download buttons only after they're shown
-        const initializeDownloadButtons = () => {
-            const downloadClientBtn = document.getElementById('downloadClientConfig');
-            const downloadServerBtn = document.getElementById('downloadServerConfig');
-
-            if (downloadClientBtn) {
-                downloadClientBtn.addEventListener('click', async () => {
-                    const filename = currentCredentials.vpnType === 'openvpn' ? 'client.ovpn' : 'vpn_config.mobileconfig';
-                    await downloadFile(
-                        `${BASE_URL}/api/config/download/client`,
-                        filename,
-                        currentCredentials
-                    );
-                });
-            }
-            
-            if (downloadServerBtn) {
-                downloadServerBtn.addEventListener('click', async () => {
-                    const filename = currentCredentials.vpnType === 'openvpn' ? 'server.conf' : 'ipsec.conf';
-                    await downloadFile(
-                        `${BASE_URL}/api/config/download/server`,
-                        filename,
-                        currentCredentials
-                    );
-                });
+        // Function to create download links
+        const createDownloadLinks = () => {
+            try {
+                // Clear existing links
+                elements.downloadLinks.innerHTML = '';
+                
+                // Create client config link
+                const clientFilename = currentCredentials.vpnType === 'openvpn' ? 'client.ovpn' : 'vpn_config.mobileconfig';
+                const clientUrl = generateDownloadLink(
+                    `${BASE_URL}/api/config/download/client`,
+                    clientFilename,
+                    currentCredentials
+                );
+                
+                // Create server config link
+                const serverFilename = currentCredentials.vpnType === 'openvpn' ? 'server.conf' : 'ipsec.conf';
+                const serverUrl = generateDownloadLink(
+                    `${BASE_URL}/api/config/download/server`,
+                    serverFilename,
+                    currentCredentials
+                );
+                
+                // Add links to the container
+                const clientLink = document.createElement('a');
+                clientLink.href = clientUrl;
+                clientLink.className = 'download-link';
+                clientLink.innerHTML = `<i class="fa fa-download"></i> Download Client Config (${clientFilename})`;
+                clientLink.setAttribute('download', clientFilename);
+                
+                const serverLink = document.createElement('a');
+                serverLink.href = serverUrl;
+                serverLink.className = 'download-link';
+                serverLink.innerHTML = `<i class="fa fa-download"></i> Download Server Config (${serverFilename})`;
+                serverLink.setAttribute('download', serverFilename);
+                
+                elements.downloadLinks.appendChild(clientLink);
+                elements.downloadLinks.appendChild(document.createElement('br'));
+                elements.downloadLinks.appendChild(serverLink);
+                
+                // Show the container
+                elements.downloadLinks.style.display = 'block';
+            } catch (error) {
+                console.error('Error creating download links:', error);
+                elements.error.textContent = 'Failed to generate download links: ' + error.message;
+                elements.error.style.display = 'block';
             }
         };
 
@@ -422,7 +415,7 @@ async function initializeVPNForm() {
             // Hide previous results and errors
             elements.result.style.display = 'none';
             elements.error.style.display = 'none';
-            elements.downloads.style.display = 'none';
+            elements.downloadLinks.style.display = 'none';
             
             // Show progress tracking UI
             elements.form.style.display = 'none';
@@ -477,7 +470,7 @@ async function initializeVPNForm() {
                     vpn_type: elements.vpnType.value || ''
                 };
                 
-                // Store credentials for download buttons
+                // Store credentials for download links
                 currentCredentials = {
                     serverIp: formData.server_ip,
                     username: formData.username,
@@ -513,14 +506,19 @@ async function initializeVPNForm() {
                 // Complete the progress bar animation
                 progress.complete();
                 
-                // Show success message and download buttons
+                // Show success message and create download links
                 elements.result.textContent = 'VPN setup completed successfully!';
                 elements.result.className = 'success';
                 elements.result.style.display = 'block';
-                elements.downloads.style.display = 'flex';
-
-                // Initialize download buttons after showing them
-                initializeDownloadButtons();
+                
+                // Generate and show download links
+                createDownloadLinks();
+                
+                // Hide the old download buttons if they exist
+                if (elements.downloads) {
+                    elements.downloads.style.display = 'none';
+                }
+                
             } catch (error) {
                 console.error('Setup error:', error);
                 progress.error(error.message);
