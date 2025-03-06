@@ -165,6 +165,7 @@ func (o *OpenVPNSetup) Setup() error {
 		if err != nil {
 			// Check for password expiry
 			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				logger.Log.Printf("Password expired during PKI initialization: %s", output)
 				return fmt.Errorf("password has expired and needs to be reset before continuing")
 			}
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
@@ -187,6 +188,7 @@ func (o *OpenVPNSetup) Setup() error {
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
 			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				logger.Log.Printf("Password expired during certificate generation: %s", output)
 				return fmt.Errorf("password has expired and needs to be reset before continuing")
 			}
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
@@ -204,6 +206,31 @@ func (o *OpenVPNSetup) Setup() error {
 		return fmt.Errorf("PKI directory verification failed: %v", err)
 	}
 	logger.Log.Printf("PKI directory contents: %s", output)
+	
+	// Verify the existence of required files before proceeding
+	requiredFiles := []string{
+		"~/easy-rsa/pki/ca.crt",
+		"~/easy-rsa/pki/issued/server.crt",
+		"~/easy-rsa/pki/private/server.key",
+		"~/easy-rsa/dh.pem",
+	}
+	
+	for _, file := range requiredFiles {
+		checkCmd := fmt.Sprintf("ls -la %s 2>/dev/null || echo 'NOT_FOUND'", file)
+		output, err := o.SSHClient.RunCommand(checkCmd)
+		if err != nil || strings.Contains(output, "NOT_FOUND") {
+			logger.Log.Printf("Required file %s not found: %s", file, output)
+			
+			// Try to diagnose the issue
+			diagCmd := fmt.Sprintf("find ~/easy-rsa -type f -name %s 2>/dev/null || echo 'NOT_FOUND'", 
+				strings.TrimPrefix(file, "~/easy-rsa/"))
+			diagOut, _ := o.SSHClient.RunCommand(diagCmd)
+			
+			logger.Log.Printf("File search results: %s", diagOut)
+			return fmt.Errorf("required file %s not found - PKI setup incomplete", file)
+		}
+		logger.Log.Printf("Verified existence of required file: %s", file)
+	}
 	
 	// Step 3: Copy certificates to OpenVPN directory
 	copyCmds := []string{
@@ -224,6 +251,7 @@ func (o *OpenVPNSetup) Setup() error {
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
 			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				logger.Log.Printf("Password expired during directory setup: %s", output)
 				return fmt.Errorf("password has expired and needs to be reset before continuing")
 			}
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
@@ -470,14 +498,97 @@ explicit-exit-notify 1`
 		if strings.Contains(status, "Your password has expired") || strings.Contains(status, "Password change required") {
 			return fmt.Errorf("password has expired and needs to be reset before continuing")
 		}
+		
+		// Try to get more detailed service status information
+		journalCmd := "journalctl -u openvpn@server --no-pager -n 50"
+		if !isDocker {
+			journalCmd = "sudo " + journalCmd
+		}
+		
+		journalOutput, journalErr := o.SSHClient.RunCommand(journalCmd)
+		if journalErr == nil {
+			logger.Log.Printf("OpenVPN service logs: %s", journalOutput)
+		} else {
+			logger.Log.Printf("Failed to retrieve OpenVPN service logs: %v", journalErr)
+		}
+		
+		// Check config file syntax
+		configCheckCmd := "openvpn --config /etc/openvpn/server.conf --verb 0 --show-engines"
+		if !isDocker {
+			configCheckCmd = "sudo " + configCheckCmd
+		}
+		
+		checkOutput, checkErr := o.SSHClient.RunCommand(configCheckCmd)
+		if checkErr != nil {
+			logger.Log.Printf("OpenVPN config check failed: %v, output: %s", checkErr, checkOutput)
+		}
+		
 		logger.Log.Printf("Service status check failed: %v", err)
-		return fmt.Errorf("OpenVPN service failed to start: %v", err)
+		return fmt.Errorf("OpenVPN service failed to start, check logs for details: %v", err)
 	}
 
 	trimmedStatus := strings.TrimSpace(status)
 	if trimmedStatus != "active" {
-		logger.Log.Printf("Service is not active, status: %s", trimmedStatus)
-		return fmt.Errorf("OpenVPN service is not active, status: %s", trimmedStatus)
+		// Get detailed status information to help diagnose the issue
+		detailedStatusCmd := "systemctl status openvpn@server --no-pager"
+		if !isDocker {
+			detailedStatusCmd = "sudo " + detailedStatusCmd
+		}
+		
+		detailedOutput, _ := o.SSHClient.RunCommand(detailedStatusCmd)
+		logger.Log.Printf("Detailed service status: %s", detailedOutput)
+		
+		// Check if service exists
+		checkServiceCmd := "systemctl list-unit-files | grep openvpn"
+		if !isDocker {
+			checkServiceCmd = "sudo " + checkServiceCmd
+		}
+		
+		serviceOutput, _ := o.SSHClient.RunCommand(checkServiceCmd)
+		logger.Log.Printf("Available OpenVPN service units: %s", serviceOutput)
+		
+		// Try to fix common issues and restart
+		fixAndRestartCmds := []string{
+			"mkdir -p /var/log/openvpn",
+			"chmod 755 /var/log/openvpn",
+			"touch /var/log/openvpn/openvpn-status.log",
+			"chmod 644 /var/log/openvpn/openvpn-status.log",
+			"chown nobody:nogroup /var/log/openvpn/openvpn-status.log",
+			"systemctl daemon-reload",
+			"systemctl restart openvpn@server",
+		}
+		
+		if !isDocker {
+			for i := range fixAndRestartCmds {
+				fixAndRestartCmds[i] = "sudo " + fixAndRestartCmds[i]
+			}
+		}
+		
+		logger.Log.Println("Attempting to fix common OpenVPN service issues and restart...")
+		for _, cmd := range fixAndRestartCmds {
+			output, err := o.SSHClient.RunCommand(cmd)
+			if err != nil {
+				logger.Log.Printf("Fix command failed: %s, error: %v, output: %s", cmd, err, output)
+			}
+		}
+		
+		// Check status again after fix attempt
+		finalStatusCmd := "systemctl is-active openvpn@server"
+		if !isDocker {
+			finalStatusCmd = "sudo " + finalStatusCmd
+		}
+		
+		finalStatus, _ := o.SSHClient.RunCommand(finalStatusCmd)
+		finalStatus = strings.TrimSpace(finalStatus)
+		
+		if finalStatus == "active" {
+			logger.Log.Println("Successfully fixed and restarted OpenVPN service!")
+		} else {
+			logger.Log.Printf("Service is still not active after fix attempts, status: %s", finalStatus)
+			return fmt.Errorf("OpenVPN service is not active after fix attempts, status: %s. Please check system logs for details", finalStatus)
+		}
+	} else {
+		logger.Log.Println("OpenVPN service is active and running")
 	}
 
 	// Generate client config

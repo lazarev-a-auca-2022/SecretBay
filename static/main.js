@@ -162,14 +162,21 @@ function simulateProgress(progressBar, statusElement) {
     let currentStage = 0;
     let currentProgress = 0;
     let stageProgress = 0;
+    let isPaused = false;
+    let isError = false;
+    let interval;
     
     // Calculate total weight
     const totalWeight = SETUP_STAGES.reduce((sum, stage) => sum + stage.weight, 0);
     
     // Update status text and progress bar
     const updateProgress = () => {
+        if (isPaused) return;
+        
         const stage = SETUP_STAGES[currentStage];
-        statusElement.textContent = stage.name + "...";
+        if (!isError) {
+            statusElement.textContent = stage.name + "...";
+        }
         
         // Calculate overall progress percentage
         let previousStagesWeight = 0;
@@ -188,7 +195,9 @@ function simulateProgress(progressBar, statusElement) {
     updateProgress();
     
     // Simulate progress through stages
-    const interval = setInterval(() => {
+    interval = setInterval(() => {
+        if (isPaused) return;
+        
         stageProgress += Math.random() * 3; // Random increment
         
         if (stageProgress >= 100) {
@@ -196,8 +205,7 @@ function simulateProgress(progressBar, statusElement) {
             stageProgress = 0;
             
             if (currentStage >= SETUP_STAGES.length) {
-                clearInterval(interval);
-                return;
+                currentStage = 0; // Loop back to beginning if error state persists
             }
         }
         
@@ -209,11 +217,70 @@ function simulateProgress(progressBar, statusElement) {
             clearInterval(interval);
             progressBar.style.width = '100%';
             statusElement.textContent = 'Setup completed successfully!';
+            statusElement.style.color = '#28a745';
+            
+            // Remove any error controls that might be present
+            const errorControls = document.querySelector('#errorControls');
+            if (errorControls) {
+                errorControls.remove();
+            }
         },
         error: (message) => {
-            clearInterval(interval);
+            isError = true;
+            
+            // Don't clear interval - let it keep running
             statusElement.textContent = `Error: ${message}`;
             statusElement.style.color = '#d9534f';
+            
+            // Create retry/cancel buttons if they don't already exist
+            if (!document.querySelector('#errorControls')) {
+                const container = progressBar.parentElement.parentElement;
+                
+                const errorControls = document.createElement('div');
+                errorControls.id = 'errorControls';
+                errorControls.style.marginTop = '20px';
+                errorControls.style.display = 'flex';
+                errorControls.style.justifyContent = 'center';
+                errorControls.style.gap = '10px';
+                
+                const retryButton = document.createElement('button');
+                retryButton.textContent = 'Retry';
+                retryButton.className = 'btn btn-primary';
+                retryButton.onclick = () => {
+                    // Remove error controls and error state
+                    errorControls.remove();
+                    isError = false;
+                    statusElement.style.color = '';
+                    
+                    // Resubmit the form
+                    document.querySelector('#vpnForm').dispatchEvent(new Event('submit'));
+                };
+                
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Cancel';
+                cancelButton.className = 'btn btn-secondary';
+                cancelButton.onclick = () => {
+                    // Stop progress animation
+                    clearInterval(interval);
+                    
+                    // Show the form again
+                    document.querySelector('#setupProgress').style.display = 'none';
+                    document.querySelector('#vpnForm').style.display = 'block';
+                    
+                    // Remove error controls
+                    errorControls.remove();
+                };
+                
+                errorControls.appendChild(retryButton);
+                errorControls.appendChild(cancelButton);
+                container.appendChild(errorControls);
+            }
+        },
+        pause: () => {
+            isPaused = true;
+        },
+        resume: () => {
+            isPaused = false;
         }
     };
 }
@@ -600,17 +667,23 @@ async function initializeVPNForm() {
                 
             } catch (error) {
                 console.error('Setup error:', error);
-                progress.error(error.message);
                 
                 if (error.message?.includes('JWT token')) {
                     // Auth token issue - redirect to login
                     window.location.href = '/login.html?auth_error=true';
                 } else if (error.message?.includes('Could not connect') || error.message?.includes('Network error')) {
-                    window.location.href = '/error/backend-down.html';
+                    progress.error('Connection to the backend server failed. Please try again later.');
+                    // Don't redirect immediately to allow the user to see the error and retry
+                    // The retry button will attempt the same operation again
                 } else {
+                    // Call the enhanced error handler to keep the progress bar running
+                    // and show retry/cancel buttons
+                    progress.error(error.message || 'An unexpected error occurred');
+                    
+                    // We keep the error message visible, but don't show the form again
+                    // since we now have retry/cancel buttons
                     elements.error.textContent = error.message || 'An unexpected error occurred';
                     elements.error.style.display = 'block';
-                    elements.form.style.display = 'block';  // Show the form again
                 }
             }
         });
