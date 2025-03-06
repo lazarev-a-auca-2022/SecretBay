@@ -157,67 +157,121 @@ function createFallbackElement(type, id) {
     return el;
 }
 
-// Function to simulate progress based on stages
-function simulateProgress(progressBar, statusElement) {
-    let currentStage = 0;
-    let currentProgress = 0;
-    let stageProgress = 0;
-    let isPaused = false;
+// Function to track and display server logs instead of a progress bar
+function setupLogTracker(logContainer, statusElement) {
+    const logMessages = [];
+    const MAX_LOGS = 5; // Number of log messages to display
     let isError = false;
-    let interval;
+    let pollInterval;
     
-    // Calculate total weight
-    const totalWeight = SETUP_STAGES.reduce((sum, stage) => sum + stage.weight, 0);
+    // Create a styled log container
+    const logsDiv = document.createElement('div');
+    logsDiv.className = 'server-logs';
+    logsDiv.style.backgroundColor = '#f8f9fa';
+    logsDiv.style.border = '1px solid #dee2e6';
+    logsDiv.style.borderRadius = '4px';
+    logsDiv.style.padding = '10px';
+    logsDiv.style.marginTop = '15px';
+    logsDiv.style.marginBottom = '15px';
+    logsDiv.style.fontFamily = 'monospace';
+    logsDiv.style.fontSize = '12px';
+    logsDiv.style.maxHeight = '200px';
+    logsDiv.style.overflowY = 'auto';
+    logsDiv.style.whiteSpace = 'pre-wrap';
+    logContainer.appendChild(logsDiv);
     
-    // Update status text and progress bar
-    const updateProgress = () => {
-        if (isPaused) return;
+    // Function to add a log message
+    const addLogMessage = (message) => {
+        const timestamp = new Date().toISOString().replace('T', ' ').substr(0, 19);
+        logMessages.push(`[${timestamp}] ${message}`);
         
-        const stage = SETUP_STAGES[currentStage];
-        if (!isError) {
-            statusElement.textContent = stage.name + "...";
+        // Keep only the last MAX_LOGS messages
+        while (logMessages.length > MAX_LOGS) {
+            logMessages.shift();
         }
         
-        // Calculate overall progress percentage
-        let previousStagesWeight = 0;
-        for (let i = 0; i < currentStage; i++) {
-            previousStagesWeight += SETUP_STAGES[i].weight;
-        }
+        // Update the display
+        logsDiv.innerHTML = logMessages.join('<br>');
         
-        const stageContribution = (stageProgress / 100) * stage.weight;
-        currentProgress = Math.min(((previousStagesWeight + stageContribution) / totalWeight) * 100, 99);
-        
-        // Update progress bar
-        progressBar.style.width = currentProgress.toFixed(1) + '%';
+        // Auto-scroll to bottom
+        logsDiv.scrollTop = logsDiv.scrollHeight;
     };
     
-    // Start progress simulation
-    updateProgress();
+    // Initial message
+    addLogMessage('Starting VPN setup process...');
     
-    // Simulate progress through stages
-    interval = setInterval(() => {
-        if (isPaused) return;
-        
-        stageProgress += Math.random() * 3; // Random increment
-        
-        if (stageProgress >= 100) {
-            currentStage++;
-            stageProgress = 0;
-            
-            if (currentStage >= SETUP_STAGES.length) {
-                currentStage = 0; // Loop back to beginning if error state persists
+    // Start polling for logs
+    const startPolling = () => {
+        pollInterval = setInterval(async () => {
+            try {
+                const token = localStorage.getItem('jwt');
+                if (!token || !isValidJWT(token)) {
+                    clearInterval(pollInterval);
+                    addLogMessage('Auth token invalid or expired. Please login again.');
+                    return;
+                }
+                
+                const response = await fetch(`${BASE_URL}/api/logs?limit=5`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        // Logs endpoint might not exist yet, use predefined messages
+                        addLogMessage('Setting up VPN server components...');
+                    } else {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return;
+                }
+                
+                const logs = await response.json();
+                
+                if (logs && logs.messages && Array.isArray(logs.messages)) {
+                    // Clear existing logs and add new ones
+                    logMessages.length = 0;
+                    logs.messages.forEach(log => {
+                        logMessages.push(log);
+                    });
+                    // Update UI
+                    logsDiv.innerHTML = logMessages.join('<br>');
+                    logsDiv.scrollTop = logsDiv.scrollHeight;
+                }
+                
+                // Check for errors in logs
+                const hasErrorInLogs = logs?.messages?.some(msg => 
+                    msg.includes('Error') || 
+                    msg.includes('Failed') || 
+                    msg.includes('failed')
+                );
+                
+                if (hasErrorInLogs && !isError) {
+                    statusElement.textContent = 'Error detected in logs';
+                    statusElement.style.color = '#d9534f';
+                }
+                
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                addLogMessage(`Error fetching logs: ${error.message}`);
             }
-        }
-        
-        updateProgress();
-    }, 250);
+        }, 3000); // Poll every 3 seconds
+    };
+    
+    // Start polling immediately
+    startPolling();
     
     return {
+        addLog: addLogMessage,
         complete: () => {
-            clearInterval(interval);
-            progressBar.style.width = '100%';
+            clearInterval(pollInterval);
             statusElement.textContent = 'Setup completed successfully!';
             statusElement.style.color = '#28a745';
+            addLogMessage('VPN setup completed successfully!');
             
             // Remove any error controls that might be present
             const errorControls = document.querySelector('#errorControls');
@@ -227,14 +281,16 @@ function simulateProgress(progressBar, statusElement) {
         },
         error: (message) => {
             isError = true;
+            clearInterval(pollInterval); // Stop polling on error
             
-            // Don't clear interval - let it keep running
+            // Update status and logs
             statusElement.textContent = `Error: ${message}`;
             statusElement.style.color = '#d9534f';
+            addLogMessage(`ERROR: ${message}`);
             
             // Create retry/cancel buttons if they don't already exist
             if (!document.querySelector('#errorControls')) {
-                const container = progressBar.parentElement.parentElement;
+                const container = logContainer.parentElement;
                 
                 const errorControls = document.createElement('div');
                 errorControls.id = 'errorControls';
@@ -246,6 +302,7 @@ function simulateProgress(progressBar, statusElement) {
                 const retryButton = document.createElement('button');
                 retryButton.textContent = 'Retry';
                 retryButton.className = 'btn btn-primary';
+                retryButton.style.maxWidth = '150px';
                 retryButton.onclick = () => {
                     // Remove error controls and error state
                     errorControls.remove();
@@ -259,15 +316,17 @@ function simulateProgress(progressBar, statusElement) {
                 const cancelButton = document.createElement('button');
                 cancelButton.textContent = 'Cancel';
                 cancelButton.className = 'btn btn-secondary';
+                cancelButton.style.maxWidth = '150px';
                 cancelButton.onclick = () => {
-                    // Stop progress animation
-                    clearInterval(interval);
+                    // Stop polling
+                    clearInterval(pollInterval);
                     
                     // Show the form again
                     document.querySelector('#setupProgress').style.display = 'none';
                     document.querySelector('#vpnForm').style.display = 'block';
                     
-                    // Remove error controls
+                    // Remove log display and error controls
+                    logsDiv.remove();
                     errorControls.remove();
                 };
                 
@@ -275,12 +334,6 @@ function simulateProgress(progressBar, statusElement) {
                 errorControls.appendChild(cancelButton);
                 container.appendChild(errorControls);
             }
-        },
-        pause: () => {
-            isPaused = true;
-        },
-        resume: () => {
-            isPaused = false;
         }
     };
 }
@@ -549,8 +602,8 @@ async function initializeVPNForm() {
             elements.form.style.display = 'none';
             elements.progress.style.display = 'block';
             
-            // Start progress animation
-            const progress = simulateProgress(elements.progressBar, elements.statusText);
+            // Start log tracking
+            const logTracker = setupLogTracker(elements.progress, elements.statusText);
 
             try {
                 // First verify auth status with proper headers
@@ -641,8 +694,8 @@ async function initializeVPNForm() {
                     responseData = {};
                 }
 
-                // Complete the progress bar animation
-                progress.complete();
+                // Complete the log tracking
+                logTracker.complete();
                 
                 // Show success message and create download links
                 elements.result.textContent = 'VPN setup completed successfully!';
@@ -672,13 +725,13 @@ async function initializeVPNForm() {
                     // Auth token issue - redirect to login
                     window.location.href = '/login.html?auth_error=true';
                 } else if (error.message?.includes('Could not connect') || error.message?.includes('Network error')) {
-                    progress.error('Connection to the backend server failed. Please try again later.');
+                    logTracker.error('Connection to the backend server failed. Please try again later.');
                     // Don't redirect immediately to allow the user to see the error and retry
                     // The retry button will attempt the same operation again
                 } else {
-                    // Call the enhanced error handler to keep the progress bar running
+                    // Call the enhanced error handler to keep the log tracking running
                     // and show retry/cancel buttons
-                    progress.error(error.message || 'An unexpected error occurred');
+                    logTracker.error(error.message || 'An unexpected error occurred');
                     
                     // We keep the error message visible, but don't show the form again
                     // since we now have retry/cancel buttons

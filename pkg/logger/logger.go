@@ -27,6 +27,10 @@ var (
 
 	// Store buffered writers that need flushing
 	bufferedWriters []flushableWriter
+
+	logMutex sync.Mutex
+	logCache []string // Store recent log messages
+	maxLogs  = 100    // Maximum number of logs to keep in memory
 )
 
 // flushableWriter is an interface for writers that can be flushed
@@ -126,6 +130,9 @@ func Printf(format string, v ...interface{}) {
 	sanitized := sanitizeMessage(message)
 	Log.Output(2, sanitized)
 
+	// Cache the sanitized log message for the frontend
+	cacheLog(sanitized)
+
 	// Flush all writers immediately
 	FlushAll()
 }
@@ -140,6 +147,9 @@ func Println(v ...interface{}) {
 	sanitized := sanitizeMessage(message)
 	Log.Output(2, sanitized)
 
+	// Cache the sanitized log message for the frontend
+	cacheLog(sanitized)
+
 	// Flush all writers immediately
 	FlushAll()
 }
@@ -148,6 +158,41 @@ func Println(v ...interface{}) {
 func FlushAll() {
 	for _, writer := range bufferedWriters {
 		_ = writer.Flush()
+	}
+}
+
+// GetRecentLogs returns the most recent log messages up to the specified limit
+func GetRecentLogs(limit int) ([]string, error) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	if limit > len(logCache) {
+		limit = len(logCache)
+	}
+
+	// Return the most recent logs (from the end of the slice)
+	start := len(logCache) - limit
+	if start < 0 {
+		start = 0
+	}
+
+	result := make([]string, limit)
+	copy(result, logCache[start:])
+
+	return result, nil
+}
+
+// Internal function to store log messages in the cache
+func cacheLog(msg string) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	// Add to cache
+	logCache = append(logCache, msg)
+
+	// Trim if exceeding max size
+	if len(logCache) > maxLogs {
+		logCache = logCache[len(logCache)-maxLogs:]
 	}
 }
 

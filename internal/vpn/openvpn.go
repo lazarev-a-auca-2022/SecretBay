@@ -129,17 +129,17 @@ func (o *OpenVPNSetup) Setup() error {
 
 	// Clean up any existing easy-rsa directory and create new PKI setup
 	logger.Log.Println("Step 2/6: Setting up PKI infrastructure...")
-	
+
 	// First, clean up any previous PKI setup
 	cleanupCmds := []string{
 		"rm -rf ~/easy-rsa",
 		"mkdir -p /etc/openvpn/certs",
 	}
-	
+
 	if !isDocker {
 		cleanupCmds[1] = "sudo " + cleanupCmds[1]
 	}
-	
+
 	for _, cmd := range cleanupCmds {
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
@@ -150,15 +150,15 @@ func (o *OpenVPNSetup) Setup() error {
 
 	// Execute each step of the PKI setup with proper verification in sequential order
 	// This ensures each step completes before proceeding to the next
-	
+
 	// Step 1: Create base easy-rsa directory and initialize PKI
 	pkiInitCmds := []string{
 		"make-cadir ~/easy-rsa",
 		"cd ~/easy-rsa && ./easyrsa init-pki",
-		"cd ~/easy-rsa && echo 'set_var EASYRSA_KEY_SIZE 2048' > vars", // Using 2048 for faster generation
+		"cd ~/easy-rsa && echo 'set_var EASYRSA_KEY_SIZE 2048' > vars",  // Using 2048 for faster generation
 		"cd ~/easy-rsa && echo 'set_var EASYRSA_DIGEST sha256' >> vars", // Using sha256 which is widely supported
 	}
-	
+
 	for i, cmd := range pkiInitCmds {
 		logger.Log.Printf("PKI initialization %d/%d: %s", i+1, len(pkiInitCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
@@ -174,7 +174,7 @@ func (o *OpenVPNSetup) Setup() error {
 		// Ensure each command completes
 		time.Sleep(500 * time.Millisecond)
 	}
-	
+
 	// Step 2: Build CA and server certificates
 	certCmds := []string{
 		"cd ~/easy-rsa && ./easyrsa --batch build-ca nopass",
@@ -182,7 +182,7 @@ func (o *OpenVPNSetup) Setup() error {
 		"cd ~/easy-rsa && ./easyrsa --batch sign-req server server",
 		"cd ~/easy-rsa && openssl dhparam -out dh.pem 2048",
 	}
-	
+
 	for i, cmd := range certCmds {
 		logger.Log.Printf("Certificate generation %d/%d: %s", i+1, len(certCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
@@ -197,7 +197,7 @@ func (o *OpenVPNSetup) Setup() error {
 		// Ensure certificate generation completes before moving on
 		time.Sleep(1 * time.Second)
 	}
-	
+
 	// Verify certificate files exist before copying
 	verifyCmd := "ls -la ~/easy-rsa/pki/"
 	output, err := o.SSHClient.RunCommand(verifyCmd)
@@ -206,7 +206,7 @@ func (o *OpenVPNSetup) Setup() error {
 		return fmt.Errorf("PKI directory verification failed: %v", err)
 	}
 	logger.Log.Printf("PKI directory contents: %s", output)
-	
+
 	// Verify the existence of required files before proceeding
 	requiredFiles := []string{
 		"~/easy-rsa/pki/ca.crt",
@@ -214,37 +214,37 @@ func (o *OpenVPNSetup) Setup() error {
 		"~/easy-rsa/pki/private/server.key",
 		"~/easy-rsa/dh.pem",
 	}
-	
+
 	for _, file := range requiredFiles {
 		checkCmd := fmt.Sprintf("ls -la %s 2>/dev/null || echo 'NOT_FOUND'", file)
 		output, err := o.SSHClient.RunCommand(checkCmd)
 		if err != nil || strings.Contains(output, "NOT_FOUND") {
 			logger.Log.Printf("Required file %s not found: %s", file, output)
-			
+
 			// Try to diagnose the issue
-			diagCmd := fmt.Sprintf("find ~/easy-rsa -type f -name %s 2>/dev/null || echo 'NOT_FOUND'", 
+			diagCmd := fmt.Sprintf("find ~/easy-rsa -type f -name %s 2>/dev/null || echo 'NOT_FOUND'",
 				strings.TrimPrefix(file, "~/easy-rsa/"))
 			diagOut, _ := o.SSHClient.RunCommand(diagCmd)
-			
+
 			logger.Log.Printf("File search results: %s", diagOut)
 			return fmt.Errorf("required file %s not found - PKI setup incomplete", file)
 		}
 		logger.Log.Printf("Verified existence of required file: %s", file)
 	}
-	
+
 	// Step 3: Copy certificates to OpenVPN directory
 	copyCmds := []string{
 		"mkdir -p /etc/openvpn/certs",
 		"chmod -R 700 /etc/openvpn/certs",
 	}
-	
+
 	// Add sudo prefix if not in Docker
 	if !isDocker {
 		for i := range copyCmds {
 			copyCmds[i] = "sudo " + copyCmds[i]
 		}
 	}
-	
+
 	// Execute directory preparation commands
 	for i, cmd := range copyCmds {
 		logger.Log.Printf("Directory setup %d/%d: %s", i+1, len(copyCmds), cmd)
@@ -258,7 +258,7 @@ func (o *OpenVPNSetup) Setup() error {
 			return fmt.Errorf("directory setup failed: %v", err)
 		}
 	}
-	
+
 	// Now copy the certificate files one by one, checking each carefully
 	filesToCopy := []string{
 		"~/easy-rsa/pki/ca.crt:/etc/openvpn/certs/ca.crt",
@@ -266,11 +266,22 @@ func (o *OpenVPNSetup) Setup() error {
 		"~/easy-rsa/pki/private/server.key:/etc/openvpn/certs/server.key",
 		"~/easy-rsa/dh.pem:/etc/openvpn/certs/dh.pem",
 	}
-	
+
 	for i, filePair := range filesToCopy {
 		parts := strings.Split(filePair, ":")
 		src, dst := parts[0], parts[1]
-		
+
+		// First expand the home directory in the source path if needed
+		if strings.HasPrefix(src, "~/") {
+			homeDir, err := o.SSHClient.RunCommand("echo $HOME")
+			if err != nil {
+				logger.Log.Printf("Failed to get home directory: %v", err)
+				return fmt.Errorf("failed to determine home directory: %v", err)
+			}
+			homeDir = strings.TrimSpace(homeDir)
+			src = strings.Replace(src, "~/", homeDir+"/", 1)
+		}
+
 		// First verify source file exists
 		checkCmd := fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", src)
 		output, err := o.SSHClient.RunCommand(checkCmd)
@@ -278,13 +289,13 @@ func (o *OpenVPNSetup) Setup() error {
 			logger.Log.Printf("Source file %s does not exist: %s", src, output)
 			return fmt.Errorf("source file %s not found for copying", src)
 		}
-		
-		// Now copy the file
+
+		// Now copy the file with sudo if needed
 		cpCmd := fmt.Sprintf("cp %s %s", src, dst)
 		if !isDocker {
 			cpCmd = "sudo " + cpCmd
 		}
-		
+
 		logger.Log.Printf("Copying file %d/%d: %s", i+1, len(filesToCopy), cpCmd)
 		output, err = o.SSHClient.RunCommand(cpCmd)
 		if err != nil {
@@ -294,28 +305,44 @@ func (o *OpenVPNSetup) Setup() error {
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cpCmd, output, err)
 			return fmt.Errorf("copying certificate file failed: %v", err)
 		}
-		
+
 		// Verify the file was copied successfully
 		checkDstCmd := fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", dst)
+		if !isDocker {
+			checkDstCmd = "sudo " + checkDstCmd
+		}
+
 		output, err = o.SSHClient.RunCommand(checkDstCmd)
 		if err != nil || !strings.Contains(output, "exists") {
 			logger.Log.Printf("Destination file %s verification failed: %s", dst, output)
 			return fmt.Errorf("destination file %s not found after copying", dst)
 		}
+
+		// Set appropriate permissions for the copied file
+		chmodCmd := fmt.Sprintf("chmod 600 %s", dst)
+		if !isDocker {
+			chmodCmd = "sudo " + chmodCmd
+		}
+
+		output, err = o.SSHClient.RunCommand(chmodCmd)
+		if err != nil {
+			logger.Log.Printf("Setting permissions failed for %s: %v", dst, err)
+			// Continue anyway as this is not critical
+		}
 	}
-	
+
 	// Set permissions on certificate files
 	permCmd := "chmod -R 600 /etc/openvpn/certs/*"
 	if !isDocker {
 		permCmd = "sudo " + permCmd
 	}
-	
+
 	output, err = o.SSHClient.RunCommand(permCmd)
 	if err != nil {
 		logger.Log.Printf("Setting permissions failed: %v, output: %s", err, output)
 		return fmt.Errorf("setting certificate permissions failed: %v", err)
 	}
-	
+
 	logger.Log.Println("PKI setup completed successfully")
 
 	// Enhanced OpenVPN server configuration
@@ -498,31 +525,31 @@ explicit-exit-notify 1`
 		if strings.Contains(status, "Your password has expired") || strings.Contains(status, "Password change required") {
 			return fmt.Errorf("password has expired and needs to be reset before continuing")
 		}
-		
+
 		// Try to get more detailed service status information
 		journalCmd := "journalctl -u openvpn@server --no-pager -n 50"
 		if !isDocker {
 			journalCmd = "sudo " + journalCmd
 		}
-		
+
 		journalOutput, journalErr := o.SSHClient.RunCommand(journalCmd)
 		if journalErr == nil {
 			logger.Log.Printf("OpenVPN service logs: %s", journalOutput)
 		} else {
 			logger.Log.Printf("Failed to retrieve OpenVPN service logs: %v", journalErr)
 		}
-		
+
 		// Check config file syntax
 		configCheckCmd := "openvpn --config /etc/openvpn/server.conf --verb 0 --show-engines"
 		if !isDocker {
 			configCheckCmd = "sudo " + configCheckCmd
 		}
-		
+
 		checkOutput, checkErr := o.SSHClient.RunCommand(configCheckCmd)
 		if checkErr != nil {
 			logger.Log.Printf("OpenVPN config check failed: %v, output: %s", checkErr, checkOutput)
 		}
-		
+
 		logger.Log.Printf("Service status check failed: %v", err)
 		return fmt.Errorf("OpenVPN service failed to start, check logs for details: %v", err)
 	}
@@ -534,19 +561,19 @@ explicit-exit-notify 1`
 		if !isDocker {
 			detailedStatusCmd = "sudo " + detailedStatusCmd
 		}
-		
+
 		detailedOutput, _ := o.SSHClient.RunCommand(detailedStatusCmd)
 		logger.Log.Printf("Detailed service status: %s", detailedOutput)
-		
+
 		// Check if service exists
 		checkServiceCmd := "systemctl list-unit-files | grep openvpn"
 		if !isDocker {
 			checkServiceCmd = "sudo " + checkServiceCmd
 		}
-		
+
 		serviceOutput, _ := o.SSHClient.RunCommand(checkServiceCmd)
 		logger.Log.Printf("Available OpenVPN service units: %s", serviceOutput)
-		
+
 		// Try to fix common issues and restart
 		fixAndRestartCmds := []string{
 			"mkdir -p /var/log/openvpn",
@@ -557,13 +584,13 @@ explicit-exit-notify 1`
 			"systemctl daemon-reload",
 			"systemctl restart openvpn@server",
 		}
-		
+
 		if !isDocker {
 			for i := range fixAndRestartCmds {
 				fixAndRestartCmds[i] = "sudo " + fixAndRestartCmds[i]
 			}
 		}
-		
+
 		logger.Log.Println("Attempting to fix common OpenVPN service issues and restart...")
 		for _, cmd := range fixAndRestartCmds {
 			output, err := o.SSHClient.RunCommand(cmd)
@@ -571,16 +598,16 @@ explicit-exit-notify 1`
 				logger.Log.Printf("Fix command failed: %s, error: %v, output: %s", cmd, err, output)
 			}
 		}
-		
+
 		// Check status again after fix attempt
 		finalStatusCmd := "systemctl is-active openvpn@server"
 		if !isDocker {
 			finalStatusCmd = "sudo " + finalStatusCmd
 		}
-		
+
 		finalStatus, _ := o.SSHClient.RunCommand(finalStatusCmd)
 		finalStatus = strings.TrimSpace(finalStatus)
-		
+
 		if finalStatus == "active" {
 			logger.Log.Println("Successfully fixed and restarted OpenVPN service!")
 		} else {

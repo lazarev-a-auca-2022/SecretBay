@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -437,8 +438,20 @@ func isInternalIP(ip string) bool {
 	return false
 }
 
+// Handlers contains all HTTP handlers and their dependencies
+type Handlers struct {
+	DB  *sql.DB
+	Cfg *config.Config
+}
+
 // RegisterRoutes sets up all API routes
-func RegisterRoutes(router *mux.Router, cfg *config.Config) {
+func RegisterRoutes(router *mux.Router, cfg *config.Config, db *sql.DB) {
+	// Create handlers with dependencies
+	handlers := &Handlers{
+		DB:  db,
+		Cfg: cfg,
+	}
+
 	// Public endpoints that don't need auth
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
@@ -465,6 +478,37 @@ func RegisterRoutes(router *mux.Router, cfg *config.Config) {
 	protectedRouter.HandleFunc("/config/download/server", DownloadServerConfigHandler()).Methods("GET")
 	protectedRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
 	protectedRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
+	// Add the logs endpoint
+	protectedRouter.HandleFunc("/logs", handlers.LogsHandler).Methods("GET")
+}
+
+// LogsHandler returns recent log messages for the frontend to display
+func (h *Handlers) LogsHandler(w http.ResponseWriter, r *http.Request) {
+	// Default to 5 logs if not specified
+	limitStr := r.URL.Query().Get("limit")
+	limit := 5
+	if limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+			if limit > 50 {
+				limit = 50 // Cap at 50 to prevent excessive responses
+			}
+		}
+	}
+
+	// Get the most recent log messages from logger
+	messages, err := logger.GetRecentLogs(limit)
+	if err != nil {
+		utils.JSONError(w, "Failed to retrieve logs", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with log messages
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"messages": messages,
+	})
 }
 
 func generatePassword() (string, error) {
