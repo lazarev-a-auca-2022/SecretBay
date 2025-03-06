@@ -270,13 +270,24 @@ explicit-exit-notify 1`
 	}
 
 	// Configure iptables with more robustness
+	// This is the part that's failing - we'll fix it by splitting commands and using separate variable setting
 	logger.Log.Println("Configuring iptables...")
+
+	// First identify the default interface
+	getIfaceCmd := "ip -4 route ls | grep default | awk '{print $5}' | head -1"
+	iface, err := o.SSHClient.RunCommand(getIfaceCmd)
+	if err != nil {
+		logger.Log.Printf("Failed to determine default interface: %v", err)
+		iface = "eth0" // Fallback to common default interface
+		logger.Log.Printf("Using default interface: %s", iface)
+	} else {
+		iface = strings.TrimSpace(iface)
+		logger.Log.Printf("Detected default interface: %s", iface)
+	}
+
+	// Now use the interface directly in the iptables commands
 	iptablesCmds := []string{
-		// Get the main interface - fixed the escape sequence issue by using double backslash
-		"IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\\S+)' | head -1)",
-		// NAT settings for routing
-		"iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o $IFACE -j MASQUERADE",
-		// Make iptables rules persistent across reboots
+		fmt.Sprintf("iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o %s -j MASQUERADE", iface),
 		"apt-get -y install iptables-persistent",
 		"netfilter-persistent save",
 		"netfilter-persistent reload",
@@ -285,9 +296,7 @@ explicit-exit-notify 1`
 	// Add sudo prefix if not in Docker
 	if !isDocker {
 		for i := range iptablesCmds {
-			if i > 0 { // Skip the first one which is just setting a variable
-				iptablesCmds[i] = "sudo " + iptablesCmds[i]
-			}
+			iptablesCmds[i] = "sudo " + iptablesCmds[i]
 		}
 	}
 
