@@ -218,6 +218,61 @@ function simulateProgress(progressBar, statusElement) {
     };
 }
 
+// Function to display password information in the UI
+function showPasswordInfo(password, container) {
+    // Create a password display section
+    const passwordSection = document.createElement('div');
+    passwordSection.className = 'password-section alert alert-info';
+    passwordSection.style.marginBottom = '20px';
+    passwordSection.style.marginTop = '20px';
+    
+    const passwordTitle = document.createElement('h4');
+    passwordTitle.textContent = 'New VPN Password';
+    
+    const passwordDisplay = document.createElement('div');
+    passwordDisplay.className = 'password-display';
+    passwordDisplay.style.position = 'relative';
+    passwordDisplay.style.marginBottom = '10px';
+    
+    const passwordField = document.createElement('input');
+    passwordField.type = 'text';
+    passwordField.readOnly = true;
+    passwordField.value = password;
+    passwordField.className = 'form-control';
+    
+    const copyButton = document.createElement('button');
+    copyButton.textContent = 'Copy';
+    copyButton.className = 'btn btn-sm btn-secondary';
+    copyButton.style.position = 'absolute';
+    copyButton.style.right = '10px';
+    copyButton.style.top = '4px';
+    copyButton.onclick = () => {
+        passwordField.select();
+        document.execCommand('copy');
+        copyButton.textContent = 'Copied!';
+        setTimeout(() => {
+            copyButton.textContent = 'Copy';
+        }, 2000);
+    };
+    
+    const passwordNote = document.createElement('p');
+    passwordNote.innerHTML = '<strong>Important:</strong> Please save this password safely. It is required for server administration.';
+    
+    passwordDisplay.appendChild(passwordField);
+    passwordDisplay.appendChild(copyButton);
+    
+    passwordSection.appendChild(passwordTitle);
+    passwordSection.appendChild(passwordDisplay);
+    passwordSection.appendChild(passwordNote);
+    
+    // Insert the password section at the top of the container
+    if (container.firstChild) {
+        container.insertBefore(passwordSection, container.firstChild);
+    } else {
+        container.appendChild(passwordSection);
+    }
+}
+
 // Function to generate download links instead of directly downloading files
 function generateDownloadLink(url, filename, params) {
     const token = localStorage.getItem('jwt');
@@ -417,6 +472,12 @@ async function initializeVPNForm() {
             elements.error.style.display = 'none';
             elements.downloadLinks.style.display = 'none';
             
+            // Remove any existing password section
+            const existingPasswordSection = document.querySelector('.password-section');
+            if (existingPasswordSection) {
+                existingPasswordSection.remove();
+            }
+            
             // Show progress tracking UI
             elements.form.style.display = 'none';
             elements.progress.style.display = 'block';
@@ -502,6 +563,16 @@ async function initializeVPNForm() {
                     credentials: 'include',
                     body: JSON.stringify(formData)
                 });
+                
+                // Parse response to get the new password
+                let responseData;
+                try {
+                    responseData = await setupResponse.json();
+                    console.log('Setup response received with status:', setupResponse.status);
+                } catch (error) {
+                    console.error('Failed to parse response JSON:', error);
+                    responseData = {};
+                }
 
                 // Complete the progress bar animation
                 progress.complete();
@@ -510,6 +581,14 @@ async function initializeVPNForm() {
                 elements.result.textContent = 'VPN setup completed successfully!';
                 elements.result.className = 'success';
                 elements.result.style.display = 'block';
+                
+                // Display new password information if available
+                if (responseData && responseData.newPassword) {
+                    console.log('New password received, displaying in UI');
+                    showPasswordInfo(responseData.newPassword, elements.progress.parentNode);
+                } else {
+                    console.log('No password received in response');
+                }
                 
                 // Generate and show download links
                 createDownloadLinks();

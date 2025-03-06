@@ -127,50 +127,167 @@ func (o *OpenVPNSetup) Setup() error {
 	}
 	logger.Log.Println("Packages installed successfully")
 
-	// Clean up any existing easy-rsa directory and create new setup
+	// Clean up any existing easy-rsa directory and create new PKI setup
 	logger.Log.Println("Step 2/6: Setting up PKI infrastructure...")
-	setupCmds := []string{
-		"rm -rf ~/easy-rsa",           // Remove existing directory
-		"rm -rf /etc/openvpn/certs/*", // Clean up existing certs
-		"make-cadir ~/easy-rsa",
-		"cd ~/easy-rsa && ./easyrsa init-pki",
-		"cd ~/easy-rsa && echo 'set_var EASYRSA_KEY_SIZE 4096' > vars",
-		"cd ~/easy-rsa && echo 'set_var EASYRSA_DIGEST sha512' >> vars", // Fixed escape sequence issue
-		// Use the full path to easyrsa and export the vars
-		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch build-ca nopass",
-		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch gen-req server nopass",
-		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch sign-req server server",
-		"cd ~/easy-rsa && openssl dhparam -out dh.pem 2048", // Reduced to 2048 for faster generation while still secure
+	
+	// First, clean up any previous PKI setup
+	cleanupCmds := []string{
+		"rm -rf ~/easy-rsa",
 		"mkdir -p /etc/openvpn/certs",
-		"chmod -R 700 /etc/openvpn/certs",
-		"cp ~/easy-rsa/pki/ca.crt /etc/openvpn/certs/",
-		"cp ~/easy-rsa/pki/issued/server.crt /etc/openvpn/certs/",
-		"cp ~/easy-rsa/pki/private/server.key /etc/openvpn/certs/",
-		"cp ~/easy-rsa/dh.pem /etc/openvpn/certs/",
-		"chmod -R 600 /etc/openvpn/certs/*",
 	}
-
-	// Add sudo prefix if not in Docker
+	
 	if !isDocker {
-		for i := 10; i < len(setupCmds); i++ { // Start from index 10 which is "mkdir -p" command
-			setupCmds[i] = "sudo " + setupCmds[i]
+		cleanupCmds[1] = "sudo " + cleanupCmds[1]
+	}
+	
+	for _, cmd := range cleanupCmds {
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Cleanup warning: %v, output: %s", err, output)
+			// Continue anyway as the commands might fail if directories don't exist
 		}
 	}
 
-	for i, cmd := range setupCmds {
-		logger.Log.Printf("PKI setup %d/%d: %s", i+1, len(setupCmds), cmd)
+	// Execute each step of the PKI setup with proper verification in sequential order
+	// This ensures each step completes before proceeding to the next
+	
+	// Step 1: Create base easy-rsa directory and initialize PKI
+	pkiInitCmds := []string{
+		"make-cadir ~/easy-rsa",
+		"cd ~/easy-rsa && ./easyrsa init-pki",
+		"cd ~/easy-rsa && echo 'set_var EASYRSA_KEY_SIZE 2048' > vars", // Using 2048 for faster generation
+		"cd ~/easy-rsa && echo 'set_var EASYRSA_DIGEST sha256' >> vars", // Using sha256 which is widely supported
+	}
+	
+	for i, cmd := range pkiInitCmds {
+		logger.Log.Printf("PKI initialization %d/%d: %s", i+1, len(pkiInitCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
-			// Check if this is a password expiry issue
+			// Check for password expiry
 			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
 				return fmt.Errorf("password has expired and needs to be reset before continuing")
 			}
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
-			return fmt.Errorf("PKI setup failed: %v", err)
+			return fmt.Errorf("PKI initialization failed: %v", err)
 		}
-		// Force immediate flush of logs
-		time.Sleep(10 * time.Millisecond)
+		// Ensure each command completes
+		time.Sleep(500 * time.Millisecond)
 	}
+	
+	// Step 2: Build CA and server certificates
+	certCmds := []string{
+		"cd ~/easy-rsa && ./easyrsa --batch build-ca nopass",
+		"cd ~/easy-rsa && ./easyrsa --batch gen-req server nopass",
+		"cd ~/easy-rsa && ./easyrsa --batch sign-req server server",
+		"cd ~/easy-rsa && openssl dhparam -out dh.pem 2048",
+	}
+	
+	for i, cmd := range certCmds {
+		logger.Log.Printf("Certificate generation %d/%d: %s", i+1, len(certCmds), cmd)
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				return fmt.Errorf("password has expired and needs to be reset before continuing")
+			}
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
+			return fmt.Errorf("certificate generation failed: %v", err)
+		}
+		// Ensure certificate generation completes before moving on
+		time.Sleep(1 * time.Second)
+	}
+	
+	// Verify certificate files exist before copying
+	verifyCmd := "ls -la ~/easy-rsa/pki/"
+	output, err := o.SSHClient.RunCommand(verifyCmd)
+	if err != nil {
+		logger.Log.Printf("Failed to verify PKI directory contents: %v", err)
+		return fmt.Errorf("PKI directory verification failed: %v", err)
+	}
+	logger.Log.Printf("PKI directory contents: %s", output)
+	
+	// Step 3: Copy certificates to OpenVPN directory
+	copyCmds := []string{
+		"mkdir -p /etc/openvpn/certs",
+		"chmod -R 700 /etc/openvpn/certs",
+	}
+	
+	// Add sudo prefix if not in Docker
+	if !isDocker {
+		for i := range copyCmds {
+			copyCmds[i] = "sudo " + copyCmds[i]
+		}
+	}
+	
+	// Execute directory preparation commands
+	for i, cmd := range copyCmds {
+		logger.Log.Printf("Directory setup %d/%d: %s", i+1, len(copyCmds), cmd)
+		output, err := o.SSHClient.RunCommand(cmd)
+		if err != nil {
+			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				return fmt.Errorf("password has expired and needs to be reset before continuing")
+			}
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
+			return fmt.Errorf("directory setup failed: %v", err)
+		}
+	}
+	
+	// Now copy the certificate files one by one, checking each carefully
+	filesToCopy := []string{
+		"~/easy-rsa/pki/ca.crt:/etc/openvpn/certs/ca.crt",
+		"~/easy-rsa/pki/issued/server.crt:/etc/openvpn/certs/server.crt",
+		"~/easy-rsa/pki/private/server.key:/etc/openvpn/certs/server.key",
+		"~/easy-rsa/dh.pem:/etc/openvpn/certs/dh.pem",
+	}
+	
+	for i, filePair := range filesToCopy {
+		parts := strings.Split(filePair, ":")
+		src, dst := parts[0], parts[1]
+		
+		// First verify source file exists
+		checkCmd := fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", src)
+		output, err := o.SSHClient.RunCommand(checkCmd)
+		if err != nil || !strings.Contains(output, "exists") {
+			logger.Log.Printf("Source file %s does not exist: %s", src, output)
+			return fmt.Errorf("source file %s not found for copying", src)
+		}
+		
+		// Now copy the file
+		cpCmd := fmt.Sprintf("cp %s %s", src, dst)
+		if !isDocker {
+			cpCmd = "sudo " + cpCmd
+		}
+		
+		logger.Log.Printf("Copying file %d/%d: %s", i+1, len(filesToCopy), cpCmd)
+		output, err = o.SSHClient.RunCommand(cpCmd)
+		if err != nil {
+			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				return fmt.Errorf("password has expired and needs to be reset before continuing")
+			}
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cpCmd, output, err)
+			return fmt.Errorf("copying certificate file failed: %v", err)
+		}
+		
+		// Verify the file was copied successfully
+		checkDstCmd := fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", dst)
+		output, err = o.SSHClient.RunCommand(checkDstCmd)
+		if err != nil || !strings.Contains(output, "exists") {
+			logger.Log.Printf("Destination file %s verification failed: %s", dst, output)
+			return fmt.Errorf("destination file %s not found after copying", dst)
+		}
+	}
+	
+	// Set permissions on certificate files
+	permCmd := "chmod -R 600 /etc/openvpn/certs/*"
+	if !isDocker {
+		permCmd = "sudo " + permCmd
+	}
+	
+	output, err = o.SSHClient.RunCommand(permCmd)
+	if err != nil {
+		logger.Log.Printf("Setting permissions failed: %v, output: %s", err, output)
+		return fmt.Errorf("setting certificate permissions failed: %v", err)
+	}
+	
 	logger.Log.Println("PKI setup completed successfully")
 
 	// Enhanced OpenVPN server configuration
@@ -212,7 +329,7 @@ explicit-exit-notify 1`
 	}
 	cmd := fmt.Sprintf("%s | %s", echoCmd, teeCmd)
 
-	output, err := o.SSHClient.RunCommand(cmd)
+	output, err = o.SSHClient.RunCommand(cmd)
 	if err != nil {
 		// Check for password expiry
 		if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
@@ -270,7 +387,6 @@ explicit-exit-notify 1`
 	}
 
 	// Configure iptables with more robustness
-	// This is the part that's failing - we'll fix it by splitting commands and using separate variable setting
 	logger.Log.Println("Configuring iptables...")
 
 	// First identify the default interface

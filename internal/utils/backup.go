@@ -43,8 +43,8 @@ func (b *BackupManager) CreateBackup() (string, error) {
 		return "", fmt.Errorf("failed to create backup directory: %v", err)
 	}
 
-	// Critical paths to backup (with validation)
-	paths := []string{
+	// Potential paths to backup (with validation)
+	potentialPaths := []string{
 		"/etc/openvpn/server.conf",
 		"/etc/openvpn/certs",
 		"/etc/ipsec.conf",
@@ -53,21 +53,47 @@ func (b *BackupManager) CreateBackup() (string, error) {
 		"/etc/vpn-configs",
 	}
 
-	// Validate each path
-	for _, path := range paths {
+	// Check which paths actually exist and collect them
+	var existingPaths []string
+	for _, path := range potentialPaths {
+		// Validate path first
 		if err := ValidatePath(path, allowedBackupPaths); err != nil {
-			return "", fmt.Errorf("invalid backup source path %s: %v", path, err)
+			logger.Log.Printf("Skipping path %s: %v", path, err)
+			continue
 		}
+
+		// Check if path exists
+		checkCmd := fmt.Sprintf("test -e %s && echo 'exists' || echo 'not found'", path)
+		output, err := b.SSHClient.RunCommand(checkCmd)
+		if err != nil || !strings.Contains(output, "exists") {
+			logger.Log.Printf("Path %s does not exist, skipping", path)
+			continue
+		}
+
+		existingPaths = append(existingPaths, path)
 	}
 
-	// Create tar command with validated paths
+	// Check if we have any paths to backup
+	if len(existingPaths) == 0 {
+		logger.Log.Println("No backup paths exist, creating minimal backup")
+		// Create an empty file to ensure tar doesn't fail
+		touchCmd := fmt.Sprintf("touch %s/backup-marker.txt", backupDir)
+		if _, err := b.SSHClient.RunCommand(touchCmd); err != nil {
+			return "", fmt.Errorf("failed to create backup marker: %v", err)
+		}
+		existingPaths = append(existingPaths, fmt.Sprintf("%s/backup-marker.txt", backupDir))
+	}
+
+	// Create tar command with validated and existing paths
 	tarCmd := fmt.Sprintf(
 		"tar czf %s --exclude='*.key' --exclude='*.pem' --exclude='*.secrets' %s",
 		backupFile,
-		strings.Join(paths, " "),
+		strings.Join(existingPaths, " "),
 	)
 
-	if _, err := b.SSHClient.RunCommand(tarCmd); err != nil {
+	output, err := b.SSHClient.RunCommand(tarCmd)
+	if err != nil {
+		logger.Log.Printf("Backup command output: %s", output)
 		return "", fmt.Errorf("backup creation failed: %v", err)
 	}
 
@@ -114,6 +140,15 @@ func (b *BackupManager) RestoreBackup(backupFile string) error {
 	// Validate and restore each path
 	for _, path := range allowedBackupPaths {
 		srcPath := filepath.Join(restoreDir, path)
+
+		// Check if the source path exists in the extracted backup
+		checkCmd := fmt.Sprintf("test -e %s && echo 'exists' || echo 'not found'", srcPath)
+		output, err := b.SSHClient.RunCommand(checkCmd)
+		if err != nil || !strings.Contains(output, "exists") {
+			logger.Log.Printf("Source path %s not found in backup, skipping", srcPath)
+			continue
+		}
+
 		if err := ValidatePath(srcPath, []string{restoreDir}); err != nil {
 			return fmt.Errorf("invalid restore source path: %v", err)
 		}
@@ -121,6 +156,11 @@ func (b *BackupManager) RestoreBackup(backupFile string) error {
 		destPath := path
 		if err := ValidatePath(destPath, allowedBackupPaths); err != nil {
 			return fmt.Errorf("invalid restore destination path: %v", err)
+		}
+
+		// Ensure the destination directory exists
+		if _, err := b.SSHClient.RunCommand(fmt.Sprintf("mkdir -p %s", filepath.Dir(destPath))); err != nil {
+			logger.Log.Printf("Warning: Failed to create destination directory: %v", err)
 		}
 
 		if _, err := b.SSHClient.RunCommand(fmt.Sprintf("cp -a %s/* %s/ 2>/dev/null || true", srcPath, destPath)); err != nil {
