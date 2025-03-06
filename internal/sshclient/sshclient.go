@@ -34,6 +34,10 @@ type SSHClient struct {
 	CloseFunc func()
 	mu        sync.Mutex
 	password  string
+	// Connection information stored for reconnection if needed
+	serverIP   string
+	username   string
+	authMethod string
 }
 
 // SSHClientInterface defines the interface for SSH operations
@@ -184,7 +188,10 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 				client.Close()
 			}
 		},
-		password: authCredential,
+		password:   authCredential,
+		serverIP:   serverIP,
+		username:   username,
+		authMethod: authMethod,
 	}
 
 	return sshClient, nil
@@ -241,6 +248,51 @@ func (c *SSHClient) GetPassword() string {
 
 func (c *SSHClient) UpdatePassword(newPassword string) {
 	c.password = newPassword
+}
+
+// ResetPassword attempts to reset the password using the provided new password.
+// This is useful when the current password has expired.
+func (c *SSHClient) ResetPassword(newPassword string) error {
+	logger.Log.Println("Attempting to reset expired password...")
+
+	// Close the current SSH connection first
+	if c.Client != nil {
+		c.Client.Close()
+		c.Client = nil
+	}
+
+	// Create a new SSH client with the new password
+	newClient, err := NewSSHClient(c.serverIP, c.username, "password", newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to create new SSH client with updated password: %v", err)
+	}
+
+	// Test the connection with a simple command
+	_, err = newClient.RunCommand("echo 'Password reset successful'")
+	if err != nil {
+		newClient.Close()
+		return fmt.Errorf("password reset failed, could not execute test command: %v", err)
+	}
+
+	// Update the client with the new connection
+	c.Client = newClient.Client
+	c.RunCommandFunc = newClient.RunCommandFunc
+	c.CloseFunc = newClient.CloseFunc
+	c.password = newPassword
+
+	logger.Log.Println("Password reset successful")
+	return nil
+}
+
+// IsPasswordExpired checks if the current password has expired.
+func (c *SSHClient) IsPasswordExpired() bool {
+	testCmd := "echo 'Testing connection'"
+	out, err := c.RunCommand(testCmd)
+	if err != nil {
+		return strings.Contains(out, "Your password has expired") ||
+			strings.Contains(out, "Password change required")
+	}
+	return false
 }
 
 func (c *SSHClient) WriteFile(path string, content string, mode uint32) error {

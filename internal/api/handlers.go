@@ -46,6 +46,21 @@ type VPNStatusResponse struct {
 	VPNType   string `json:"vpn_type,omitempty"`
 }
 
+// PasswordResetRequest represents a request to reset an expired password
+type PasswordResetRequest struct {
+	ServerIP    string `json:"server_ip"`
+	Username    string `json:"username"`
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
+// PasswordResetResponse defines the response structure for password reset requests
+type PasswordResetResponse struct {
+	Status      string `json:"status"`
+	Message     string `json:"message"`
+	NewPassword string `json:"new_password,omitempty"`
+}
+
 // SetupVPNHandler returns an http.HandlerFunc that handles VPN setup requests.
 // It validates the request, connects to the remote server via SSH, sets up the
 // requested VPN type, and returns the configuration.
@@ -64,8 +79,6 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			utils.JSONError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		// The setupID variable was declared but not used, removing it
 
 		// Determine the authentication method
 		var authMethod string
@@ -87,11 +100,61 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		}
 		defer sshClient.Close()
 
+		// Check if password is expired
+		if sshClient.IsPasswordExpired() {
+			logger.Log.Println("SetupVPNHandler: Detected expired password")
+
+			// Generate a new password
+			newPassword, err := generatePassword()
+			if err != nil {
+				logger.Log.Printf("SetupVPNHandler: Password generation failed: %v", err)
+				utils.JSONError(w, "Failed to generate new password", http.StatusInternalServerError)
+				return
+			}
+
+			// Return a specific response for expired password
+			response := PasswordResetResponse{
+				Status:      "expired_password",
+				Message:     "The password has expired and needs to be reset. Please use the password reset API with the provided new password.",
+				NewPassword: newPassword,
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden) // 403 Forbidden is appropriate for expired credentials
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
 		var vpnConfig string
 		switch req.VPNType {
 		case "openvpn":
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := openvpn.Setup(); err != nil {
+				// Check specifically for password expiration error in the returned error
+				if strings.Contains(err.Error(), "password has expired") {
+					logger.Log.Printf("SetupVPNHandler: Password expired during setup: %v", err)
+
+					// Generate a new password
+					newPassword, genErr := generatePassword()
+					if genErr != nil {
+						logger.Log.Printf("SetupVPNHandler: Password generation failed: %v", genErr)
+						utils.JSONError(w, "Failed to generate new password", http.StatusInternalServerError)
+						return
+					}
+
+					// Return a specific response for expired password
+					response := PasswordResetResponse{
+						Status:      "expired_password",
+						Message:     "The password has expired during setup. Please use the password reset API with the provided new password.",
+						NewPassword: newPassword,
+					}
+
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden) // 403 Forbidden is appropriate for expired credentials
+					json.NewEncoder(w).Encode(response)
+					return
+				}
+
 				logger.Log.Printf("SetupVPNHandler: OpenVPN setup failed: %v", err)
 				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 				return
@@ -101,6 +164,31 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		case "ios_vpn":
 			strongswan := vpn.StrongSwanSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := strongswan.Setup(); err != nil {
+				// Check specifically for password expiration error in the returned error
+				if strings.Contains(err.Error(), "password has expired") {
+					logger.Log.Printf("SetupVPNHandler: Password expired during setup: %v", err)
+
+					// Generate a new password
+					newPassword, genErr := generatePassword()
+					if genErr != nil {
+						logger.Log.Printf("SetupVPNHandler: Password generation failed: %v", genErr)
+						utils.JSONError(w, "Failed to generate new password", http.StatusInternalServerError)
+						return
+					}
+
+					// Return a specific response for expired password
+					response := PasswordResetResponse{
+						Status:      "expired_password",
+						Message:     "The password has expired during setup. Please use the password reset API with the provided new password.",
+						NewPassword: newPassword,
+					}
+
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden) // 403 Forbidden is appropriate for expired credentials
+					json.NewEncoder(w).Encode(response)
+					return
+				}
+
 				logger.Log.Printf("SetupVPNHandler: StrongSwan setup failed: %v", err)
 				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 				return
@@ -171,6 +259,93 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		}
 
 		logger.Log.Println("SetupVPNHandler: Setup completed successfully")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+// ResetPasswordHandler handles resetting an expired password
+func ResetPasswordHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger.Log.Println("ResetPasswordHandler: Processing request")
+
+		var req PasswordResetRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			logger.Log.Printf("ResetPasswordHandler: Invalid payload: %v", err)
+			utils.JSONError(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
+
+		// Validate required fields
+		if req.ServerIP == "" || req.Username == "" || req.NewPassword == "" {
+			logger.Log.Println("ResetPasswordHandler: Missing required fields")
+			utils.JSONError(w, "Missing required fields (server_ip, username, new_password)", http.StatusBadRequest)
+			return
+		}
+
+		// Validate password strength
+		if len(req.NewPassword) < 8 {
+			utils.JSONError(w, "New password must be at least 8 characters", http.StatusBadRequest)
+			return
+		}
+
+		// Initialize SSH client with new password directly
+		sshClient, err := sshclient.NewSSHClient(req.ServerIP, req.Username, "password", req.NewPassword)
+		if err != nil {
+			logger.Log.Printf("ResetPasswordHandler: Failed to connect with new password: %v", err)
+
+			// If connecting with new password fails, try with old password
+			if req.OldPassword != "" {
+				oldClient, oldErr := sshclient.NewSSHClient(req.ServerIP, req.Username, "password", req.OldPassword)
+				if oldErr != nil {
+					logger.Log.Printf("ResetPasswordHandler: Failed to connect with old password too: %v", oldErr)
+					utils.JSONError(w, "Failed to authenticate with either the old or new password", http.StatusUnauthorized)
+					return
+				}
+				defer oldClient.Close()
+
+				// If old password works but is expired, reset it
+				if oldClient.IsPasswordExpired() {
+					logger.Log.Println("ResetPasswordHandler: Old password is valid but expired, attempting reset")
+					if err := oldClient.ResetPassword(req.NewPassword); err != nil {
+						logger.Log.Printf("ResetPasswordHandler: Password reset failed: %v", err)
+						utils.JSONError(w, fmt.Sprintf("Failed to reset password: %v", err), http.StatusInternalServerError)
+						return
+					}
+				} else {
+					logger.Log.Println("ResetPasswordHandler: Old password is valid and not expired")
+					// Old password works and is not expired, so the user just wants to change it
+					// Change the password using system utilities
+					security := vpn.SecuritySetup{SSHClient: oldClient}
+					if err := security.ChangeRootPassword(req.NewPassword); err != nil {
+						logger.Log.Printf("ResetPasswordHandler: Failed to change password: %v", err)
+						utils.JSONError(w, fmt.Sprintf("Failed to change password: %v", err), http.StatusInternalServerError)
+						return
+					}
+				}
+			} else {
+				utils.JSONError(w, fmt.Sprintf("Failed to authenticate with new password and no old password provided: %v", err),
+					http.StatusUnauthorized)
+				return
+			}
+		}
+		defer sshClient.Close()
+
+		// Test the connection with the new password by running a simple command
+		_, err = sshClient.RunCommand("echo 'Password reset successful'")
+		if err != nil {
+			logger.Log.Printf("ResetPasswordHandler: Failed to run test command after password reset: %v", err)
+			utils.JSONError(w, "Password may be reset but the connection test failed", http.StatusInternalServerError)
+			return
+		}
+
+		// Successfully reset password
+		response := PasswordResetResponse{
+			Status:  "success",
+			Message: "Password has been reset successfully",
+		}
+
+		logger.Log.Println("ResetPasswordHandler: Password reset successful")
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}
@@ -274,6 +449,7 @@ func RegisterRoutes(router *mux.Router, cfg *config.Config) {
 	apiRouter.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
 	apiRouter.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	apiRouter.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
+	apiRouter.HandleFunc("/password/reset", ResetPasswordHandler(cfg)).Methods("POST", "OPTIONS") // Add the password reset endpoint
 
 	// Protected API routes
 	protectedRouter := apiRouter.PathPrefix("").Subrouter()

@@ -27,10 +27,25 @@ func (o *OpenVPNSetup) Setup() error {
 		logger.Log.Println("Running in Docker environment")
 	}
 
+	// Check if password has expired by running a simple command
+	checkCmd := "echo 'Testing connection'"
+	if out, err := o.SSHClient.RunCommand(checkCmd); err != nil {
+		// Check for expired password error
+		if strings.Contains(out, "Your password has expired") || strings.Contains(out, "Password change required") {
+			logger.Log.Println("Detected expired password, attempting to reset")
+			return fmt.Errorf("password has expired and needs to be reset: %v", err)
+		}
+	}
+
 	// Check disk space first
 	spaceCheckCmd := "df -h / | awk 'NR==2 {print $4}'"
 	if out, err := o.SSHClient.RunCommand(spaceCheckCmd); err == nil {
 		logger.Log.Printf("Available disk space: %s", out)
+	} else {
+		// If this command fails with a password expiration message, return early
+		if strings.Contains(out, "Your password has expired") || strings.Contains(out, "Password change required") {
+			return fmt.Errorf("password has expired and needs to be reset: %v", err)
+		}
 	}
 
 	// Wait for any existing apt processes to finish
@@ -41,6 +56,11 @@ func (o *OpenVPNSetup) Setup() error {
 	}
 
 	if out, err := o.SSHClient.RunCommand(waitCmd); err != nil {
+		// Check for specific error about expired password
+		if strings.Contains(out, "Your password has expired") || strings.Contains(out, "Password change required") {
+			logger.Log.Printf("Warning: Password has expired: %s", out)
+			return fmt.Errorf("password has expired and needs to be reset: %v", err)
+		}
 		logger.Log.Printf("Warning: Wait command failed: %v, output: %s", err, out)
 	}
 
@@ -68,6 +88,12 @@ func (o *OpenVPNSetup) Setup() error {
 			logger.Log.Printf("Running command (attempt %d/%d): %s", attempt, maxRetries, cmd)
 			output, err := o.SSHClient.RunCommand(cmd)
 			if err != nil {
+				// Check if this is a password expiry issue
+				if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+					logger.Log.Printf("Password has expired. Password change required.")
+					return fmt.Errorf("password has expired and needs to be reset before continuing")
+				}
+
 				logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 				if attempt < maxRetries {
 					logger.Log.Printf("Waiting before retry...")
@@ -135,6 +161,10 @@ func (o *OpenVPNSetup) Setup() error {
 		logger.Log.Printf("PKI setup %d/%d: %s", i+1, len(setupCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
+			// Check if this is a password expiry issue
+			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				return fmt.Errorf("password has expired and needs to be reset before continuing")
+			}
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("PKI setup failed: %v", err)
 		}
@@ -184,6 +214,10 @@ explicit-exit-notify 1`
 
 	output, err := o.SSHClient.RunCommand(cmd)
 	if err != nil {
+		// Check for password expiry
+		if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+			return fmt.Errorf("password has expired and needs to be reset before continuing")
+		}
 		logger.Log.Printf("Command failed: Output: %s, Error: %v", output, err)
 		return fmt.Errorf("failed to write server config: %v", err)
 	}
@@ -196,6 +230,10 @@ explicit-exit-notify 1`
 	}
 	output, err = o.SSHClient.RunCommand(createClientDirCmd)
 	if err != nil {
+		// Check for password expiry
+		if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+			return fmt.Errorf("password has expired and needs to be reset before continuing")
+		}
 		logger.Log.Printf("Warning: Failed to create client config directory: %v, output: %s", err, output)
 	}
 
@@ -220,6 +258,10 @@ explicit-exit-notify 1`
 		logger.Log.Printf("System setup %d/%d: %s", i+1, len(systemCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
+			// Check for password expiry
+			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				return fmt.Errorf("password has expired and needs to be reset before continuing")
+			}
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("system configuration failed: %v", err)
 		}
@@ -253,6 +295,10 @@ explicit-exit-notify 1`
 		logger.Log.Printf("IPTables setup %d/%d: %s", i+1, len(iptablesCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
+			// Check if this is a password expiry issue
+			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				return fmt.Errorf("password has expired and needs to be reset before continuing")
+			}
 			logger.Log.Printf("Warning: IPTables command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			// Continue anyway as some commands might fail if rules already exist
 		}
@@ -276,6 +322,10 @@ explicit-exit-notify 1`
 		logger.Log.Printf("Service setup %d/%d: %s", i+1, len(serviceCmds), cmd)
 		output, err := o.SSHClient.RunCommand(cmd)
 		if err != nil {
+			// Check if this is a password expiry issue
+			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+				return fmt.Errorf("password has expired and needs to be reset before continuing")
+			}
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("service configuration failed: %v", err)
 		}
@@ -291,6 +341,10 @@ explicit-exit-notify 1`
 	}
 	status, err := o.SSHClient.RunCommand(statusCmd)
 	if err != nil {
+		// Check if this is a password expiry issue
+		if strings.Contains(status, "Your password has expired") || strings.Contains(status, "Password change required") {
+			return fmt.Errorf("password has expired and needs to be reset before continuing")
+		}
 		logger.Log.Printf("Service status check failed: %v", err)
 		return fmt.Errorf("OpenVPN service failed to start: %v", err)
 	}
@@ -324,6 +378,10 @@ key-direction 1`, o.ServerIP)
 
 	output, err = o.SSHClient.RunCommand(clientConfigCmd)
 	if err != nil {
+		// Check if this is a password expiry issue
+		if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+			return fmt.Errorf("password has expired and needs to be reset before continuing")
+		}
 		logger.Log.Printf("Warning: Failed to generate client config: %v, output: %s", err, output)
 	} else {
 		logger.Log.Println("Client configuration created at /etc/vpn-configs/openvpn_config.ovpn")
