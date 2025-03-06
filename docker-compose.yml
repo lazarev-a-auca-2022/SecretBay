@@ -40,6 +40,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD:-changeme}
       - TZ=UTC
       - AUTH_ENABLED=${AUTH_ENABLED:-true}
+      - SSH_DISABLE_STRICT_HOST_KEY_CHECKING=true
     user: root
     healthcheck:
       test: ["CMD", "curl", "-k", "https://localhost:9999/health"]

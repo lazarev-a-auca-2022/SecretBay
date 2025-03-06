@@ -10,6 +10,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,6 +56,16 @@ const (
 	backoffPeriod = 2 * time.Second
 )
 
+// insecureIgnoreHostKey returns a function that can be used as ssh.HostKeyCallback
+// which accepts any host key. This should only be used in controlled environments
+// where security is less critical than connection reliability.
+func insecureIgnoreHostKey() ssh.HostKeyCallback {
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		logger.Log.Printf("SECURITY WARNING: Ignoring host key verification for %s", hostname)
+		return nil
+	}
+}
+
 // NewSSHClient creates a new SSH client with the specified credentials.
 // It supports both password and key-based authentication methods.
 var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (*SSHClient, error) {
@@ -91,25 +103,38 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 		return nil, fmt.Errorf("unsupported auth method: %s", authMethod)
 	}
 
-	// Ensure .ssh directory exists with proper permissions
-	sshDir := filepath.Join(os.Getenv("HOME"), ".ssh")
-	if err := os.MkdirAll(sshDir, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create .ssh directory: %v", err)
-	}
+	// Check if we should disable strict host key checking
+	// This is determined by an environment variable for maximum flexibility
+	disableHostKeyChecking := os.Getenv("SSH_DISABLE_STRICT_HOST_KEY_CHECKING") == "true"
 
-	knownHostsFile := filepath.Join(sshDir, "known_hosts")
-	hostKeyCallback, err := knownhosts.New(knownHostsFile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("could not create hostkey callback: %v", err)
+	var hostKeyCallback ssh.HostKeyCallback
+	if disableHostKeyChecking {
+		// Use insecure callback that accepts any key when strict checking is disabled
+		hostKeyCallback = insecureIgnoreHostKey()
+		logger.Log.Printf("Using insecure host key checking for SSH connections to %s", serverIP)
+	} else {
+		// Normal secure host key verification
+		// Ensure .ssh directory exists with proper permissions
+		sshDir := filepath.Join(os.Getenv("HOME"), ".ssh")
+		if err := os.MkdirAll(sshDir, 0700); err != nil {
+			return nil, fmt.Errorf("failed to create .ssh directory: %v", err)
 		}
-		// Create empty known_hosts file if it doesn't exist
-		if err := os.WriteFile(knownHostsFile, []byte{}, 0600); err != nil {
-			return nil, fmt.Errorf("could not create known_hosts file: %v", err)
-		}
+
+		knownHostsFile := filepath.Join(sshDir, "known_hosts")
+		var err error
 		hostKeyCallback, err = knownhosts.New(knownHostsFile)
 		if err != nil {
-			return nil, fmt.Errorf("could not create hostkey callback after file creation: %v", err)
+			if !os.IsNotExist(err) {
+				return nil, fmt.Errorf("could not create hostkey callback: %v", err)
+			}
+			// Create empty known_hosts file if it doesn't exist
+			if err := os.WriteFile(knownHostsFile, []byte{}, 0600); err != nil {
+				return nil, fmt.Errorf("could not create known_hosts file: %v", err)
+			}
+			hostKeyCallback, err = knownhosts.New(knownHostsFile)
+			if err != nil {
+				return nil, fmt.Errorf("could not create hostkey callback after file creation: %v", err)
+			}
 		}
 	}
 
@@ -137,32 +162,45 @@ var NewSSHClient = func(serverIP, username, authMethod, authCredential string) (
 
 	addr := fmt.Sprintf("%s:22", serverIP)
 	var client *ssh.Client
+	var finalErr error
 
 	// Implement retry with exponential backoff
 	for i := 0; i < maxRetries; i++ {
-		client, err = ssh.Dial("tcp", addr, config)
-		if err == nil {
+		client, finalErr = ssh.Dial("tcp", addr, config)
+		if finalErr == nil {
 			break
 		}
 
-		if strings.Contains(err.Error(), "knownhosts: key is unknown") {
+		// If strict host key checking is enabled, handle unknown hosts
+		if !disableHostKeyChecking && strings.Contains(finalErr.Error(), "knownhosts: key is unknown") {
+			knownHostsFile := filepath.Join(os.Getenv("HOME"), ".ssh", "known_hosts")
 			if err := handleUnknownHost(serverIP, knownHostsFile); err != nil {
 				return nil, fmt.Errorf("failed to handle unknown host: %v", err)
 			}
 			// Rebuild callback after updating known_hosts
-			hostKeyCallback, err = knownhosts.New(knownHostsFile)
+			newHostKeyCallback, err := knownhosts.New(knownHostsFile)
 			if err != nil {
 				return nil, fmt.Errorf("could not rebuild hostkey callback: %v", err)
 			}
-			config.HostKeyCallback = hostKeyCallback
+			config.HostKeyCallback = newHostKeyCallback
 			continue
 		}
 
+		// If we're encountering a key mismatch and strict checking is enabled,
+		// we might want to update the known_hosts file
+		if !disableHostKeyChecking && strings.Contains(finalErr.Error(), "knownhosts: key mismatch") {
+			logger.Log.Printf("Detected host key mismatch. Consider setting SSH_DISABLE_STRICT_HOST_KEY_CHECKING=true if in a development environment.")
+		}
+
 		if i < maxRetries-1 {
+			logger.Log.Printf("SSH connection attempt %d failed: %v. Retrying in %v...", i+1, finalErr, backoffPeriod*time.Duration(i+1))
 			time.Sleep(backoffPeriod * time.Duration(i+1))
 			continue
 		}
-		return nil, fmt.Errorf("failed to establish SSH connection after %d attempts: %v", maxRetries, err)
+	}
+
+	if finalErr != nil {
+		return nil, fmt.Errorf("failed to establish SSH connection after %d attempts: %v", maxRetries, finalErr)
 	}
 
 	sshClient := &SSHClient{
@@ -223,6 +261,46 @@ func (s *SSHClient) RunCommand(cmd string) (string, error) {
 
 	if err := session.Run(cmd); err != nil {
 		return output.String(), fmt.Errorf("failed to run command '%s': %v", cmd, err)
+	}
+
+	return output.String(), nil
+}
+
+// RunCommandWithStdin executes a command on the remote server with input from stdin.
+func (s *SSHClient) RunCommandWithStdin(cmd string, stdin io.Reader) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.Client == nil {
+		return "", fmt.Errorf("SSH client is not initialized")
+	}
+
+	session, err := s.Client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("failed to create session: %v", err)
+	}
+	defer session.Close()
+
+	var output bytes.Buffer
+	session.Stdout = &output
+	session.Stderr = &output
+
+	stdinPipe, err := session.StdinPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to get stdin pipe: %v", err)
+	}
+
+	if err := session.Start(cmd); err != nil {
+		return "", fmt.Errorf("failed to start command: %v", err)
+	}
+
+	go func() {
+		defer stdinPipe.Close()
+		io.Copy(stdinPipe, stdin)
+	}()
+
+	if err := session.Wait(); err != nil {
+		return output.String(), fmt.Errorf("command failed: %v, output: %s", err, output.String())
 	}
 
 	return output.String(), nil
@@ -349,5 +427,25 @@ func handleUnknownHost(host, knownHostsFile string) error {
 		return fmt.Errorf("failed to write to known_hosts file: %v", err)
 	}
 
+	return nil
+}
+
+// RemoveKnownHost removes a host entry from the known_hosts file
+func RemoveKnownHost(host string) error {
+	knownHostsFile := filepath.Join(os.Getenv("HOME"), ".ssh", "known_hosts")
+
+	// Check if the file exists
+	if _, err := os.Stat(knownHostsFile); os.IsNotExist(err) {
+		return nil // Nothing to do if file doesn't exist
+	}
+
+	// Use ssh-keygen to remove the host
+	cmd := exec.Command("ssh-keygen", "-R", host, "-f", knownHostsFile)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to remove host key: %v, output: %s", err, string(output))
+	}
+
+	logger.Log.Printf("Removed host key for %s from known_hosts file", host)
 	return nil
 }
