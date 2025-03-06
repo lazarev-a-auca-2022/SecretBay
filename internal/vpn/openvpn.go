@@ -2,6 +2,7 @@ package vpn
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -19,6 +20,13 @@ type OpenVPNSetup struct {
 func (o *OpenVPNSetup) Setup() error {
 	logger.Log.Println("Starting OpenVPN setup")
 
+	// Check if we're running in Docker
+	isDocker := false
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		isDocker = true
+		logger.Log.Println("Running in Docker environment")
+	}
+
 	// Check disk space first
 	spaceCheckCmd := "df -h / | awk 'NR==2 {print $4}'"
 	if out, err := o.SSHClient.RunCommand(spaceCheckCmd); err == nil {
@@ -26,15 +34,31 @@ func (o *OpenVPNSetup) Setup() error {
 	}
 
 	// Wait for any existing apt processes to finish
-	waitCmd := `while sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do sleep 1; done`
-	if _, err := o.SSHClient.RunCommand(waitCmd); err != nil {
-		logger.Log.Printf("Warning: Wait command failed: %v", err)
+	waitCmd := `while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do sleep 1; done`
+	if isDocker {
+		// In Docker, we likely don't need sudo
+		waitCmd = `while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do sleep 1; done`
 	}
 
-	cmds := []string{
-		"sudo apt-get update",
-		"sudo apt-get install -f", // Fix any broken dependencies first
-		"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban ufw openssl",
+	if out, err := o.SSHClient.RunCommand(waitCmd); err != nil {
+		logger.Log.Printf("Warning: Wait command failed: %v, output: %s", err, out)
+	}
+
+	// Prepare commands based on environment
+	var cmds []string
+	if isDocker {
+		// In Docker, don't use sudo
+		cmds = []string{
+			"apt-get update",
+			"apt-get install -f", // Fix any broken dependencies first
+			"DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban ufw openssl",
+		}
+	} else {
+		cmds = []string{
+			"sudo apt-get update",
+			"sudo apt-get install -f", // Fix any broken dependencies first
+			"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban ufw openssl",
+		}
 	}
 
 	maxRetries := 3
@@ -48,9 +72,19 @@ func (o *OpenVPNSetup) Setup() error {
 				if attempt < maxRetries {
 					logger.Log.Printf("Waiting before retry...")
 					// Clean up and wait before retry
-					o.SSHClient.RunCommand("sudo apt-get clean")
-					o.SSHClient.RunCommand("sudo rm -rf /var/lib/apt/lists/*")
-					o.SSHClient.RunCommand("sudo apt-get update --fix-missing")
+					cleanCmd := "apt-get clean"
+					rmCmd := "rm -rf /var/lib/apt/lists/*"
+					fixCmd := "apt-get update --fix-missing"
+
+					if !isDocker {
+						cleanCmd = "sudo " + cleanCmd
+						rmCmd = "sudo " + rmCmd
+						fixCmd = "sudo " + fixCmd
+					}
+
+					o.SSHClient.RunCommand(cleanCmd)
+					o.SSHClient.RunCommand(rmCmd)
+					o.SSHClient.RunCommand(fixCmd)
 					time.Sleep(time.Duration(attempt) * 10 * time.Second)
 					continue
 				}
@@ -70,8 +104,8 @@ func (o *OpenVPNSetup) Setup() error {
 	// Clean up any existing easy-rsa directory and create new setup
 	logger.Log.Println("Step 2/6: Setting up PKI infrastructure...")
 	setupCmds := []string{
-		"sudo rm -rf ~/easy-rsa",           // Remove existing directory
-		"sudo rm -rf /etc/openvpn/certs/*", // Clean up existing certs
+		"rm -rf ~/easy-rsa",           // Remove existing directory
+		"rm -rf /etc/openvpn/certs/*", // Clean up existing certs
 		"make-cadir ~/easy-rsa",
 		"cd ~/easy-rsa && ./easyrsa init-pki",
 		"cd ~/easy-rsa && echo 'set_var EASYRSA_KEY_SIZE 4096' > vars",
@@ -81,13 +115,20 @@ func (o *OpenVPNSetup) Setup() error {
 		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch gen-req server nopass",
 		"cd ~/easy-rsa && export EASYRSA=$(pwd) && ./easyrsa --batch sign-req server server",
 		"cd ~/easy-rsa && openssl dhparam -out dh.pem 2048", // Reduced to 2048 for faster generation while still secure
-		"sudo mkdir -p /etc/openvpn/certs",
-		"sudo chmod -R 700 /etc/openvpn/certs",
-		"sudo cp ~/easy-rsa/pki/ca.crt /etc/openvpn/certs/",
-		"sudo cp ~/easy-rsa/pki/issued/server.crt /etc/openvpn/certs/",
-		"sudo cp ~/easy-rsa/pki/private/server.key /etc/openvpn/certs/",
-		"sudo cp ~/easy-rsa/dh.pem /etc/openvpn/certs/",
-		"sudo chmod -R 600 /etc/openvpn/certs/*",
+		"mkdir -p /etc/openvpn/certs",
+		"chmod -R 700 /etc/openvpn/certs",
+		"cp ~/easy-rsa/pki/ca.crt /etc/openvpn/certs/",
+		"cp ~/easy-rsa/pki/issued/server.crt /etc/openvpn/certs/",
+		"cp ~/easy-rsa/pki/private/server.key /etc/openvpn/certs/",
+		"cp ~/easy-rsa/dh.pem /etc/openvpn/certs/",
+		"chmod -R 600 /etc/openvpn/certs/*",
+	}
+
+	// Add sudo prefix if not in Docker
+	if !isDocker {
+		for i := 10; i < len(setupCmds); i++ { // Start from index 10 which is "mkdir -p" command
+			setupCmds[i] = "sudo " + setupCmds[i]
+		}
 	}
 
 	for i, cmd := range setupCmds {
@@ -134,7 +175,13 @@ explicit-exit-notify 1`
 
 	// Write server config
 	logger.Log.Println("Writing server configuration...")
-	cmd := fmt.Sprintf("echo '%s' | sudo tee /etc/openvpn/server.conf", serverConfig)
+	echoCmd := fmt.Sprintf("echo '%s'", serverConfig)
+	teeCmd := "tee /etc/openvpn/server.conf"
+	if !isDocker {
+		teeCmd = "sudo " + teeCmd
+	}
+	cmd := fmt.Sprintf("%s | %s", echoCmd, teeCmd)
+
 	output, err := o.SSHClient.RunCommand(cmd)
 	if err != nil {
 		logger.Log.Printf("Command failed: Output: %s, Error: %v", output, err)
@@ -143,20 +190,30 @@ explicit-exit-notify 1`
 
 	// Create directory for client configs
 	logger.Log.Println("Creating directory for client configs...")
-	createClientDirCmd := "sudo mkdir -p /etc/vpn-configs && sudo chmod 755 /etc/vpn-configs"
-	_, err = o.SSHClient.RunCommand(createClientDirCmd)
+	createClientDirCmd := "mkdir -p /etc/vpn-configs && chmod 755 /etc/vpn-configs"
+	if !isDocker {
+		createClientDirCmd = "sudo " + createClientDirCmd
+	}
+	output, err = o.SSHClient.RunCommand(createClientDirCmd)
 	if err != nil {
-		logger.Log.Printf("Warning: Failed to create client config directory: %v", err)
+		logger.Log.Printf("Warning: Failed to create client config directory: %v, output: %s", err, output)
 	}
 
 	// Configure system settings
 	logger.Log.Println("Step 5/6: Configuring system settings...")
 	systemCmds := []string{
-		"sudo mkdir -p /var/log/openvpn",
-		"sudo sysctl -w net.ipv4.ip_forward=1",
-		"echo 'net.ipv4.ip_forward=1' | sudo tee -a /etc/sysctl.conf",
-		"sudo sysctl -p",
-		"sudo ufw allow 1194/udp",
+		"mkdir -p /var/log/openvpn",
+		"sysctl -w net.ipv4.ip_forward=1",
+		"echo 'net.ipv4.ip_forward=1' | tee -a /etc/sysctl.conf",
+		"sysctl -p",
+		"ufw allow 1194/udp",
+	}
+
+	// Add sudo prefix if not in Docker
+	if !isDocker {
+		for i := range systemCmds {
+			systemCmds[i] = "sudo " + systemCmds[i]
+		}
 	}
 
 	for i, cmd := range systemCmds {
@@ -176,11 +233,20 @@ explicit-exit-notify 1`
 		// Get the main interface - fixed the escape sequence issue by using double backslash
 		"IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\\S+)' | head -1)",
 		// NAT settings for routing
-		"sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o $IFACE -j MASQUERADE",
+		"iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o $IFACE -j MASQUERADE",
 		// Make iptables rules persistent across reboots
-		"sudo apt-get -y install iptables-persistent",
-		"sudo netfilter-persistent save",
-		"sudo netfilter-persistent reload",
+		"apt-get -y install iptables-persistent",
+		"netfilter-persistent save",
+		"netfilter-persistent reload",
+	}
+
+	// Add sudo prefix if not in Docker
+	if !isDocker {
+		for i := range iptablesCmds {
+			if i > 0 { // Skip the first one which is just setting a variable
+				iptablesCmds[i] = "sudo " + iptablesCmds[i]
+			}
+		}
 	}
 
 	for i, cmd := range iptablesCmds {
@@ -195,8 +261,15 @@ explicit-exit-notify 1`
 	// Setup OpenVPN service
 	logger.Log.Println("Step 6/6: Setting up and starting OpenVPN service...")
 	serviceCmds := []string{
-		"sudo systemctl enable openvpn@server",
-		"sudo systemctl restart openvpn@server",
+		"systemctl enable openvpn@server",
+		"systemctl restart openvpn@server",
+	}
+
+	// Add sudo prefix if not in Docker
+	if !isDocker {
+		for i := range serviceCmds {
+			serviceCmds[i] = "sudo " + serviceCmds[i]
+		}
 	}
 
 	for i, cmd := range serviceCmds {
@@ -212,7 +285,11 @@ explicit-exit-notify 1`
 
 	// Verify OpenVPN is running
 	logger.Log.Println("Verifying OpenVPN service status...")
-	status, err := o.SSHClient.RunCommand("systemctl is-active openvpn@server")
+	statusCmd := "systemctl is-active openvpn@server"
+	if !isDocker {
+		statusCmd = "sudo " + statusCmd
+	}
+	status, err := o.SSHClient.RunCommand(statusCmd)
 	if err != nil {
 		logger.Log.Printf("Service status check failed: %v", err)
 		return fmt.Errorf("OpenVPN service failed to start: %v", err)
@@ -240,10 +317,14 @@ auth SHA512
 verb 3
 key-direction 1`, o.ServerIP)
 
-	clientConfigCmd := fmt.Sprintf("echo '%s' | sudo tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig)
-	_, err = o.SSHClient.RunCommand(clientConfigCmd)
+	clientConfigCmd := fmt.Sprintf("echo '%s' | tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig)
+	if !isDocker {
+		clientConfigCmd = fmt.Sprintf("echo '%s' | sudo tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig)
+	}
+
+	output, err = o.SSHClient.RunCommand(clientConfigCmd)
 	if err != nil {
-		logger.Log.Printf("Warning: Failed to generate client config: %v", err)
+		logger.Log.Printf("Warning: Failed to generate client config: %v, output: %s", err, output)
 	} else {
 		logger.Log.Println("Client configuration created at /etc/vpn-configs/openvpn_config.ovpn")
 	}
