@@ -37,7 +37,7 @@ func (s *SecuritySetup) SetupFail2Ban() error {
 	}
 
 	// Install fail2ban with additional dependencies
-	installCmd := "DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban ufw"
+	installCmd := "DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban"
 	if !isDocker {
 		installCmd = "sudo " + installCmd
 	}
@@ -140,26 +140,71 @@ bantime = 3600
 		return fmt.Errorf("failed to configure fail2ban: %v", err)
 	}
 
-	// Configure UFW firewall
-	firewallCmds := []string{
-		"ufw default deny incoming",
-		"ufw default allow outgoing",
-		"ufw allow ssh",
-		"ufw allow 1194/udp",     // OpenVPN
-		"ufw allow 500,4500/udp", // IKEv2/IPsec
-		"ufw --force enable",
-	}
+	// Check if UFW is installed before trying to use it
+	checkUfwCmd := "which ufw >/dev/null 2>&1 && echo 'installed' || echo 'not installed'"
+	ufwOutput, _ := s.SSHClient.RunCommand(checkUfwCmd)
 
-	if !isDocker {
-		for i := range firewallCmds {
-			firewallCmds[i] = "sudo " + firewallCmds[i]
+	if strings.Contains(ufwOutput, "installed") {
+		logger.Log.Println("UFW is installed, configuring firewall")
+
+		firewallCmds := []string{
+			"ufw default deny incoming",
+			"ufw default allow outgoing",
+			"ufw allow ssh",
+			"ufw allow 1194/udp",     // OpenVPN
+			"ufw allow 500,4500/udp", // IKEv2/IPsec
+			"ufw --force enable",
 		}
-	}
 
-	for _, cmd := range firewallCmds {
-		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
-			logger.Log.Printf("Firewall setup warning: %v", err)
-			// Continue as some firewall commands might fail in certain environments
+		if !isDocker {
+			for i := range firewallCmds {
+				firewallCmds[i] = "sudo " + firewallCmds[i]
+			}
+		}
+
+		for _, cmd := range firewallCmds {
+			if output, err := s.SSHClient.RunCommand(cmd); err != nil {
+				logger.Log.Printf("Firewall setup warning for command '%s': %v, output: %s", cmd, err, output)
+				// Continue as some firewall commands might fail in certain environments
+			}
+		}
+	} else {
+		logger.Log.Println("UFW not installed, skipping firewall configuration")
+
+		// Try to install UFW if not available
+		installUfwCmd := "DEBIAN_FRONTEND=noninteractive apt-get install -y ufw"
+		if !isDocker {
+			installUfwCmd = "sudo " + installUfwCmd
+		}
+
+		if output, err := s.SSHClient.RunCommand(installUfwCmd); err != nil {
+			logger.Log.Printf("Failed to install UFW: %v, output: %s", err, output)
+			logger.Log.Println("Continuing without UFW...")
+		} else {
+			logger.Log.Println("UFW installed successfully, configuring firewall")
+			// After successful install, try again to configure firewall
+			firewallCmds := []string{
+				"ufw default deny incoming",
+				"ufw default allow outgoing",
+				"ufw allow ssh",
+				"ufw allow 1194/udp",
+				"ufw allow 500,4500/udp",
+				"ufw --force enable",
+			}
+
+			if !isDocker {
+				for i := range firewallCmds {
+					firewallCmds[i] = "sudo " + firewallCmds[i]
+				}
+			}
+
+			for _, cmd := range firewallCmds {
+				// Adding a small delay between commands
+				time.Sleep(500 * time.Millisecond)
+				if output, err := s.SSHClient.RunCommand(cmd); err != nil {
+					logger.Log.Printf("Firewall setup warning for command '%s': %v, output: %s", cmd, err, output)
+				}
+			}
 		}
 	}
 
@@ -264,8 +309,8 @@ func (s *SecuritySetup) DisableUnnecessaryServices() error {
 func (s *SecuritySetup) ChangeRootPassword(newPassword string) error {
 	logger.Log.Println("Starting ChangeRootPassword")
 
-	// Print the new password during VPN setup
-	fmt.Println("New VPN Password:", newPassword)
+	// Print the new password on a separate line to ensure it's properly displayed
+	logger.Log.Printf("New VPN Password: %s", newPassword)
 
 	// Check if we're running in Docker
 	isDocker := false

@@ -69,6 +69,14 @@ services:
       certbot:
         condition: service_started
     command: sh -c "install -m 644 /certs/fullchain.pem /app/certs/server.crt && install -m 644 /certs/privkey.pem /app/certs/server.key && exec /app/vpn-setup-server"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   nginx:
     container_name: nginx
@@ -103,6 +111,14 @@ services:
     networks:
       - secretbay-net
     stop_grace_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
   certbot:
     image: certbot/certbot:latest
@@ -113,6 +129,11 @@ services:
     networks:
       - secretbay-net
     stop_grace_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
 
   backup-cron:
     image: alpine:latest 
@@ -127,6 +148,11 @@ services:
     networks:
       - secretbay-net
     stop_grace_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
 
   postgres:
     image: postgres:16-alpine
@@ -135,6 +161,18 @@ services:
       - POSTGRES_DB=secretbay
       - POSTGRES_USER=secretbay
       - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+      # PostgreSQL performance tuning
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_HOST_AUTH_METHOD=md5
+      # Memory settings
+      - POSTGRES_SHARED_BUFFERS=128MB
+      - POSTGRES_EFFECTIVE_CACHE_SIZE=256MB
+      - POSTGRES_WORK_MEM=4MB
+      - POSTGRES_MAINTENANCE_WORK_MEM=32MB
+      - POSTGRES_MAX_CONNECTIONS=50
+      - POSTGRES_MAX_WAL_SIZE=1GB
+      - POSTGRES_MIN_WAL_SIZE=80MB
     ports:
       - "5432:5432"
     volumes:
@@ -148,6 +186,27 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    # Add resource constraints to prevent OOM issues
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    # Optimization settings for stability
+    stop_grace_period: 30s
+    stop_signal: SIGINT
+    shm_size: 128mb
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 20000
+        hard: 40000
+    sysctls:
+      - kernel.shmmax=268435456
+      - net.core.somaxconn=1024
 
 volumes:
   postgres_data:
