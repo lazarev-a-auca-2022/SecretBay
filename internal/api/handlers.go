@@ -130,9 +130,10 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		case "openvpn":
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := openvpn.Setup(); err != nil {
-				// Check specifically for password expiration error in the returned error
-				if strings.Contains(err.Error(), "password has expired") {
-					logger.Log.Printf("SetupVPNHandler: Password expired during setup: %v", err)
+				// Unified password expiration handling for both VPN types
+				if strings.Contains(err.Error(), "password has expired") ||
+					strings.Contains(err.Error(), "Your password has expired") {
+					logger.Log.Printf("SetupVPNHandler: Password expired during OpenVPN setup: %v", err)
 
 					// Generate a new password
 					newPassword, genErr := generatePassword()
@@ -164,9 +165,10 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		case "ios_vpn":
 			strongswan := vpn.StrongSwanSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := strongswan.Setup(); err != nil {
-				// Check specifically for password expiration error in the returned error
-				if strings.Contains(err.Error(), "password has expired") {
-					logger.Log.Printf("SetupVPNHandler: Password expired during setup: %v", err)
+				// Unified password expiration handling for both VPN types
+				if strings.Contains(err.Error(), "password has expired") ||
+					strings.Contains(err.Error(), "Your password has expired") {
+					logger.Log.Printf("SetupVPNHandler: Password expired during StrongSwan setup: %v", err)
 
 					// Generate a new password
 					newPassword, genErr := generatePassword()
