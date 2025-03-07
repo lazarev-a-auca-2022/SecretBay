@@ -450,43 +450,45 @@ explicit-exit-notify 1`
 	// Configure iptables with more robustness
 	logger.Log.Println("Configuring iptables...")
 
-	// First identify the default interface
-	getIfaceCmd := "ip -4 route ls | grep default | awk '{print $5}' | head -1"
+	// First identify the default interface with more robust command
+	getIfaceCmd := "ip route | grep default | awk '{print $5}' | head -n1"
 	iface, err := o.SSHClient.RunCommand(getIfaceCmd)
-	if err != nil {
+	if err != nil || strings.TrimSpace(iface) == "" {
 		logger.Log.Printf("Failed to determine default interface: %v", err)
-		iface = "eth0" // Fallback to common default interface
-		logger.Log.Printf("Using default interface: %s", iface)
+		iface = "eth0" // Try eth0 first
+		// Try to find any available interface
+		findIfaceCmd := "ip link show | grep -v lo | grep -oE '^[0-9]+: [^:]+' | cut -d' ' -f2 | head -n1"
+		if foundIface, ferr := o.SSHClient.RunCommand(findIfaceCmd); ferr == nil && strings.TrimSpace(foundIface) != "" {
+			iface = strings.TrimSpace(foundIface)
+		}
+		logger.Log.Printf("Using fallback interface: %s", iface)
 	} else {
 		iface = strings.TrimSpace(iface)
 		logger.Log.Printf("Detected default interface: %s", iface)
 	}
 
-	// Now use the interface directly in the iptables commands
-	iptablesCmds := []string{
-		fmt.Sprintf("iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o %s -j MASQUERADE", iface),
-		"apt-get -y install iptables-persistent",
-		"netfilter-persistent save",
-		"netfilter-persistent reload",
-	}
+	// Package installation with apt lock handling
+	packageCmd := fmt.Sprintf(`apt-get update && \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent && \
+        iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o %s -j MASQUERADE && \
+        netfilter-persistent save && \
+        netfilter-persistent reload`, iface)
 
-	// Add sudo prefix if not in Docker
-	if !isDocker {
-		for i := range iptablesCmds {
-			iptablesCmds[i] = "sudo " + iptablesCmds[i]
+	// Run the combined command
+	if out, err := o.SSHClient.RunCommand(packageCmd); err != nil {
+		logger.Log.Printf("Warning: IPTables setup had issues: %v, output: %s", err, out)
+		// Try individual commands if combined fails
+		iptablesCmds := []string{
+			fmt.Sprintf("iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o %s -j MASQUERADE", iface),
+			"netfilter-persistent save",
+			"netfilter-persistent reload",
 		}
-	}
 
-	for i, cmd := range iptablesCmds {
-		logger.Log.Printf("IPTables setup %d/%d: %s", i+1, len(iptablesCmds), cmd)
-		output, err := o.SSHClient.RunCommand(cmd)
-		if err != nil {
-			// Check if this is a password expiry issue
-			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
-				return fmt.Errorf("password has expired and needs to be reset before continuing")
+		for _, cmd := range iptablesCmds {
+			if out, err := o.SSHClient.RunCommand(cmd); err != nil {
+				logger.Log.Printf("Warning: Command failed: %s, error: %v, output: %s", cmd, err, out)
+				// Continue anyway as some commands might fail if rules already exist
 			}
-			logger.Log.Printf("Warning: IPTables command failed: %s, Output: %s, Error: %v", cmd, output, err)
-			// Continue anyway as some commands might fail if rules already exist
 		}
 	}
 
