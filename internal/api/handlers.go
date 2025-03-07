@@ -43,25 +43,38 @@ type AuthStatusResponse struct {
 	Authenticated bool `json:"authenticated"`
 }
 
+// VPNStatusResponse provides detailed information about VPN status
 type VPNStatusResponse struct {
-	Status    string `json:"status"`
-	IsRunning bool   `json:"is_running"`
-	ServerIP  string `json:"server_ip,omitempty"`
-	VPNType   string `json:"vpn_type,omitempty"`
+	Status        string   `json:"status"`
+	IsRunning     bool     `json:"is_running"`
+	ServerIP      string   `json:"server_ip,omitempty"`
+	VPNType       string   `json:"vpn_type,omitempty"`
+	ActiveClients int      `json:"active_clients,omitempty"`
+	Uptime        string   `json:"uptime,omitempty"`
+	SecurityStats *SecStat `json:"security_stats,omitempty"`
+}
+
+// SecStat provides information about security status
+type SecStat struct {
+	Fail2BanEnabled bool   `json:"fail2ban_enabled"`
+	FirewallActive  bool   `json:"firewall_active"`
+	LastUpdated     string `json:"last_updated,omitempty"`
 }
 
 // EnhancedVPNSetupResponse extends the basic VPNSetupResponse with more details
 type EnhancedVPNSetupResponse struct {
-	VPNConfig        string `json:"vpn_config"`
-	NewPassword      string `json:"new_password"`
-	Status           string `json:"status"`
-	Message          string `json:"message"`
-	ServiceRunning   bool   `json:"service_running"`
-	SecurityEnabled  bool   `json:"security_enabled"`
-	ConfigValidated  bool   `json:"config_validated"`
-	DownloadEndpoint string `json:"download_endpoint,omitempty"`
-	ServerIP         string `json:"server_ip,omitempty"`
-	VPNType          string `json:"vpn_type,omitempty"`
+	VPNConfig               string   `json:"vpn_config"`
+	NewPassword             string   `json:"new_password"`
+	Status                  string   `json:"status"`
+	Message                 string   `json:"message"`
+	ServiceRunning          bool     `json:"service_running"`
+	SecurityEnabled         bool     `json:"security_enabled"`
+	ConfigValidated         bool     `json:"config_validated"`
+	DownloadEndpoint        string   `json:"download_endpoint,omitempty"`
+	ServerIP                string   `json:"server_ip,omitempty"`
+	VPNType                 string   `json:"vpn_type,omitempty"`
+	DataCleanupSuccessful   bool     `json:"data_cleanup_successful"`
+	SecurityRecommendations []string `json:"security_recommendations,omitempty"`
 }
 
 // PasswordResetRequest represents a request to reset an expired password
@@ -123,6 +136,18 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		// Initialize SSH connection with timeout handling
 		var sshClient *sshclient.SSHClient
 		var err error
+
+		// Send first progress update
+		if ok {
+			progressUpdate := map[string]string{
+				"status":  "connecting",
+				"message": "Establishing secure connection to your server...",
+			}
+			if err := json.NewEncoder(w).Encode(progressUpdate); err != nil {
+				logger.Log.Printf("SetupVPNHandler: Failed to send initial progress: %v", err)
+			}
+			flusher.Flush()
+		}
 
 		// Try connecting multiple times with backoff
 		maxRetries := 3
@@ -187,30 +212,45 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		serviceRunning := false
 		configValidated := false
 		securityEnabled := false
+		dataCleanupSuccessful := false
 		var vpnConfig string
 		var setupErr error
+		var securityRecommendations []string
+
+		// Check server OS before proceeding
+		osCheck, err := sshClient.RunCommand("cat /etc/os-release | grep -i ubuntu")
+		if err != nil || !strings.Contains(osCheck, "Ubuntu") {
+			logger.Log.Printf("SetupVPNHandler: Target server is not running Ubuntu: %v", err)
+			securityRecommendations = append(securityRecommendations, "The server appears to not be running Ubuntu. This VPN setup is optimized for Ubuntu 22.04 LTS.")
+		}
 
 		switch req.VPNType {
 		case "openvpn":
 			logger.Log.Println("SetupVPNHandler: Starting OpenVPN setup")
 
-			// Check for easy-rsa directory and install if missing
-			_, err := sshClient.RunCommand("test -d /usr/share/easy-rsa && echo exists || echo notfound")
-			if err == nil {
-				// Send progress update
-				if ok {
-					json.NewEncoder(w).Encode(map[string]string{
-						"status":  "checking_dependencies",
-						"message": "Checking OpenVPN dependencies...",
-					})
-					flusher.Flush()
-				}
+			// Send progress update - checking dependencies
+			if ok {
+				json.NewEncoder(w).Encode(map[string]string{
+					"status":  "checking_dependencies",
+					"message": "Checking OpenVPN dependencies...",
+				})
+				flusher.Flush()
+			}
 
-				// Install easy-rsa if not found
-				_, err := sshClient.RunCommand("apt-get update && apt-get install -y easy-rsa")
-				if err != nil {
-					logger.Log.Printf("SetupVPNHandler: Failed to install easy-rsa: %v", err)
-				}
+			// Check for necessary packages and install if missing
+			_, err := sshClient.RunCommand("dpkg -s openvpn easy-rsa >/dev/null 2>&1 || { echo 'Installing OpenVPN packages...'; apt-get update && apt-get install -y openvpn easy-rsa; }")
+			if err != nil {
+				logger.Log.Printf("SetupVPNHandler: Failed to verify/install OpenVPN packages: %v", err)
+				securityRecommendations = append(securityRecommendations, "There were issues installing required packages. Verify the server has internet connectivity and apt-get is working properly.")
+			}
+
+			// Send progress update - starting OpenVPN setup
+			if ok {
+				json.NewEncoder(w).Encode(map[string]string{
+					"status":  "installing_openvpn",
+					"message": "Installing and configuring OpenVPN...",
+				})
+				flusher.Flush()
 			}
 
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
@@ -271,11 +311,31 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 					}
 				}
 
+				if !serviceRunning {
+					securityRecommendations = append(securityRecommendations, "OpenVPN service failed to start. Check server logs with 'journalctl -u openvpn@server' for details.")
+				}
+
 				vpnConfig = "/etc/vpn-configs/openvpn_config.ovpn"
 			}
 
 		case "ios_vpn":
 			logger.Log.Println("SetupVPNHandler: Starting iOS VPN (StrongSwan) setup")
+
+			// Send progress update - checking dependencies
+			if ok {
+				json.NewEncoder(w).Encode(map[string]string{
+					"status":  "checking_dependencies",
+					"message": "Checking StrongSwan dependencies...",
+				})
+				flusher.Flush()
+			}
+
+			// Check for necessary packages and install if missing
+			_, err := sshClient.RunCommand("dpkg -s strongswan strongswan-pki libcharon-extra-plugins >/dev/null 2>&1 || { echo 'Installing StrongSwan packages...'; apt-get update && apt-get install -y strongswan strongswan-pki libcharon-extra-plugins; }")
+			if err != nil {
+				logger.Log.Printf("SetupVPNHandler: Failed to verify/install StrongSwan packages: %v", err)
+				securityRecommendations = append(securityRecommendations, "There were issues installing StrongSwan packages. Verify the server has internet connectivity.")
+			}
 
 			// Send progress update if streaming is supported
 			if ok {
@@ -342,6 +402,10 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 					}
 				}
 
+				if !serviceRunning {
+					securityRecommendations = append(securityRecommendations, "StrongSwan service failed to start. Check server logs with 'journalctl -u strongswan' for details.")
+				}
+
 				vpnConfig = "/etc/vpn-configs/ios_vpn.mobileconfig"
 			}
 
@@ -397,6 +461,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			logger.Log.Printf("SetupVPNHandler: Fail2Ban setup failed: %v", err)
 			// Continue anyway but log the error
 			monitoring.LogError(err)
+			securityRecommendations = append(securityRecommendations, "Failed to set up Fail2Ban. Consider installing it manually for protection against brute force attacks.")
 		} else {
 			securityEnabled = true
 			logger.Log.Println("SetupVPNHandler: Fail2Ban setup completed successfully")
@@ -405,6 +470,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		if err := security.DisableUnnecessaryServices(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: DisableUnnecessaryServices failed: %v", err)
 			monitoring.LogError(err)
+			securityRecommendations = append(securityRecommendations, "Unable to disable some unnecessary services. Manually check running services with 'systemctl list-unit-files --state=enabled'.")
 		} else {
 			logger.Log.Println("SetupVPNHandler: Unnecessary services disabled successfully")
 		}
@@ -448,6 +514,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		if err != nil {
 			logger.Log.Printf("SetupVPNHandler: Backup creation failed: %v", err)
 			monitoring.LogError(err)
+			securityRecommendations = append(securityRecommendations, "Automatic backup creation failed. Consider manually backing up your VPN configuration files.")
 		} else {
 			logger.Log.Printf("SetupVPNHandler: Backup created successfully at %s", backupPath)
 		}
@@ -456,7 +523,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		if ok {
 			json.NewEncoder(w).Encode(map[string]string{
 				"status":  "cleaning_up",
-				"message": "Performing final cleanup...",
+				"message": "Performing final cleanup of sensitive data...",
 			})
 			flusher.Flush()
 		}
@@ -464,8 +531,10 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		cleanup := utils.DataCleanup{SSHClient: sshClient}
 		if err := cleanup.RemoveClientData(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: RemoveClientData failed: %v", err)
-			// Log but continue as this is not critical
+			monitoring.LogError(err)
+			securityRecommendations = append(securityRecommendations, "Data cleanup was incomplete. Some client data may remain on the server.")
 		} else {
+			dataCleanupSuccessful = true
 			logger.Log.Println("SetupVPNHandler: Client data cleanup completed successfully")
 		}
 
@@ -480,16 +549,22 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Create enhanced response with detailed status
 		response := EnhancedVPNSetupResponse{
-			VPNConfig:        vpnConfig,
-			NewPassword:      newPassword,
-			Status:           "setup_complete",
-			Message:          "VPN setup completed successfully with all components verified",
-			ServiceRunning:   serviceRunning,
-			SecurityEnabled:  securityEnabled,
-			ConfigValidated:  configValidated,
-			DownloadEndpoint: downloadEndpoint,
-			ServerIP:         req.ServerIP,
-			VPNType:          req.VPNType,
+			VPNConfig:             vpnConfig,
+			NewPassword:           newPassword,
+			Status:                "setup_complete",
+			Message:               "VPN setup completed successfully with all components verified",
+			ServiceRunning:        serviceRunning,
+			SecurityEnabled:       securityEnabled,
+			ConfigValidated:       configValidated,
+			DownloadEndpoint:      downloadEndpoint,
+			ServerIP:              req.ServerIP,
+			VPNType:               req.VPNType,
+			DataCleanupSuccessful: dataCleanupSuccessful,
+		}
+
+		// Only include recommendations if there are any
+		if len(securityRecommendations) > 0 {
+			response.SecurityRecommendations = securityRecommendations
 		}
 
 		logger.Log.Println("SetupVPNHandler: Setup completed successfully with all components verified")
@@ -1295,6 +1370,8 @@ func verifyConfigExists(client *sshclient.SSHClient, configPath string) (bool, e
 }
 
 // VPNStatusHandler returns an http.HandlerFunc that handles VPN status requests
+// It provides detailed information about VPN service status, connected clients,
+// and security features like Fail2Ban.
 func VPNStatusHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Println("VPNStatusHandler: Processing request")
@@ -1324,25 +1401,77 @@ func VPNStatusHandler(cfg *config.Config) http.HandlerFunc {
 		defer sshClient.Close()
 
 		// Check OpenVPN status
-		ovpnStatus, _ := sshClient.RunCommand("systemctl is-active openvpn")
+		ovpnStatus, _ := sshClient.RunCommand("systemctl is-active openvpn@server")
 		strongswanStatus, _ := sshClient.RunCommand("systemctl is-active strongswan")
 
 		var vpnType string
 		var isRunning bool
+		var activeClients int
+		var uptime string
+		var securityStats *SecStat
+
+		// Check security features status
+		fail2banActive, _ := sshClient.RunCommand("systemctl is-active fail2ban")
+		firewallActive, _ := sshClient.RunCommand("ufw status | grep -q 'Status: active' && echo active || echo inactive")
+
+		securityStats = &SecStat{
+			Fail2BanEnabled: strings.TrimSpace(fail2banActive) == "active",
+			FirewallActive:  strings.TrimSpace(firewallActive) == "active",
+			LastUpdated:     time.Now().Format(time.RFC3339),
+		}
 
 		if strings.TrimSpace(ovpnStatus) == "active" {
 			vpnType = "openvpn"
 			isRunning = true
+
+			// Get service uptime
+			uptimeCmd := "systemctl show openvpn@server -p ActiveState,ActiveEnterTimestamp | grep ActiveEnterTimestamp | cut -d= -f2"
+			uptimeOutput, _ := sshClient.RunCommand(uptimeCmd)
+			if uptimeOutput != "" {
+				// Convert to a more readable format
+				t, err := time.Parse("Mon 2006-01-02 15:04:05 MST", strings.TrimSpace(uptimeOutput))
+				if err == nil {
+					uptime = time.Since(t).Round(time.Second).String()
+				}
+			}
+
+			// Count active clients
+			clientsCmd := "cat /var/log/openvpn/openvpn-status.log 2>/dev/null | grep CLIENT_LIST | grep -v HEADER | wc -l || echo 0"
+			clientsOutput, _ := sshClient.RunCommand(clientsCmd)
+			if n, err := strconv.Atoi(strings.TrimSpace(clientsOutput)); err == nil {
+				activeClients = n
+			}
 		} else if strings.TrimSpace(strongswanStatus) == "active" {
 			vpnType = "ios_vpn"
 			isRunning = true
+
+			// Get service uptime
+			uptimeCmd := "systemctl show strongswan -p ActiveState,ActiveEnterTimestamp | grep ActiveEnterTimestamp | cut -d= -f2"
+			uptimeOutput, _ := sshClient.RunCommand(uptimeCmd)
+			if uptimeOutput != "" {
+				// Convert to a more readable format
+				t, err := time.Parse("Mon 2006-01-02 15:04:05 MST", strings.TrimSpace(uptimeOutput))
+				if err == nil {
+					uptime = time.Since(t).Round(time.Second).String()
+				}
+			}
+
+			// Count active clients for StrongSwan/IKEv2
+			clientsCmd := "ipsec status | grep -c 'ESTABLISHED' || echo 0"
+			clientsOutput, _ := sshClient.RunCommand(clientsCmd)
+			if n, err := strconv.Atoi(strings.TrimSpace(clientsOutput)); err == nil {
+				activeClients = n
+			}
 		}
 
 		response := VPNStatusResponse{
-			Status:    "ok",
-			IsRunning: isRunning,
-			ServerIP:  serverIP,
-			VPNType:   vpnType,
+			Status:        "ok",
+			IsRunning:     isRunning,
+			ServerIP:      serverIP,
+			VPNType:       vpnType,
+			ActiveClients: activeClients,
+			Uptime:        uptime,
+			SecurityStats: securityStats,
 		}
 
 		logger.Log.Println("VPNStatusHandler: Sending response")
