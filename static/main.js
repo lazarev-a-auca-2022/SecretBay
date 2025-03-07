@@ -157,73 +157,65 @@ function createFallbackElement(type, id) {
     return el;
 }
 
-// Function to track and display server logs instead of a progress bar
+// Function to track and display server logs
 function setupLogTracker(logContainer, statusElement) {
     const logMessages = [];
-    const MAX_LOGS = 5; // Number of log messages to display
+    const MAX_LOGS = 5;
     let isError = false;
     let pollInterval;
     
-    // // Create a styled log container
-    // const logsDiv = document.createElement('div');
-    // logsDiv.className = 'server-logs';
-    // logsDiv.style.backgroundColor = '#f8f9fa';
-    // logsDiv.style.border = '1px solid #dee2e6';
-    // logsDiv.style.borderRadius = '4px';
-    // logsDiv.style.padding = '10px';
-    // logsDiv.style.marginTop = '15px';
-    // logsDiv.style.marginBottom = '15px';
-    // logsDiv.style.fontFamily = 'monospace';
-    // logsDiv.style.fontSize = '12px';
-    // logsDiv.style.maxHeight = '200px';
-    // logsDiv.style.overflowY = 'auto';
-    // logsDiv.style.whiteSpace = 'pre-wrap';
-    // logContainer.appendChild(logsDiv);
+    const logsDiv = document.createElement("div");
+    logsDiv.className = "server-logs";
+    logsDiv.style.backgroundColor = "#000";
+    logsDiv.style.color = "#00FF00";
+    logsDiv.style.padding = "10px";
+    logsDiv.style.marginTop = "15px";
+    logsDiv.style.marginBottom = "15px";
+    logsDiv.style.fontFamily = "monospace";
+    logsDiv.style.fontSize = "12px";
+    logsDiv.style.maxHeight = "200px";
+    logsDiv.style.overflowY = "auto";
+    logsDiv.style.whiteSpace = "pre-wrap";
     
-    // Function to add a log message
+    logContainer.appendChild(logsDiv);
+    
     const addLogMessage = (message) => {
-        const timestamp = new Date().toISOString().replace('T', ' ').substr(0, 19);
-        logMessages.push(`[${timestamp}] ${message}`);
+        const timestamp = new Date().toISOString().replace("T", " ").substr(0, 19);
+        const logMsg = `[${timestamp}] ${message}`;
+        logMessages.push(logMsg);
         
-        // Keep only the last MAX_LOGS messages
         while (logMessages.length > MAX_LOGS) {
             logMessages.shift();
         }
         
-        // Update the display
-        logsDiv.innerHTML = logMessages.join('<br>');
-        
-        // Auto-scroll to bottom
+        logsDiv.innerHTML = logMessages.join("<br>");
         logsDiv.scrollTop = logsDiv.scrollHeight;
     };
     
-    // Initial message
-    addLogMessage('Starting VPN setup process...');
+    addLogMessage("Starting VPN setup process...");
     
-    // Start polling for logs
     const startPolling = () => {
         pollInterval = setInterval(async () => {
             try {
-                const token = localStorage.getItem('jwt');
+                const token = localStorage.getItem("jwt");
                 if (!token || !isValidJWT(token)) {
                     clearInterval(pollInterval);
-                    addLogMessage('Auth token invalid or expired. Please login again.');
+                    addLogMessage("Auth token invalid or expired. Please login again.");
                     return;
                 }
                 
                 const response = await fetch(`${BASE_URL}/api/logs?limit=5`, {
-                    method: 'GET',
+                    method: "GET",
                     headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json',
-                        'Cache-Control': 'no-cache'
+                        "Authorization": `Bearer ${token}`,
+                        "Accept": "application/json",
+                        "Cache-Control": "no-cache"
                     }
                 });
                 
                 if (!response.ok) {
                     if (response.status === 404) {
-                        // Logs endpoint might not exist yet, use predefined messages
-                        addLogMessage('Setting up VPN server components...');
+                        addLogMessage("Setting up VPN server components...");
                     } else {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -233,99 +225,83 @@ function setupLogTracker(logContainer, statusElement) {
                 const logs = await response.json();
                 
                 if (logs && logs.messages && Array.isArray(logs.messages)) {
-                    // Clear existing logs and add new ones
                     logMessages.length = 0;
                     logs.messages.forEach(log => {
                         logMessages.push(log);
                     });
-                    // Update UI
-                    logsDiv.innerHTML = logMessages.join('<br>');
+                    logsDiv.innerHTML = logMessages.join("<br>");
                     logsDiv.scrollTop = logsDiv.scrollHeight;
                 }
                 
-                // Check for errors in logs
                 const hasErrorInLogs = logs?.messages?.some(msg => 
-                    msg.includes('Error') || 
-                    msg.includes('Failed') || 
-                    msg.includes('failed')
+                    msg.includes("Error") || 
+                    msg.includes("Failed") || 
+                    msg.includes("failed")
                 );
                 
                 if (hasErrorInLogs && !isError) {
-                    statusElement.textContent = 'Error detected in logs';
-                    statusElement.style.color = '#d9534f';
+                    statusElement.textContent = "Error detected in logs";
+                    statusElement.style.color = "#FF0000";
                 }
                 
             } catch (error) {
-                console.error('Error fetching logs:', error);
+                console.error("Error fetching logs:", error);
                 addLogMessage(`Error fetching logs: ${error.message}`);
             }
-        }, 3000); // Poll every 3 seconds
+        }, 3000);
     };
     
-    // Start polling immediately
     startPolling();
     
     return {
         addLog: addLogMessage,
         complete: () => {
             clearInterval(pollInterval);
-            statusElement.textContent = 'Setup completed successfully!';
-            statusElement.style.color = '#28a745';
-            addLogMessage('VPN setup completed successfully!');
+            statusElement.textContent = "Setup completed successfully!";
+            statusElement.style.color = "#00FF00";
+            addLogMessage("VPN setup completed successfully!");
             
-            // Remove any error controls that might be present
-            const errorControls = document.querySelector('#errorControls');
+            const errorControls = document.querySelector("#errorControls");
             if (errorControls) {
                 errorControls.remove();
             }
         },
         error: (message) => {
             isError = true;
-            clearInterval(pollInterval); // Stop polling on error
+            clearInterval(pollInterval);
             
-            // Update status and logs
             statusElement.textContent = `Error: ${message}`;
-            statusElement.style.color = '#d9534f';
+            statusElement.style.color = "#FF0000";
             addLogMessage(`ERROR: ${message}`);
             
-            // Create retry/cancel buttons if they don't already exist
-            if (!document.querySelector('#errorControls')) {
+            if (!document.querySelector("#errorControls")) {
                 const container = logContainer.parentElement;
+                const errorControls = document.createElement("div");
+                errorControls.id = "errorControls";
+                errorControls.style.marginTop = "20px";
+                errorControls.style.display = "flex";
+                errorControls.style.justifyContent = "center";
+                errorControls.style.gap = "10px";
                 
-                const errorControls = document.createElement('div');
-                errorControls.id = 'errorControls';
-                errorControls.style.marginTop = '20px';
-                errorControls.style.display = 'flex';
-                errorControls.style.justifyContent = 'center';
-                errorControls.style.gap = '10px';
-                
-                const retryButton = document.createElement('button');
-                retryButton.textContent = 'Retry';
-                retryButton.className = 'btn btn-primary';
-                retryButton.style.maxWidth = '150px';
+                const retryButton = document.createElement("button");
+                retryButton.textContent = "Retry";
+                retryButton.className = "btn btn-primary";
+                retryButton.style.maxWidth = "150px";
                 retryButton.onclick = () => {
-                    // Remove error controls and error state
                     errorControls.remove();
                     isError = false;
-                    statusElement.style.color = '';
-                    
-                    // Resubmit the form
-                    document.querySelector('#vpnForm').dispatchEvent(new Event('submit'));
+                    statusElement.style.color = "#00FF00";
+                    document.querySelector("#vpnForm").dispatchEvent(new Event("submit"));
                 };
                 
-                const cancelButton = document.createElement('button');
-                cancelButton.textContent = 'Cancel';
-                cancelButton.className = 'btn btn-secondary';
-                cancelButton.style.maxWidth = '150px';
+                const cancelButton = document.createElement("button");
+                cancelButton.textContent = "Cancel";
+                cancelButton.className = "btn btn-secondary";
+                cancelButton.style.maxWidth = "150px";
                 cancelButton.onclick = () => {
-                    // Stop polling
                     clearInterval(pollInterval);
-                    
-                    // Show the form again
-                    document.querySelector('#setupProgress').style.display = 'none';
-                    document.querySelector('#vpnForm').style.display = 'block';
-                    
-                    // Remove log display and error controls
+                    document.querySelector("#setupProgress").style.display = "none";
+                    document.querySelector("#vpnForm").style.display = "block";
                     logsDiv.remove();
                     errorControls.remove();
                 };
@@ -391,6 +367,24 @@ function showPasswordInfo(password, container) {
     } else {
         container.appendChild(passwordSection);
     }
+}
+
+// Function to generate download links instead of directly downloading files
+function generateDownloadLink(url, filename, params) {
+    const token = localStorage.getItem('jwt');
+    if (!token || !isValidJWT(token)) {
+        throw new Error('Authentication required');
+    }
+
+    const queryParams = new URLSearchParams({
+        serverIp: params.serverIp,
+        username: params.username,
+        credential: params.credential,
+        vpnType: params.vpnType
+    }).toString();
+
+    // Return the full URL with query parameters
+    return `${url}?${queryParams}`;
 }
 
 // Function to generate download links instead of directly downloading files
