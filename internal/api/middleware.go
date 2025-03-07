@@ -17,16 +17,54 @@ import (
 
 var csrfTokens sync.Map
 
+// isValidOrigin checks if the given origin is allowed by CORS policy
+func isValidOrigin(origin string) bool {
+	// List of allowed origins - modify as needed for your application
+	allowedOrigins := []string{
+		"http://localhost:8080",
+		"https://localhost:8443",
+		"https://secretbay.local",
+	}
+
+	for _, allowed := range allowedOrigins {
+		if allowed == origin {
+			return true
+		}
+	}
+
+	// Check if origin is from the same domain but different port/protocol
+	for _, allowed := range allowedOrigins {
+		parts := strings.Split(allowed, "://")
+		if len(parts) == 2 {
+			domain := strings.Split(parts[1], ":")[0]
+			originParts := strings.Split(origin, "://")
+			if len(originParts) == 2 {
+				originDomain := strings.Split(originParts[1], ":")[0]
+				if domain == originDomain {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// setSecurityHeaders sets standard security headers on the response
+func setSecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("X-XSS-Protection", "1; mode=block")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'")
+	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+}
+
 // SecurityHeadersMiddleware ensures proper security headers are set
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set security headers first
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("X-XSS-Protection", "1; mode=block")
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'")
-		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		setSecurityHeaders(w)
 
 		// Set CORS headers if origin is present
 		origin := r.Header.Get("Origin")

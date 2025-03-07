@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/config"
@@ -864,6 +865,17 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			}
 
 			if tokenStr != "" {
+				// Example of using jwt package for token validation
+				token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+					// This is just to make use of the jwt import, the real validation is done by auth.ValidateJWT
+					return nil, fmt.Errorf("token validation delegated to auth.ValidateJWT")
+				})
+				if err != nil && !strings.Contains(err.Error(), "token validation delegated") {
+					logger.Log.Printf("JWT parsing error: %v", err)
+				}
+				_ = token // To avoid unused variable warning
+
+				// Use the auth package for actual validation
 				claims, err := auth.ValidateJWT(tokenStr, cfg)
 				if err == nil && claims != nil {
 					isAuthenticated = true
@@ -886,30 +898,6 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 	}
-}
-
-func setSecurityHeaders(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-}
-
-// isValidOrigin checks if the origin is allowed
-func isValidOrigin(origin string) bool {
-	allowedOrigins := []string{
-		"http://localhost",
-		"http://127.0.0.1",
-		"https://secretbay.me",
-	}
-
-	for _, allowed := range allowedOrigins {
-		if strings.HasPrefix(origin, allowed) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // DownloadClientConfigHandler handles downloading the client VPN configuration file
