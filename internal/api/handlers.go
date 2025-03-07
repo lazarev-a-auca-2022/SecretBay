@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -133,7 +134,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Accel-Buffering", "no") // Prevent nginx buffering if used
 
-		// Initialize SSH connection with timeout handling
+		// Initialize SSH connection with improved timeout handling and retries
 		var sshClient *sshclient.SSHClient
 		var err error
 
@@ -149,26 +150,82 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			flusher.Flush()
 		}
 
-		// Try connecting multiple times with backoff
-		maxRetries := 3
+		// Improved connection handling with more retries and better error information
+		maxRetries := 5 // Increased from 3 to 5
+		var connectionErrors []string
+
 		for i := 0; i < maxRetries; i++ {
-			logger.Log.Printf("SetupVPNHandler: SSH connection attempt %d of %d", i+1, maxRetries)
+			logger.Log.Printf("SetupVPNHandler: SSH connection attempt %d of %d to %s", i+1, maxRetries, req.ServerIP)
+
+			// Send progress updates for retry attempts after the first one
+			if i > 0 && ok {
+				progressUpdate := map[string]string{
+					"status":  "connecting_retry",
+					"message": fmt.Sprintf("Connection attempt %d of %d. Retrying connection to your server...", i+1, maxRetries),
+				}
+				if err := json.NewEncoder(w).Encode(progressUpdate); err != nil {
+					logger.Log.Printf("SetupVPNHandler: Failed to send retry progress: %v", err)
+				}
+				flusher.Flush()
+			}
+
+			// Try to connect
 			sshClient, err = sshclient.NewSSHClient(req.ServerIP, req.Username, authMethod, req.AuthCredential)
 			if err == nil {
+				logger.Log.Printf("SetupVPNHandler: Successfully connected on attempt %d", i+1)
 				break
 			}
+
+			// Record detailed error for this attempt
+			errMsg := fmt.Sprintf("Attempt %d: %v", i+1, err)
+			connectionErrors = append(connectionErrors, errMsg)
+			logger.Log.Printf("SetupVPNHandler: SSH connection retry after error: %s", errMsg)
+
 			if i < maxRetries-1 {
-				logger.Log.Printf("SetupVPNHandler: SSH connection retry after error: %v", err)
-				time.Sleep(time.Duration(i+1) * 2 * time.Second) // Exponential backoff
+				// Exponential backoff with a max of 10 seconds
+				backoffTime := time.Duration(math.Min(float64((i+1)*2), 10)) * time.Second
+				logger.Log.Printf("SetupVPNHandler: Waiting %v before next attempt", backoffTime)
+				time.Sleep(backoffTime)
 			}
 		}
 
 		if err != nil {
-			logger.Log.Printf("SetupVPNHandler: All SSH connection attempts failed: %v", err)
-			utils.JSONError(w, fmt.Sprintf("SSH connection failed after %d attempts: %v", maxRetries, err), http.StatusInternalServerError)
+			logger.Log.Printf("SetupVPNHandler: All SSH connection attempts failed after %d tries", maxRetries)
+
+			// Perform diagnostic checks to get more information
+			// Check if the server is reachable at all
+			pingCmd := fmt.Sprintf("ping -c 1 -W 2 %s", req.ServerIP)
+			pingOut, _ := exec.Command("sh", "-c", pingCmd).CombinedOutput()
+			logger.Log.Printf("SetupVPNHandler: Ping diagnostic: %s", string(pingOut))
+
+			// Check if SSH port is open
+			portCheckCmd := fmt.Sprintf("nc -z -w 5 %s 22", req.ServerIP)
+			portOut, _ := exec.Command("sh", "-c", portCheckCmd).CombinedOutput()
+			logger.Log.Printf("SetupVPNHandler: Port diagnostic: %s", string(portOut))
+
+			// Format a comprehensive error message
+			detailedError := fmt.Sprintf("SSH connection failed after %d attempts. Please verify:\n"+
+				"- The server IP address is correct (%s)\n"+
+				"- The server is online and reachable\n"+
+				"- SSH service is running on the server\n"+
+				"- Credentials are valid\n"+
+				"- No firewall is blocking the connection\n\n"+
+				"Last error: %v", maxRetries, req.ServerIP, err)
+
+			utils.JSONError(w, detailedError, http.StatusInternalServerError)
 			return
 		}
 		defer sshClient.Close()
+
+		// After successful connection, verify SSH functionality with a simple command
+		testCmd := "echo 'Connection test successful'"
+		testOut, testErr := sshClient.RunCommand(testCmd)
+		if testErr != nil {
+			logger.Log.Printf("SetupVPNHandler: SSH connection verification failed: %v", testErr)
+			utils.JSONError(w, fmt.Sprintf("SSH connection established but command execution failed: %v", testErr), http.StatusInternalServerError)
+			return
+		}
+		logger.Log.Printf("SetupVPNHandler: SSH connection verified with test command: %s", testOut)
 
 		// Check if password is expired
 		if sshClient.IsPasswordExpired() {
