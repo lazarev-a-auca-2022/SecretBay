@@ -160,7 +160,7 @@ function createFallbackElement(type, id) {
 // Function to track and display server logs
 function setupLogTracker(logContainer, statusElement) {
     const logMessages = [];
-    const MAX_LOGS = 5;
+    const MAX_LOGS = 50;  // Increased to show more logs
     let isError = false;
     let pollInterval;
     
@@ -173,26 +173,12 @@ function setupLogTracker(logContainer, statusElement) {
     logsDiv.style.marginBottom = "15px";
     logsDiv.style.fontFamily = "monospace";
     logsDiv.style.fontSize = "12px";
-    logsDiv.style.maxHeight = "200px";
+    logsDiv.style.maxHeight = "400px";  // Increased height
     logsDiv.style.overflowY = "auto";
     logsDiv.style.whiteSpace = "pre-wrap";
+    logsDiv.style.borderRadius = "5px";
     
     logContainer.appendChild(logsDiv);
-    
-    const addLogMessage = (message) => {
-        const timestamp = new Date().toISOString().replace("T", " ").substr(0, 19);
-        const logMsg = `[${timestamp}] ${message}`;
-        logMessages.push(logMsg);
-        
-        while (logMessages.length > MAX_LOGS) {
-            logMessages.shift();
-        }
-        
-        logsDiv.innerHTML = logMessages.join("<br>");
-        logsDiv.scrollTop = logsDiv.scrollHeight;
-    };
-    
-    addLogMessage("Starting VPN setup process...");
     
     const startPolling = () => {
         pollInterval = setInterval(async () => {
@@ -204,7 +190,7 @@ function setupLogTracker(logContainer, statusElement) {
                     return;
                 }
                 
-                const response = await fetch(`${BASE_URL}/api/logs?limit=5`, {
+                const response = await fetch(`${BASE_URL}/api/logs`, {
                     method: "GET",
                     headers: {
                         "Authorization": `Bearer ${token}`,
@@ -214,29 +200,26 @@ function setupLogTracker(logContainer, statusElement) {
                 });
                 
                 if (!response.ok) {
-                    if (response.status === 404) {
-                        addLogMessage("Setting up VPN server components...");
-                    } else {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                    if (response.status === 401) {
+                        clearInterval(pollInterval);
+                        window.location.href = '/login.html?auth_error=true';
+                        return;
                     }
-                    return;
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 const logs = await response.json();
                 
                 if (logs && logs.messages && Array.isArray(logs.messages)) {
-                    logMessages.length = 0;
-                    logs.messages.forEach(log => {
-                        logMessages.push(log);
-                    });
-                    logsDiv.innerHTML = logMessages.join("<br>");
+                    // Clear previous logs and show new ones
+                    logsDiv.innerHTML = logs.messages.join("<br>");
                     logsDiv.scrollTop = logsDiv.scrollHeight;
                 }
                 
                 const hasErrorInLogs = logs?.messages?.some(msg => 
-                    msg.includes("Error") || 
-                    msg.includes("Failed") || 
-                    msg.includes("failed")
+                    msg.toLowerCase().includes("error") || 
+                    msg.toLowerCase().includes("failed") || 
+                    msg.toLowerCase().includes("failure")
                 );
                 
                 if (hasErrorInLogs && !isError) {
@@ -246,20 +229,17 @@ function setupLogTracker(logContainer, statusElement) {
                 
             } catch (error) {
                 console.error("Error fetching logs:", error);
-                addLogMessage(`Error fetching logs: ${error.message}`);
             }
-        }, 3000);
+        }, 2000);  // Poll every 2 seconds
     };
     
     startPolling();
     
     return {
-        addLog: addLogMessage,
         complete: () => {
             clearInterval(pollInterval);
             statusElement.textContent = "Setup completed successfully!";
             statusElement.style.color = "#00FF00";
-            addLogMessage("VPN setup completed successfully!");
             
             const errorControls = document.querySelector("#errorControls");
             if (errorControls) {
@@ -272,7 +252,6 @@ function setupLogTracker(logContainer, statusElement) {
             
             statusElement.textContent = `Error: ${message}`;
             statusElement.style.color = "#FF0000";
-            addLogMessage(`ERROR: ${message}`);
             
             if (!document.querySelector("#errorControls")) {
                 const container = logContainer.parentElement;

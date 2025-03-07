@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -509,6 +510,32 @@ func (h *Handlers) LogsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"messages": messages,
 	})
+}
+
+// Add the new logs handler function
+func LogsHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cmd := exec.Command("docker", "logs", "--tail", "10", "vpn-server")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			utils.JSONError(w, "Failed to fetch logs", http.StatusInternalServerError)
+			return
+		}
+
+		// Split logs into lines and format them
+		logs := strings.Split(string(output), "\n")
+		var messages []string
+		for _, log := range logs {
+			if log != "" {
+				messages = append(messages, log)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"messages": messages,
+		})
+	}
 }
 
 func generatePassword() (string, error) {

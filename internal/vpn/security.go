@@ -104,7 +104,7 @@ ignoreregex =
 	// Enhanced fail2ban configuration
 	fail2banConfig := `
 [DEFAULT]
-ignoreip = 127.0.0.1/8 ::1
+ignoreip = 127.0.0.1/8 ::1 ${SERVER_IP}
 bantime  = 3600
 findtime  = 600
 maxretry = 5
@@ -129,6 +129,17 @@ maxretry = 3
 findtime = 300
 bantime = 3600
 `
+
+	// Get the server's own IP address
+	getIpCmd := "curl -s ifconfig.me || wget -qO- ifconfig.me"
+	serverIP, err := s.SSHClient.RunCommand(getIpCmd)
+	if err != nil {
+		logger.Log.Printf("Warning: Could not get server IP: %v", err)
+		serverIP = "127.0.0.1" // Fallback to localhost if we can't get the IP
+	}
+
+	// Replace the placeholder with actual server IP
+	fail2banConfig = strings.ReplaceAll(fail2banConfig, "${SERVER_IP}", strings.TrimSpace(serverIP))
 
 	writeConfigCmd := fmt.Sprintf("echo '%s' | tee /etc/fail2ban/jail.local", fail2banConfig)
 	if !isDocker {
