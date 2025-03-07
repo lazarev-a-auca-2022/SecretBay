@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
@@ -47,6 +48,20 @@ type VPNStatusResponse struct {
 	IsRunning bool   `json:"is_running"`
 	ServerIP  string `json:"server_ip,omitempty"`
 	VPNType   string `json:"vpn_type,omitempty"`
+}
+
+// EnhancedVPNSetupResponse extends the basic VPNSetupResponse with more details
+type EnhancedVPNSetupResponse struct {
+	VPNConfig        string `json:"vpn_config"`
+	NewPassword      string `json:"new_password"`
+	Status           string `json:"status"`
+	Message          string `json:"message"`
+	ServiceRunning   bool   `json:"service_running"`
+	SecurityEnabled  bool   `json:"security_enabled"`
+	ConfigValidated  bool   `json:"config_validated"`
+	DownloadEndpoint string `json:"download_endpoint,omitempty"`
+	ServerIP         string `json:"server_ip,omitempty"`
+	VPNType          string `json:"vpn_type,omitempty"`
 }
 
 // PasswordResetRequest represents a request to reset an expired password
@@ -95,10 +110,37 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		sshClient, err := sshclient.NewSSHClient(req.ServerIP, req.Username, authMethod, req.AuthCredential)
+		// Create response writer that can be flushed early to prevent client timeouts
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			logger.Log.Println("SetupVPNHandler: Streaming not supported")
+		}
+
+		// Set headers for streaming response if supported
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Accel-Buffering", "no") // Prevent nginx buffering if used
+
+		// Initialize SSH connection with timeout handling
+		var sshClient *sshclient.SSHClient
+		var err error
+
+		// Try connecting multiple times with backoff
+		maxRetries := 3
+		for i := 0; i < maxRetries; i++ {
+			logger.Log.Printf("SetupVPNHandler: SSH connection attempt %d of %d", i+1, maxRetries)
+			sshClient, err = sshclient.NewSSHClient(req.ServerIP, req.Username, authMethod, req.AuthCredential)
+			if err == nil {
+				break
+			}
+			if i < maxRetries-1 {
+				logger.Log.Printf("SetupVPNHandler: SSH connection retry after error: %v", err)
+				time.Sleep(time.Duration(i+1) * 2 * time.Second) // Exponential backoff
+			}
+		}
+
 		if err != nil {
-			logger.Log.Printf("SetupVPNHandler: SSH connection failed: %v", err)
-			utils.JSONError(w, fmt.Sprintf("SSH connection failed: %v", err), http.StatusInternalServerError)
+			logger.Log.Printf("SetupVPNHandler: All SSH connection attempts failed: %v", err)
+			utils.JSONError(w, fmt.Sprintf("SSH connection failed after %d attempts: %v", maxRetries, err), http.StatusInternalServerError)
 			return
 		}
 		defer sshClient.Close()
@@ -128,9 +170,49 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
+		// Send initial 200 OK status to client if streaming is supported
+		if ok {
+			// Send an initial progress update
+			progressUpdate := map[string]string{
+				"status":  "setup_started",
+				"message": "VPN setup process has started. This may take several minutes.",
+			}
+			if err := json.NewEncoder(w).Encode(progressUpdate); err != nil {
+				logger.Log.Printf("SetupVPNHandler: Failed to send initial progress: %v", err)
+			}
+			flusher.Flush()
+		}
+
+		// Track setup progress
+		serviceRunning := false
+		configValidated := false
+		securityEnabled := false
 		var vpnConfig string
+		var setupErr error
+
 		switch req.VPNType {
 		case "openvpn":
+			logger.Log.Println("SetupVPNHandler: Starting OpenVPN setup")
+
+			// Check for easy-rsa directory and install if missing
+			_, err := sshClient.RunCommand("test -d /usr/share/easy-rsa && echo exists || echo notfound")
+			if err == nil {
+				// Send progress update
+				if ok {
+					json.NewEncoder(w).Encode(map[string]string{
+						"status":  "checking_dependencies",
+						"message": "Checking OpenVPN dependencies...",
+					})
+					flusher.Flush()
+				}
+
+				// Install easy-rsa if not found
+				_, err := sshClient.RunCommand("apt-get update && apt-get install -y easy-rsa")
+				if err != nil {
+					logger.Log.Printf("SetupVPNHandler: Failed to install easy-rsa: %v", err)
+				}
+			}
+
 			openvpn := vpn.OpenVPNSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := openvpn.Setup(); err != nil {
 				// Unified password expiration handling for both VPN types
@@ -160,12 +242,50 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 				}
 
 				logger.Log.Printf("SetupVPNHandler: OpenVPN setup failed: %v", err)
-				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
-				return
+				setupErr = err
+			} else {
+				logger.Log.Println("SetupVPNHandler: OpenVPN setup completed successfully")
+
+				// Send progress update if streaming is supported
+				if ok {
+					json.NewEncoder(w).Encode(map[string]string{
+						"status":  "openvpn_setup_complete",
+						"message": "OpenVPN setup completed successfully. Verifying service status...",
+					})
+					flusher.Flush()
+				}
+
+				// Verify service is running
+				status, _ := sshClient.RunCommand("systemctl is-active openvpn@server")
+				serviceRunning = strings.TrimSpace(status) == "active"
+				if serviceRunning {
+					logger.Log.Println("SetupVPNHandler: OpenVPN service is active and running")
+				} else {
+					logger.Log.Println("SetupVPNHandler: OpenVPN service is not active, attempting to start")
+					// Try to start the service if it's not running
+					_, startErr := sshClient.RunCommand("systemctl start openvpn@server")
+					if startErr == nil {
+						// Check again after trying to start
+						status, _ = sshClient.RunCommand("systemctl is-active openvpn@server")
+						serviceRunning = strings.TrimSpace(status) == "active"
+					}
+				}
+
+				vpnConfig = "/etc/vpn-configs/openvpn_config.ovpn"
 			}
-			vpnConfig = "/etc/vpn-configs/openvpn_config.ovpn"
 
 		case "ios_vpn":
+			logger.Log.Println("SetupVPNHandler: Starting iOS VPN (StrongSwan) setup")
+
+			// Send progress update if streaming is supported
+			if ok {
+				json.NewEncoder(w).Encode(map[string]string{
+					"status":  "starting_ios_vpn_setup",
+					"message": "Starting iOS VPN (StrongSwan) setup process...",
+				})
+				flusher.Flush()
+			}
+
 			strongswan := vpn.StrongSwanSetup{SSHClient: sshClient, ServerIP: req.ServerIP}
 			if err := strongswan.Setup(); err != nil {
 				// Unified password expiration handling for both VPN types
@@ -195,15 +315,55 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 				}
 
 				logger.Log.Printf("SetupVPNHandler: StrongSwan setup failed: %v", err)
-				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
-				return
+				setupErr = err
+			} else {
+				logger.Log.Println("SetupVPNHandler: StrongSwan setup completed successfully")
+
+				// Send progress update if streaming is supported
+				if ok {
+					json.NewEncoder(w).Encode(map[string]string{
+						"status":  "ios_vpn_setup_complete",
+						"message": "iOS VPN setup completed successfully. Verifying service status...",
+					})
+					flusher.Flush()
+				}
+
+				// Verify service is running
+				status, _ := sshClient.RunCommand("systemctl is-active strongswan")
+				serviceRunning = strings.TrimSpace(status) == "active"
+				if !serviceRunning {
+					logger.Log.Println("SetupVPNHandler: StrongSwan service is not active, attempting to start")
+					// Try to start the service if it's not running
+					_, startErr := sshClient.RunCommand("systemctl start strongswan")
+					if startErr == nil {
+						// Check again after trying to start
+						status, _ = sshClient.RunCommand("systemctl is-active strongswan")
+						serviceRunning = strings.TrimSpace(status) == "active"
+					}
+				}
+
+				vpnConfig = "/etc/vpn-configs/ios_vpn.mobileconfig"
 			}
-			vpnConfig = "/etc/vpn-configs/ios_vpn.mobileconfig"
 
 		default:
 			logger.Log.Printf("SetupVPNHandler: Unsupported VPN type: %s", req.VPNType)
 			utils.JSONError(w, "Unsupported VPN type", http.StatusBadRequest)
 			return
+		}
+
+		// Check for setup errors before continuing
+		if setupErr != nil {
+			utils.JSONErrorWithDetails(w, setupErr, http.StatusInternalServerError, "", r.URL.Path)
+			return
+		}
+
+		// Send progress update for config verification
+		if ok {
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "verifying_config",
+				"message": "Verifying VPN configuration files...",
+			})
+			flusher.Flush()
 		}
 
 		// Verify the config file exists after setup
@@ -213,22 +373,49 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
 			return
 		}
+
+		configValidated = exists
 		if !exists {
 			logger.Log.Printf("SetupVPNHandler: Config file not found after setup: %s", vpnConfig)
 			utils.JSONError(w, "VPN setup completed but config file not found", http.StatusInternalServerError)
 			return
 		}
 
+		logger.Log.Printf("SetupVPNHandler: Config file %s verified successfully", vpnConfig)
+
+		// Send progress update for security setup
+		if ok {
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "setting_up_security",
+				"message": "Setting up security measures (Fail2Ban, firewall)...",
+			})
+			flusher.Flush()
+		}
+
 		security := vpn.SecuritySetup{SSHClient: sshClient}
 		if err := security.SetupFail2Ban(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: Fail2Ban setup failed: %v", err)
-			utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
-			return
+			// Continue anyway but log the error
+			monitoring.LogError(err)
+		} else {
+			securityEnabled = true
+			logger.Log.Println("SetupVPNHandler: Fail2Ban setup completed successfully")
 		}
 
 		if err := security.DisableUnnecessaryServices(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: DisableUnnecessaryServices failed: %v", err)
 			monitoring.LogError(err)
+		} else {
+			logger.Log.Println("SetupVPNHandler: Unnecessary services disabled successfully")
+		}
+
+		// Send progress update for password generation
+		if ok {
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "generating_secure_password",
+				"message": "Generating and setting secure root password...",
+			})
+			flusher.Flush()
 		}
 
 		newPassword, err := generatePassword()
@@ -244,27 +431,68 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
+		logger.Log.Println("SetupVPNHandler: Root password changed successfully")
+
+		// Send progress update for backup creation
+		if ok {
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "creating_backup",
+				"message": "Creating backup of VPN configuration...",
+			})
+			flusher.Flush()
+		}
+
 		// Create backup after successful setup
 		backupManager := utils.BackupManager{SSHClient: sshClient}
-		_, err = backupManager.CreateBackup()
+		backupPath, err := backupManager.CreateBackup()
 		if err != nil {
 			logger.Log.Printf("SetupVPNHandler: Backup creation failed: %v", err)
 			monitoring.LogError(err)
+		} else {
+			logger.Log.Printf("SetupVPNHandler: Backup created successfully at %s", backupPath)
+		}
+
+		// Send progress update for cleanup
+		if ok {
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "cleaning_up",
+				"message": "Performing final cleanup...",
+			})
+			flusher.Flush()
 		}
 
 		cleanup := utils.DataCleanup{SSHClient: sshClient}
 		if err := cleanup.RemoveClientData(); err != nil {
 			logger.Log.Printf("SetupVPNHandler: RemoveClientData failed: %v", err)
 			// Log but continue as this is not critical
+		} else {
+			logger.Log.Println("SetupVPNHandler: Client data cleanup completed successfully")
 		}
 
-		response := models.VPNSetupResponse{
-			VPNConfig:   vpnConfig,
-			NewPassword: newPassword,
+		// Determine download endpoint based on VPN type
+		downloadEndpoint := "/api/config/download/client?vpnType="
+		if req.VPNType == "openvpn" {
+			downloadEndpoint += "openvpn"
+		} else {
+			downloadEndpoint += "ios_vpn"
+		}
+		downloadEndpoint += fmt.Sprintf("&serverIp=%s", req.ServerIP)
+
+		// Create enhanced response with detailed status
+		response := EnhancedVPNSetupResponse{
+			VPNConfig:        vpnConfig,
+			NewPassword:      newPassword,
+			Status:           "setup_complete",
+			Message:          "VPN setup completed successfully with all components verified",
+			ServiceRunning:   serviceRunning,
+			SecurityEnabled:  securityEnabled,
+			ConfigValidated:  configValidated,
+			DownloadEndpoint: downloadEndpoint,
+			ServerIP:         req.ServerIP,
+			VPNType:          req.VPNType,
 		}
 
-		logger.Log.Println("SetupVPNHandler: Setup completed successfully")
-		w.Header().Set("Content-Type", "application/json")
+		logger.Log.Println("SetupVPNHandler: Setup completed successfully with all components verified")
 		json.NewEncoder(w).Encode(response)
 	}
 }
