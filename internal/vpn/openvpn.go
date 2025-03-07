@@ -669,7 +669,26 @@ remote-cert-tls server
 cipher AES-256-GCM
 auth SHA512
 verb 3
-key-direction 1`, o.ServerIP)
+key-direction 1
+
+# Certificates and keys
+<ca>
+%s
+</ca>`, o.ServerIP, "${CA_CERT}")
+
+	// Read CA certificate
+	caCertCmd := "cat /etc/openvpn/certs/ca.crt"
+	if !isDocker {
+		caCertCmd = "sudo " + caCertCmd
+	}
+	caCert, err := o.SSHClient.RunCommand(caCertCmd)
+	if err != nil {
+		logger.Log.Printf("Failed to read CA certificate: %v", err)
+		return fmt.Errorf("failed to read CA certificate: %v", err)
+	}
+
+	// Replace placeholder with actual CA cert
+	clientConfig = strings.Replace(clientConfig, "${CA_CERT}", caCert, 1)
 
 	clientConfigCmd := fmt.Sprintf("echo '%s' | tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig)
 	if !isDocker {
