@@ -439,20 +439,8 @@ func isInternalIP(ip string) bool {
 	return false
 }
 
-// Handlers contains all HTTP handlers and their dependencies
-type Handlers struct {
-	DB  *sql.DB
-	Cfg *config.Config
-}
-
 // RegisterRoutes sets up all API routes
 func RegisterRoutes(router *mux.Router, cfg *config.Config, db *sql.DB) {
-	// Create handlers with dependencies
-	handlers := &Handlers{
-		DB:  db,
-		Cfg: cfg,
-	}
-
 	// Public endpoints that don't need auth
 	router.HandleFunc("/health", HealthCheckHandler()).Methods("GET")
 	router.HandleFunc("/metrics", MetricsHandler(cfg)).Methods("GET")
@@ -465,7 +453,7 @@ func RegisterRoutes(router *mux.Router, cfg *config.Config, db *sql.DB) {
 	apiRouter.HandleFunc("/auth/status", AuthStatusHandler(cfg)).Methods("GET", "OPTIONS")
 	apiRouter.HandleFunc("/auth/login", LoginHandler(cfg)).Methods("POST", "OPTIONS")
 	apiRouter.HandleFunc("/auth/register", RegisterHandler(cfg.DB, cfg)).Methods("POST", "OPTIONS")
-	apiRouter.HandleFunc("/password/reset", ResetPasswordHandler(cfg)).Methods("POST", "OPTIONS") // Add the password reset endpoint
+	apiRouter.HandleFunc("/password/reset", ResetPasswordHandler(cfg)).Methods("POST", "OPTIONS")
 
 	// Protected API routes
 	protectedRouter := apiRouter.PathPrefix("").Subrouter()
@@ -479,61 +467,58 @@ func RegisterRoutes(router *mux.Router, cfg *config.Config, db *sql.DB) {
 	protectedRouter.HandleFunc("/config/download/server", DownloadServerConfigHandler()).Methods("GET")
 	protectedRouter.HandleFunc("/backup", BackupHandler(cfg)).Methods("POST")
 	protectedRouter.HandleFunc("/restore", RestoreHandler(cfg)).Methods("POST")
-	// Add the logs endpoint
-	protectedRouter.HandleFunc("/logs", handlers.LogsHandler).Methods("GET")
+	protectedRouter.HandleFunc("/logs", LogsHandler(cfg)).Methods("GET")
 }
 
-// LogsHandler returns recent log messages for the frontend to display
-func (h *Handlers) LogsHandler(w http.ResponseWriter, r *http.Request) {
-	// Default to 5 logs if not specified
-	limitStr := r.URL.Query().Get("limit")
-	limit := 5
-	if limitStr != "" {
-		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
-			limit = parsed
-			if limit > 50 {
-				limit = 50 // Cap at 50 to prevent excessive responses
-			}
-		}
-	}
-
-	// Get the most recent log messages from logger
-	messages, err := logger.GetRecentLogs(limit)
-	if err != nil {
-		utils.JSONError(w, "Failed to retrieve logs", http.StatusInternalServerError)
-		return
-	}
-
-	// Respond with log messages
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"messages": messages,
-	})
-}
-
-// Add the new logs handler function
-func LogsHandler() http.HandlerFunc {
+// LogsHandler returns an http.HandlerFunc that handles VPN server log retrieval
+func LogsHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cmd := exec.Command("docker", "logs", "--tail", "10", "vpn-server")
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			utils.JSONError(w, "Failed to fetch logs", http.StatusInternalServerError)
+		// Check auth context
+		userCtx := r.Context().Value("username")
+		if userCtx == nil {
+			utils.JSONError(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// Split logs into lines and format them
-		logs := strings.Split(string(output), "\n")
-		var messages []string
-		for _, log := range logs {
-			if log != "" {
-				messages = append(messages, log)
+		// Default to 50 logs if not specified
+		limitStr := r.URL.Query().Get("limit")
+		limit := 50
+		if limitStr != "" {
+			if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+				limit = parsed
+				if limit > 100 {
+					limit = 100 // Cap at 100 to prevent excessive responses
+				}
+			}
+		}
+
+		// Get OpenVPN server logs
+		cmd := fmt.Sprintf("journalctl -u openvpn@server --no-pager -n %d", limit)
+		logs, err := exec.Command("bash", "-c", cmd).CombinedOutput()
+		if err != nil {
+			logger.Log.Printf("Error getting OpenVPN logs: %v", err)
+			// Try alternative method if journalctl fails
+			cmd = fmt.Sprintf("tail -n %d /var/log/openvpn/openvpn.log 2>/dev/null || tail -n %d /var/log/syslog | grep openvpn", limit, limit*2)
+			logs, err = exec.Command("bash", "-c", cmd).CombinedOutput()
+			if err != nil {
+				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
+				return
+			}
+		}
+
+		// Parse log lines into array
+		logLines := strings.Split(strings.TrimSpace(string(logs)), "\n")
+		// Filter out empty lines
+		filteredLogs := make([]string, 0)
+		for _, line := range logLines {
+			if line != "" {
+				filteredLogs = append(filteredLogs, line)
 			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"messages": messages,
+			"messages": filteredLogs,
 		})
 	}
 }
@@ -882,8 +867,6 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 				claims, err := auth.ValidateJWT(tokenStr, cfg)
 				if err == nil && claims != nil {
 					isAuthenticated = true
-					// Add claims to request context for use by other handlers
-					r = r.WithContext(auth.AddUserClaimsToContext(r.Context(), claims))
 					logger.Log.Printf("Auth status check successful for user %s", claims.Username)
 				} else {
 					logger.Log.Printf("JWT validation failed: %v", err)
@@ -891,13 +874,12 @@ func AuthStatusHandler(cfg *config.Config) http.HandlerFunc {
 			}
 		}
 
-		// Create response object
+		// Create and send response
 		response := AuthStatusResponse{
 			Enabled:       cfg.AuthEnabled,
 			Authenticated: isAuthenticated,
 		}
 
-		// Write response
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			logger.Log.Printf("AuthStatusHandler: Error encoding response: %v", err)
 			http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)

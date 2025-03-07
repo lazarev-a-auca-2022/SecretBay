@@ -206,7 +206,7 @@ func main() {
 	apiRouter.HandleFunc("/config/download", api.DownloadConfigHandler()).Methods("GET")
 	apiRouter.HandleFunc("/backup", api.BackupHandler(cfg)).Methods("POST")
 	apiRouter.HandleFunc("/restore", api.RestoreHandler(cfg)).Methods("POST")
-	apiRouter.HandleFunc("/logs", api.LogsHandler()).Methods("GET") // Add the new logs endpoint
+	apiRouter.HandleFunc("/logs", api.LogsHandler(cfg)).Methods("GET") // Fixed: passing config parameter
 
 	// TLS Configuration
 	tlsConfig := &tls.Config{

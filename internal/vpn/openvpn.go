@@ -71,67 +71,77 @@ func (o *OpenVPNSetup) Setup() error {
 		cmds = []string{
 			"apt-get update",
 			"apt-get install -f", // Fix any broken dependencies first
-			"DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban ufw openssl",
+			// Install UFW first
+			"DEBIAN_FRONTEND=noninteractive apt-get install -y ufw",
+			// Then verify it's installed before continuing
+			"ufw status || (echo 'UFW not installed properly' && exit 1)",
+			// Then install OpenVPN and other packages
+			"DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban openssl",
 		}
 	} else {
 		cmds = []string{
 			"sudo apt-get update",
-			"sudo apt-get install -f", // Fix any broken dependencies first
-			"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban ufw openssl",
+			"sudo apt-get install -f",
+			// Install UFW first
+			"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ufw",
+			// Then verify it's installed
+			"sudo ufw status || (echo 'UFW not installed properly' && exit 1)",
+			// Then install OpenVPN and other packages
+			"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban openssl",
 		}
 	}
 
+	// Clear any existing OpenVPN configs and certificates first
+	cleanupCmds := []string{
+		"systemctl stop openvpn@server || true",
+		"rm -rf ~/easy-rsa",
+		"rm -rf /etc/openvpn/certs/*",
+		"rm -f /etc/openvpn/server.conf",
+	}
+
+	if !isDocker {
+		for i := range cleanupCmds {
+			cleanupCmds[i] = "sudo " + cleanupCmds[i]
+		}
+	}
+
+	for _, cmd := range cleanupCmds {
+		if out, err := o.SSHClient.RunCommand(cmd); err != nil {
+			logger.Log.Printf("Cleanup warning: %v, output: %s", err, out)
+			// Continue as these might fail if files don't exist
+		}
+	}
+
+	// Install packages only once
 	maxRetries := 3
-	for _, cmd := range cmds {
-		success := false
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			logger.Log.Printf("Running command (attempt %d/%d): %s", attempt, maxRetries, cmd)
-			output, err := o.SSHClient.RunCommand(cmd)
-			if err != nil {
-				// Check if this is a password expiry issue
-				if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
-					logger.Log.Printf("Password has expired. Password change required.")
-					return fmt.Errorf("password has expired and needs to be reset before continuing")
-				}
-
-				logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
-				if attempt < maxRetries {
-					logger.Log.Printf("Waiting before retry...")
-					// Clean up and wait before retry
-					cleanCmd := "apt-get clean"
-					rmCmd := "rm -rf /var/lib/apt/lists/*"
-					fixCmd := "apt-get update --fix-missing"
-
-					if !isDocker {
-						cleanCmd = "sudo " + cleanCmd
-						rmCmd = "sudo " + rmCmd
-						fixCmd = "sudo " + fixCmd
-					}
-
-					o.SSHClient.RunCommand(cleanCmd)
-					o.SSHClient.RunCommand(rmCmd)
-					o.SSHClient.RunCommand(fixCmd)
-					time.Sleep(time.Duration(attempt) * 10 * time.Second)
-					continue
-				}
-				return fmt.Errorf("package installation failed after %d attempts: %v", maxRetries, err)
+	success := false
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		logger.Log.Printf("Installing packages (attempt %d/%d)", attempt, maxRetries)
+		hasErrors := false
+		for _, cmd := range cmds {
+			if out, err := o.SSHClient.RunCommand(cmd); err != nil {
+				logger.Log.Printf("Package installation failed: %v, output: %s", err, out)
+				hasErrors = true
+				// Wait before retry
+				time.Sleep(time.Duration(attempt) * 5 * time.Second)
+				break
 			}
+		}
+		if !hasErrors {
 			success = true
 			break
 		}
-		if !success {
-			return fmt.Errorf("package installation failed after %d attempts", maxRetries)
-		}
-		// Force immediate flush of logs
-		time.Sleep(2 * time.Second)
 	}
-	logger.Log.Println("Packages installed successfully")
+
+	if !success {
+		return fmt.Errorf("package installation failed after %d attempts", maxRetries)
+	}
 
 	// Clean up any existing easy-rsa directory and create new PKI setup
 	logger.Log.Println("Step 2/6: Setting up PKI infrastructure...")
 
 	// First, clean up any previous PKI setup
-	cleanupCmds := []string{
+	cleanupCmds = []string{
 		"rm -rf ~/easy-rsa",
 		"mkdir -p /etc/openvpn/certs",
 	}
@@ -180,7 +190,8 @@ func (o *OpenVPNSetup) Setup() error {
 		"cd ~/easy-rsa && ./easyrsa --batch build-ca nopass",
 		"cd ~/easy-rsa && ./easyrsa --batch gen-req server nopass",
 		"cd ~/easy-rsa && ./easyrsa --batch sign-req server server",
-		"cd ~/easy-rsa && openssl dhparam -out dh.pem 2048",
+		// Generate DH parameters directly with PEM output
+		"openssl dhparam -outform PEM -out ~/easy-rsa/dh.pem 2048",
 	}
 
 	for i, cmd := range certCmds {
@@ -347,6 +358,24 @@ func (o *OpenVPNSetup) Setup() error {
 	if err != nil {
 		logger.Log.Printf("Setting permissions failed: %v, output: %s", err, output)
 		return fmt.Errorf("setting certificate permissions failed: %v", err)
+	}
+
+	// Verify DH parameters after copying
+	verifyDhCmd := "openssl dhparam -check -in /etc/openvpn/certs/dh.pem"
+	if !isDocker {
+		verifyDhCmd = "sudo " + verifyDhCmd
+	}
+
+	if dhOut, err := o.SSHClient.RunCommand(verifyDhCmd); err != nil {
+		logger.Log.Printf("DH parameter verification failed: %v, output: %s", err, dhOut)
+		// Try to regenerate DH params directly
+		genDhCmd := "openssl dhparam -out /etc/openvpn/certs/dh.pem 2048"
+		if !isDocker {
+			genDhCmd = "sudo " + genDhCmd
+		}
+		if _, err := o.SSHClient.RunCommand(genDhCmd); err != nil {
+			return fmt.Errorf("failed to generate DH parameters: %v", err)
+		}
 	}
 
 	logger.Log.Println("PKI setup completed successfully")

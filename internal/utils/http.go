@@ -177,3 +177,10 @@ func JSONValidationError(w http.ResponseWriter, errors []ValidationError) {
 	w.WriteHeader(http.StatusBadRequest)
 	json.NewEncoder(w).Encode(response)
 }
+
+// JSONResponse sends a JSON response with the given status code and data
+func JSONResponse(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(data)
+}
