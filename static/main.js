@@ -164,21 +164,21 @@ function setupLogTracker(logContainer, statusElement) {
     let isError = false;
     let pollInterval;
     
-    // Create a styled log container
-    const logsDiv = document.createElement('div');
-    logsDiv.className = 'server-logs';
-    logsDiv.style.backgroundColor = '#f8f9fa';
-    logsDiv.style.border = '1px solid #dee2e6';
-    logsDiv.style.borderRadius = '4px';
-    logsDiv.style.padding = '10px';
-    logsDiv.style.marginTop = '15px';
-    logsDiv.style.marginBottom = '15px';
-    logsDiv.style.fontFamily = 'monospace';
-    logsDiv.style.fontSize = '12px';
-    logsDiv.style.maxHeight = '200px';
-    logsDiv.style.overflowY = 'auto';
-    logsDiv.style.whiteSpace = 'pre-wrap';
-    logContainer.appendChild(logsDiv);
+    // // Create a styled log container
+    // const logsDiv = document.createElement('div');
+    // logsDiv.className = 'server-logs';
+    // logsDiv.style.backgroundColor = '#f8f9fa';
+    // logsDiv.style.border = '1px solid #dee2e6';
+    // logsDiv.style.borderRadius = '4px';
+    // logsDiv.style.padding = '10px';
+    // logsDiv.style.marginTop = '15px';
+    // logsDiv.style.marginBottom = '15px';
+    // logsDiv.style.fontFamily = 'monospace';
+    // logsDiv.style.fontSize = '12px';
+    // logsDiv.style.maxHeight = '200px';
+    // logsDiv.style.overflowY = 'auto';
+    // logsDiv.style.whiteSpace = 'pre-wrap';
+    // logContainer.appendChild(logsDiv);
     
     // Function to add a log message
     const addLogMessage = (message) => {
