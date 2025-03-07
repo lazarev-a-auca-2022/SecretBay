@@ -261,33 +261,40 @@ func (o *OpenVPNSetup) Setup() error {
 
 	// Now copy the certificate files one by one, checking each carefully
 	filesToCopy := []string{
-		"~/easy-rsa/pki/ca.crt:/etc/openvpn/certs/ca.crt",
-		"~/easy-rsa/pki/issued/server.crt:/etc/openvpn/certs/server.crt",
-		"~/easy-rsa/pki/private/server.key:/etc/openvpn/certs/server.key",
-		"~/easy-rsa/dh.pem:/etc/openvpn/certs/dh.pem",
+		"$HOME/easy-rsa/pki/ca.crt:/etc/openvpn/certs/ca.crt",
+		"$HOME/easy-rsa/pki/issued/server.crt:/etc/openvpn/certs/server.crt",
+		"$HOME/easy-rsa/pki/private/server.key:/etc/openvpn/certs/server.key",
+		"$HOME/easy-rsa/dh.pem:/etc/openvpn/certs/dh.pem",
 	}
 
 	for i, filePair := range filesToCopy {
 		parts := strings.Split(filePair, ":")
 		src, dst := parts[0], parts[1]
 
-		// First expand the home directory in the source path if needed
-		if strings.HasPrefix(src, "~/") {
-			homeDir, err := o.SSHClient.RunCommand("echo $HOME")
-			if err != nil {
-				logger.Log.Printf("Failed to get home directory: %v", err)
-				return fmt.Errorf("failed to determine home directory: %v", err)
-			}
-			homeDir = strings.TrimSpace(homeDir)
-			src = strings.Replace(src, "~/", homeDir+"/", 1)
+		// Expand environment variables in the source path
+		homeDir, err := o.SSHClient.RunCommand("echo $HOME")
+		if err != nil {
+			logger.Log.Printf("Failed to get home directory: %v", err)
+			return fmt.Errorf("failed to determine home directory: %v", err)
 		}
+		homeDir = strings.TrimSpace(homeDir)
+		src = strings.Replace(src, "$HOME", homeDir, 1)
 
 		// First verify source file exists
 		checkCmd := fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", src)
 		output, err := o.SSHClient.RunCommand(checkCmd)
 		if err != nil || !strings.Contains(output, "exists") {
-			logger.Log.Printf("Source file %s does not exist: %s", src, output)
-			return fmt.Errorf("source file %s not found for copying", src)
+			// Try to locate the file in alternate locations
+			altSrc := strings.Replace(src, homeDir, "/root", 1)
+			altCheckCmd := fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", altSrc)
+			altOutput, altErr := o.SSHClient.RunCommand(altCheckCmd)
+			if altErr == nil && strings.Contains(altOutput, "exists") {
+				src = altSrc
+				logger.Log.Printf("Found certificate file in alternate location: %s", src)
+			} else {
+				logger.Log.Printf("Source file %s does not exist: %s", src, output)
+				return fmt.Errorf("source file %s not found for copying", src)
+			}
 		}
 
 		// Now copy the file with sudo if needed
@@ -306,7 +313,7 @@ func (o *OpenVPNSetup) Setup() error {
 			return fmt.Errorf("copying certificate file failed: %v", err)
 		}
 
-		// Verify the file was copied successfully
+		// Verify the file was copied successfully and set permissions
 		checkDstCmd := fmt.Sprintf("test -f %s && echo 'exists' || echo 'not found'", dst)
 		if !isDocker {
 			checkDstCmd = "sudo " + checkDstCmd
@@ -324,10 +331,9 @@ func (o *OpenVPNSetup) Setup() error {
 			chmodCmd = "sudo " + chmodCmd
 		}
 
-		output, err = o.SSHClient.RunCommand(chmodCmd)
-		if err != nil {
+		if _, err := o.SSHClient.RunCommand(chmodCmd); err != nil {
 			logger.Log.Printf("Setting permissions failed for %s: %v", dst, err)
-			// Continue anyway as this is not critical
+			// Log but continue as this is not critical
 		}
 	}
 
