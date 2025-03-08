@@ -207,63 +207,41 @@ function setupLogTracker(logContainer, statusElement) {
         
         pollInterval = setInterval(async () => {
             try {
-                const token = localStorage.getItem("jwt");
+                const token = localStorage.getItem('jwt');
                 if (!token || !isValidJWT(token)) {
-                    clearInterval(pollInterval);
-                    clearInterval(dotsInterval);
-                    addLogMessage("Auth token invalid or expired. Please login again.");
-                    return;
+                    throw new Error('Authentication required');
                 }
-                
-                const response = await fetch(`${BASE_URL}/api/logs`, {
-                    method: "GET",
+
+                // Use the most recent credentials for log fetching
+                const logsResponse = await fetchWithRetries(`${BASE_URL}/api/logs`, {
+                    method: 'GET',
                     headers: {
-                        "Authorization": `Bearer ${token}`,
-                        "Accept": "application/json",
-                        "Cache-Control": "no-cache"
-                    }
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
                 });
-                
-                if (!response.ok) {
-                    // Don't clear intervals on 404 - the endpoint might not be ready yet
-                    if (response.status === 404) {
-                        return;
-                    }
-                    
-                    clearInterval(dotsInterval);
-                    if (response.status === 401) {
-                        clearInterval(pollInterval);
-                        window.location.href = '/login.html?auth_error=true';
-                        return;
-                    }
-                    throw new Error(`HTTP error! status: ${response.status}`);
+
+                const logs = await logsResponse.json();
+                if (logs?.messages?.length) {
+                    // Only add new messages
+                    logs.messages.forEach(msg => {
+                        if (msg.includes('New VPN Password:')) {
+                            // Extract and display password immediately
+                            const password = msg.split('New VPN Password:')[1].trim();
+                            currentCredentials.credential = password;
+                            showPasswordInfo(password, logContainer.parentNode);
+                        }
+                        addLogMessage(msg);
+                    });
                 }
-                
-                const logs = await response.json();
-                
-                if (logs && logs.messages && Array.isArray(logs.messages)) {
-                    // Clear previous logs and show new ones
-                    logsDiv.innerHTML = logs.messages.join("<br>");
-                    logsDiv.scrollTop = logsDiv.scrollHeight;
-                }
-                
-                const hasErrorInLogs = logs?.messages?.some(msg => 
-                    msg.toLowerCase().includes("error") || 
-                    msg.toLowerCase().includes("failed") || 
-                    msg.toLowerCase().includes("failure")
-                );
-                
-                if (hasErrorInLogs && !isError) {
-                    statusElement.textContent = "Error detected in logs";
-                    statusElement.style.color = "#FF0000";
-                }
-                
+
             } catch (error) {
-                // Don't clear intervals on network errors, just log them
-                console.warn("Error fetching logs:", error);
-                addLogMessage(`Log fetch error: ${error.message}`);
+                console.warn("Error updating logs:", error);
+                addLogMessage("Setup is continuing in the background. Please wait...");
             }
-        }, 2000);
+        }, 5000);
     };
     
     startPolling();
@@ -385,39 +363,59 @@ function showPasswordInfo(password, container) {
 }
 
 // Function to generate download links instead of directly downloading files
-function generateDownloadLink(url, filename, params) {
-    const token = localStorage.getItem('jwt');
-    if (!token || !isValidJWT(token)) {
-        throw new Error('Authentication required');
-    }
-
-    const queryParams = new URLSearchParams({
-        serverIp: params.serverIp,
-        username: params.username,
-        credential: params.credential,
-        vpnType: params.vpnType
-    }).toString();
-
-    // Return the full URL with query parameters
-    return `${url}?${queryParams}`;
+function generateDownloadLink(baseUrl, filename, credentials) {
+    const params = new URLSearchParams({
+        serverIp: credentials.serverIp,
+        username: credentials.username,
+        credential: credentials.credential,
+        vpnType: credentials.vpnType
+    });
+    
+    const downloadUrl = `${baseUrl}?${params.toString()}`;
+    
+    // Instead of returning a direct URL, return a data URL that will trigger download with proper headers
+    return `javascript:downloadConfig('${downloadUrl}', '${filename}')`;
 }
 
-// Function to generate download links instead of directly downloading files
-function generateDownloadLink(url, filename, params) {
-    const token = localStorage.getItem('jwt');
-    if (!token || !isValidJWT(token)) {
-        throw new Error('Authentication required');
+async function downloadConfig(url, filename) {
+    try {
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/octet-stream'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Download failed: ${response.statusText}`);
+        }
+
+        // Get the blob from response
+        const blob = await response.blob();
+        
+        // Create download link
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Cleanup
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        console.error('Download failed:', error);
+        alert('Failed to download configuration. Please try again or contact support.');
     }
-
-    const queryParams = new URLSearchParams({
-        serverIp: params.serverIp,
-        username: params.username,
-        credential: params.credential,
-        vpnType: params.vpnType
-    }).toString();
-
-    // Return the full URL with query parameters
-    return `${url}?${queryParams}`;
 }
 
 // Function to validate the JWT token's format (not its signature)

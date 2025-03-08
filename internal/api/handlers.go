@@ -192,25 +192,15 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		if err != nil {
 			logger.Log.Printf("SetupVPNHandler: All SSH connection attempts failed after %d tries", maxRetries)
 
-			// Perform diagnostic checks to get more information
-			// Check if the server is reachable at all
-			pingCmd := fmt.Sprintf("ping -c 1 -W 2 %s", req.ServerIP)
-			pingOut, _ := exec.Command("sh", "-c", pingCmd).CombinedOutput()
-			logger.Log.Printf("SetupVPNHandler: Ping diagnostic: %s", string(pingOut))
-
-			// Check if SSH port is open
-			portCheckCmd := fmt.Sprintf("nc -z -w 5 %s 22", req.ServerIP)
-			portOut, _ := exec.Command("sh", "-c", portCheckCmd).CombinedOutput()
-			logger.Log.Printf("SetupVPNHandler: Port diagnostic: %s", string(portOut))
-
-			// Format a comprehensive error message
-			detailedError := fmt.Sprintf("SSH connection failed after %d attempts. Please verify:\n"+
+			// Include connection error history in the detailed error message
+			errorHistory := strings.Join(connectionErrors, "\n")
+			detailedError := fmt.Sprintf("SSH connection failed after %d attempts. Connection history:\n%s\n\nPlease verify:\n"+
 				"- The server IP address is correct (%s)\n"+
 				"- The server is online and reachable\n"+
 				"- SSH service is running on the server\n"+
 				"- Credentials are valid\n"+
 				"- No firewall is blocking the connection\n\n"+
-				"Last error: %v", maxRetries, req.ServerIP, err)
+				"Last error: %v", maxRetries, errorHistory, req.ServerIP, err)
 
 			utils.JSONError(w, detailedError, http.StatusInternalServerError)
 			return
@@ -831,7 +821,7 @@ func RegisterRoutes(router *mux.Router, cfg *config.Config, db *sql.DB) {
 	protectedRouter.HandleFunc("/logs", LogsHandler(cfg)).Methods("GET")
 }
 
-// LogsHandler returns an http.HandlerFunc that handles VPN server log retrieval
+// LogsHandler returns an http.HandlerFunc that handles both VPN and setup logs retrieval
 func LogsHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Check auth context
@@ -839,6 +829,12 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 		if userCtx == nil {
 			utils.JSONError(w, "Unauthorized", http.StatusUnauthorized)
 			return
+		}
+
+		// Check log type from query parameter
+		logType := r.URL.Query().Get("type")
+		if logType == "" {
+			logType = "vpn" // Default to VPN logs if not specified
 		}
 
 		// Default to 50 logs if not specified
@@ -853,33 +849,63 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 			}
 		}
 
-		// Get OpenVPN server logs
-		cmd := fmt.Sprintf("journalctl -u openvpn@server --no-pager -n %d", limit)
-		logs, err := exec.Command("bash", "-c", cmd).CombinedOutput()
-		if err != nil {
-			logger.Log.Printf("Error getting OpenVPN logs: %v", err)
-			// Try alternative method if journalctl fails
-			cmd = fmt.Sprintf("tail -n %d /var/log/openvpn/openvpn.log 2>/dev/null || tail -n %d /var/log/syslog | grep openvpn", limit, limit*2)
-			logs, err = exec.Command("bash", "-c", cmd).CombinedOutput()
+		var logMessages []string
+		var err error
+
+		switch logType {
+		case "vpn":
+			// Get OpenVPN server logs
+			cmd := fmt.Sprintf("journalctl -u openvpn@server --no-pager -n %d", limit)
+			logs, err := exec.Command("bash", "-c", cmd).CombinedOutput()
 			if err != nil {
-				utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
+				logger.Log.Printf("Error getting OpenVPN logs: %v", err)
+				// Try alternative method if journalctl fails
+				cmd = fmt.Sprintf("tail -n %d /var/log/openvpn/openvpn.log 2>/dev/null || tail -n %d /var/log/syslog | grep openvpn", limit, limit*2)
+				logs, err = exec.Command("bash", "-c", cmd).CombinedOutput()
+				if err != nil {
+					utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
+					return
+				}
+			}
+
+			// Parse log lines into array
+			logLines := strings.Split(strings.TrimSpace(string(logs)), "\n")
+			// Filter out empty lines
+			for _, line := range logLines {
+				if line != "" {
+					logMessages = append(logMessages, line)
+				}
+			}
+
+		case "setup":
+			// Get VPN setup logs from logger
+			logMessages, err = logger.GetRecentLogs(limit)
+			if err != nil {
+				logger.Log.Printf("Error getting setup logs: %v", err)
+				utils.JSONError(w, "Failed to retrieve logs", http.StatusInternalServerError)
 				return
 			}
-		}
 
-		// Parse log lines into array
-		logLines := strings.Split(strings.TrimSpace(string(logs)), "\n")
-		// Filter out empty lines
-		filteredLogs := make([]string, 0)
-		for _, line := range logLines {
-			if line != "" {
-				filteredLogs = append(filteredLogs, line)
+			// Filter out sensitive data except for new VPN passwords
+			filteredLogs := make([]string, 0)
+			for _, log := range logMessages {
+				// Keep new VPN password messages and non-sensitive logs
+				if strings.Contains(log, "New VPN Password:") ||
+					!strings.Contains(log, "password") && !strings.Contains(log, "key") {
+					filteredLogs = append(filteredLogs, log)
+				}
 			}
+			logMessages = filteredLogs
+
+		default:
+			utils.JSONError(w, "Invalid log type specified", http.StatusBadRequest)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"messages": filteredLogs,
+			"type":     logType,
+			"messages": logMessages,
 		})
 	}
 }
