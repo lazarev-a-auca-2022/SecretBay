@@ -55,7 +55,7 @@ func (s *StrongSwanSetup) Setup() error {
 
 		// Use shared password generation
 		newPassword, err := generatePassword()
-		if err != nil {
+		if (err != nil) {
 			return fmt.Errorf("failed to generate new password: %v", err)
 		}
 
@@ -264,11 +264,27 @@ conn ikev2-vpn
 	}
 	logger.Log.Println("IPsec secrets written successfully")
 
-	// Create VPN configs directory
+	// Create VPN configs directory with proper validation
 	logger.Log.Println("Creating directory for VPN configurations...")
-	if out, err := s.SSHClient.RunCommand("sudo mkdir -p /etc/vpn-configs && sudo chmod 755 /etc/vpn-configs"); err != nil {
-		logger.Log.Printf("Warning: Failed to create VPN configs directory: %v, Output: %s", err, out)
+	createDirCmds := []string{
+		"mkdir -p /etc/vpn-configs",
+		"chmod 755 /etc/vpn-configs",
+		"chown root:root /etc/vpn-configs",
+		"test -d /etc/vpn-configs && echo 'Directory exists' || echo 'Directory creation failed'",
+		"test -w /etc/vpn-configs && echo 'Writable' || echo 'Not writable'",
 	}
+
+	for _, cmd := range createDirCmds {
+		out, err := s.SSHClient.RunCommand("sudo " + cmd)
+		if err != nil {
+			logger.Log.Printf("Warning: Directory setup command failed: %v, Output: %s", err, out)
+			return fmt.Errorf("failed to setup VPN config directory: %v", err)
+		}
+		if strings.Contains(out, "failed") || strings.Contains(out, "Not writable") {
+			return fmt.Errorf("VPN config directory setup failed: %s", out)
+		}
+	}
+	logger.Log.Println("VPN config directory setup verified successfully")
 
 	// Secure permissions
 	logger.Log.Println("Step 5/6: Setting up system security...")
@@ -303,7 +319,7 @@ conn ikev2-vpn
 		logger.Log.Printf("Service step %d/%d: %s", i+1, len(serviceCmds), cmd)
 		out, err := s.SSHClient.RunCommand(cmd)
 		if err != nil {
-			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, out, err)
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", out, err)
 			return fmt.Errorf("service configuration failed: %v", err)
 		}
 		// Force immediate flush of logs

@@ -831,82 +831,65 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
+		// Set headers for SSE
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		// Create a channel to signal client disconnect
+		done := make(chan bool)
+		notify := w.(http.CloseNotifier).CloseNotify()
+		go func() {
+			<-notify
+			done <- true
+		}()
+
 		// Check log type from query parameter
 		logType := r.URL.Query().Get("type")
 		if logType == "" {
 			logType = "vpn" // Default to VPN logs if not specified
 		}
 
-		// Default to 50 logs if not specified
-		limitStr := r.URL.Query().Get("limit")
-		limit := 50
-		if limitStr != "" {
-			if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
-				limit = parsed
-				if limit > 100 {
-					limit = 100 // Cap at 100 to prevent excessive responses
-				}
-			}
-		}
-
-		var logMessages []string
-		var err error
-
-		switch logType {
-		case "vpn":
-			// Get OpenVPN server logs
-			cmd := fmt.Sprintf("journalctl -u openvpn@server --no-pager -n %d", limit)
-			logs, err := exec.Command("bash", "-c", cmd).CombinedOutput()
-			if err != nil {
-				logger.Log.Printf("Error getting OpenVPN logs: %v", err)
-				// Try alternative method if journalctl fails
-				cmd = fmt.Sprintf("tail -n %d /var/log/openvpn/openvpn.log 2>/dev/null || tail -n %d /var/log/syslog | grep openvpn", limit, limit*2)
-				logs, err = exec.Command("bash", "-c", cmd).CombinedOutput()
-				if err != nil {
-					utils.JSONErrorWithDetails(w, err, http.StatusInternalServerError, "", r.URL.Path)
-					return
-				}
-			}
-
-			// Parse log lines into array
-			logLines := strings.Split(strings.TrimSpace(string(logs)), "\n")
-			// Filter out empty lines
-			for _, line := range logLines {
-				if line != "" {
-					logMessages = append(logMessages, line)
-				}
-			}
-
-		case "setup":
-			// Get VPN setup logs from logger
-			logMessages, err = logger.GetRecentLogs(limit)
-			if err != nil {
-				logger.Log.Printf("Error getting setup logs: %v", err)
-				utils.JSONError(w, "Failed to retrieve logs", http.StatusInternalServerError)
-				return
-			}
-
-			// Filter out sensitive data except for new VPN passwords
-			filteredLogs := make([]string, 0)
-			for _, log := range logMessages {
-				// Keep new VPN password messages and non-sensitive logs
-				if strings.Contains(log, "New VPN Password:") ||
-					!strings.Contains(log, "password") && !strings.Contains(log, "key") {
-					filteredLogs = append(filteredLogs, log)
-				}
-			}
-			logMessages = filteredLogs
-
-		default:
-			utils.JSONError(w, "Invalid log type specified", http.StatusBadRequest)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"type":     logType,
-			"messages": logMessages,
-		})
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				var logs []byte
+				var err error
+
+				switch logType {
+				case "vpn":
+					// Get OpenVPN server logs
+					cmd := "journalctl -u openvpn@server --no-pager -n 50 -f"
+					logs, err = exec.Command("bash", "-c", cmd).Output()
+				case "setup":
+					// Get VPN setup logs from logger
+					logMessages, err := logger.GetRecentLogs(50)
+					if err == nil {
+						logs = []byte(strings.Join(logMessages, "\n"))
+					}
+				default:
+					http.Error(w, "Invalid log type", http.StatusBadRequest)
+					return
+				}
+
+				if err == nil && len(logs) > 0 {
+					fmt.Fprintf(w, "data: %s\n\n", string(logs))
+					flusher.Flush()
+				}
+
+				// Sleep briefly to prevent overwhelming the client
+				time.Sleep(1 * time.Second)
+			}
+		}
 	}
 }
 
@@ -1445,11 +1428,49 @@ func DownloadServerConfigHandler() http.HandlerFunc {
 
 // verifyConfigExists checks if a config file exists on the remote server
 func verifyConfigExists(client *sshclient.SSHClient, configPath string) (bool, error) {
-	out, err := client.RunCommand(fmt.Sprintf("test -f %s && echo exists || echo notfound", configPath))
-	if err != nil {
-		return false, fmt.Errorf("error checking config file: %v", err)
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		// Check file existence and ownership
+		cmd := fmt.Sprintf("sudo test -f %s && sudo test -r %s && echo exists || echo notfound", configPath, configPath)
+		out, err := client.RunCommand(cmd)
+		if err != nil {
+			logger.Log.Printf("Error checking config file (attempt %d/%d): %v", i+1, maxRetries, err)
+			// Only retry on command execution errors
+			if i < maxRetries-1 {
+				time.Sleep(time.Duration(i+1) * time.Second)
+				continue
+			}
+			return false, fmt.Errorf("error checking config file after %d attempts: %v", maxRetries, err)
+		}
+
+		if strings.TrimSpace(out) == "exists" {
+			// Verify file permissions
+			statCmd := fmt.Sprintf("sudo stat -c %%a %s", configPath)
+			perms, err := client.RunCommand(statCmd)
+			if err != nil {
+				return false, fmt.Errorf("error checking file permissions: %v", err)
+			}
+
+			// Check if permissions are at least 644 (readable)
+			if perms := strings.TrimSpace(perms); len(perms) == 3 {
+				if first := int(perms[0] - '0'); first >= 6 {
+					return true, nil
+				}
+				// Fix permissions if needed
+				fixCmd := fmt.Sprintf("sudo chmod 644 %s", configPath)
+				if _, err := client.RunCommand(fixCmd); err != nil {
+					return false, fmt.Errorf("error fixing file permissions: %v", err)
+				}
+				return true, nil
+			}
+		}
+
+		if i < maxRetries-1 {
+			time.Sleep(time.Duration(i+1) * time.Second)
+			continue
+		}
 	}
-	return strings.TrimSpace(out) == "exists", nil
+	return false, nil
 }
 
 // VPNStatusHandler returns an http.HandlerFunc that handles VPN status requests

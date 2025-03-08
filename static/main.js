@@ -162,9 +162,9 @@ function setupLogTracker(logContainer, statusElement) {
     const logMessages = [];
     const MAX_LOGS = 50;
     let isError = false;
-    let pollInterval;
-    let dotsInterval;
+    let eventSource = null;
     let dotCount = 0;
+    let dotsInterval;
     
     const logsDiv = document.createElement("div");
     logsDiv.className = "server-logs";
@@ -175,7 +175,7 @@ function setupLogTracker(logContainer, statusElement) {
     logsDiv.style.marginBottom = "15px";
     logsDiv.style.fontFamily = "monospace";
     logsDiv.style.fontSize = "12px";
-    logsDiv.style.maxHeight = "400px";  // Increased height
+    logsDiv.style.maxHeight = "400px";
     logsDiv.style.overflowY = "auto";
     logsDiv.style.whiteSpace = "pre-wrap";
     logsDiv.style.borderRadius = "5px";
@@ -198,57 +198,100 @@ function setupLogTracker(logContainer, statusElement) {
         logsDiv.scrollTop = logsDiv.scrollHeight;
     };
     
-    const startPolling = () => {
+    const startEventSource = () => {
         updateLoadingDots();
         dotsInterval = setInterval(updateLoadingDots, 500);
         
         // Add initial status message
         addLogMessage("Starting VPN setup process...");
         
-        pollInterval = setInterval(async () => {
-            try {
-                const token = localStorage.getItem('jwt');
-                if (!token || !isValidJWT(token)) {
-                    throw new Error('Authentication required');
+        const token = localStorage.getItem('jwt');
+        if (!token || !isValidJWT(token)) {
+            throw new Error('Authentication required');
+        }
+
+        // Close any existing connection
+        if (eventSource) {
+            eventSource.close();
+        }
+
+        // Create new EventSource connection
+        eventSource = new EventSource(`${BASE_URL}/api/logs?type=vpn`);
+
+        eventSource.onmessage = (event) => {
+            const logs = event.data.split('\n');
+            logs.forEach(log => {
+                if (log.trim()) {
+                    if (log.includes('New VPN Password:')) {
+                        // Extract and display password immediately
+                        const password = log.split('New VPN Password:')[1].trim();
+                        currentCredentials.credential = password;
+                        showPasswordInfo(password, logContainer.parentNode);
+                    }
+                    addLogMessage(log.trim());
                 }
+            });
+        };
 
-                // Use the most recent credentials for log fetching
-                const logsResponse = await fetchWithRetries(`${BASE_URL}/api/logs`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include'
-                });
-
-                const logs = await logsResponse.json();
-                if (logs?.messages?.length) {
-                    // Only add new messages
-                    logs.messages.forEach(msg => {
-                        if (msg.includes('New VPN Password:')) {
-                            // Extract and display password immediately
-                            const password = msg.split('New VPN Password:')[1].trim();
-                            currentCredentials.credential = password;
-                            showPasswordInfo(password, logContainer.parentNode);
-                        }
-                        addLogMessage(msg);
-                    });
-                }
-
-            } catch (error) {
-                console.warn("Error updating logs:", error);
-                addLogMessage("Setup is continuing in the background. Please wait...");
+        eventSource.onerror = (error) => {
+            console.warn("EventSource error:", error);
+            if (isError) return; // Don't show multiple errors
+            
+            isError = true;
+            clearInterval(dotsInterval);
+            
+            statusElement.textContent = `Error: Connection lost`;
+            statusElement.style.color = "#FF0000";
+            addLogMessage(`Error: Connection to log stream lost`);
+            
+            if (!document.querySelector("#errorControls")) {
+                const container = logContainer.parentElement;
+                const errorControls = document.createElement("div");
+                errorControls.id = "errorControls";
+                errorControls.style.marginTop = "20px";
+                errorControls.style.display = "flex";
+                errorControls.style.justifyContent = "center";
+                errorControls.style.gap = "10px";
+                
+                const retryButton = document.createElement("button");
+                retryButton.textContent = "Retry";
+                retryButton.className = "btn btn-primary";
+                retryButton.style.maxWidth = "150px";
+                retryButton.onclick = () => {
+                    errorControls.remove();
+                    isError = false;
+                    statusElement.style.color = "#00FF00";
+                    startEventSource();
+                };
+                
+                const cancelButton = document.createElement("button");
+                cancelButton.textContent = "Cancel";
+                cancelButton.className = "btn btn-secondary";
+                cancelButton.style.maxWidth = "150px";
+                cancelButton.onclick = () => {
+                    if (eventSource) {
+                        eventSource.close();
+                    }
+                    document.querySelector("#setupProgress").style.display = "none";
+                    document.querySelector("#vpnForm").style.display = "block";
+                    logsDiv.remove();
+                    errorControls.remove();
+                };
+                
+                errorControls.appendChild(retryButton);
+                errorControls.appendChild(cancelButton);
+                container.appendChild(errorControls);
             }
-        }, 5000);
+        };
     };
     
-    startPolling();
+    startEventSource();
     
     return {
         complete: () => {
-            clearInterval(pollInterval);
+            if (eventSource) {
+                eventSource.close();
+            }
             clearInterval(dotsInterval);
             statusElement.textContent = "Setup completed successfully!";
             statusElement.style.color = "#00FF00";
@@ -260,7 +303,9 @@ function setupLogTracker(logContainer, statusElement) {
         },
         error: (message) => {
             isError = true;
-            clearInterval(pollInterval);
+            if (eventSource) {
+                eventSource.close();
+            }
             clearInterval(dotsInterval);
             
             statusElement.textContent = `Error: ${message}`;
@@ -292,7 +337,9 @@ function setupLogTracker(logContainer, statusElement) {
                 cancelButton.className = "btn btn-secondary";
                 cancelButton.style.maxWidth = "150px";
                 cancelButton.onclick = () => {
-                    clearInterval(pollInterval);
+                    if (eventSource) {
+                        eventSource.close();
+                    }
                     document.querySelector("#setupProgress").style.display = "none";
                     document.querySelector("#vpnForm").style.display = "block";
                     logsDiv.remove();
