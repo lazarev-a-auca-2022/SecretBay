@@ -160,9 +160,11 @@ function createFallbackElement(type, id) {
 // Function to track and display server logs
 function setupLogTracker(logContainer, statusElement) {
     const logMessages = [];
-    const MAX_LOGS = 50;  // Increased to show more logs
+    const MAX_LOGS = 50;
     let isError = false;
     let pollInterval;
+    let dotsInterval;
+    let dotCount = 0;
     
     const logsDiv = document.createElement("div");
     logsDiv.className = "server-logs";
@@ -180,12 +182,35 @@ function setupLogTracker(logContainer, statusElement) {
     
     logContainer.appendChild(logsDiv);
     
+    const updateLoadingDots = () => {
+        const dots = '.'.repeat(dotCount + 1);
+        statusElement.textContent = `Loading${dots}`;
+        dotCount = (dotCount + 1) % 3;
+    };
+
+    const addLogMessage = (message) => {
+        const timestamp = new Date().toISOString();
+        logMessages.push(`[${timestamp}] ${message}`);
+        if (logMessages.length > MAX_LOGS) {
+            logMessages.shift();
+        }
+        logsDiv.innerHTML = logMessages.join("<br>");
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+    };
+    
     const startPolling = () => {
+        updateLoadingDots();
+        dotsInterval = setInterval(updateLoadingDots, 500);
+        
+        // Add initial status message
+        addLogMessage("Starting VPN setup process...");
+        
         pollInterval = setInterval(async () => {
             try {
                 const token = localStorage.getItem("jwt");
                 if (!token || !isValidJWT(token)) {
                     clearInterval(pollInterval);
+                    clearInterval(dotsInterval);
                     addLogMessage("Auth token invalid or expired. Please login again.");
                     return;
                 }
@@ -200,6 +225,12 @@ function setupLogTracker(logContainer, statusElement) {
                 });
                 
                 if (!response.ok) {
+                    // Don't clear intervals on 404 - the endpoint might not be ready yet
+                    if (response.status === 404) {
+                        return;
+                    }
+                    
+                    clearInterval(dotsInterval);
                     if (response.status === 401) {
                         clearInterval(pollInterval);
                         window.location.href = '/login.html?auth_error=true';
@@ -228,9 +259,11 @@ function setupLogTracker(logContainer, statusElement) {
                 }
                 
             } catch (error) {
-                console.error("Error fetching logs:", error);
+                // Don't clear intervals on network errors, just log them
+                console.warn("Error fetching logs:", error);
+                addLogMessage(`Log fetch error: ${error.message}`);
             }
-        }, 2000);  // Poll every 2 seconds
+        }, 2000);
     };
     
     startPolling();
@@ -238,6 +271,7 @@ function setupLogTracker(logContainer, statusElement) {
     return {
         complete: () => {
             clearInterval(pollInterval);
+            clearInterval(dotsInterval);
             statusElement.textContent = "Setup completed successfully!";
             statusElement.style.color = "#00FF00";
             
@@ -249,9 +283,11 @@ function setupLogTracker(logContainer, statusElement) {
         error: (message) => {
             isError = true;
             clearInterval(pollInterval);
+            clearInterval(dotsInterval);
             
             statusElement.textContent = `Error: ${message}`;
             statusElement.style.color = "#FF0000";
+            addLogMessage(`Error: ${message}`);
             
             if (!document.querySelector("#errorControls")) {
                 const container = logContainer.parentElement;
