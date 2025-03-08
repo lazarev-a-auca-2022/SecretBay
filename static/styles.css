@@ -74,6 +74,17 @@ button:hover {
 .error {
     background: #f8d7da;
     color: #FF0000 !important; /* Red color for errors */
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.info {
+    background: #cce5ff;
+    color: #004085;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
 }
 
 /* Remove old progress bar styles */

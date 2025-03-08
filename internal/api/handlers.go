@@ -867,8 +867,8 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 
 				switch logType {
 				case "vpn":
-					// Get OpenVPN server logs
-					cmd := "journalctl -u openvpn@server --no-pager -n 50 -f"
+					// Get OpenVPN server logs directly from the vpn-server container
+					cmd := "docker logs --tail 50 -f vpn-server"
 					logs, err = exec.Command("bash", "-c", cmd).Output()
 				case "setup":
 					// Get VPN setup logs from logger

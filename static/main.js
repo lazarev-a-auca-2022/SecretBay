@@ -165,6 +165,8 @@ function setupLogTracker(logContainer, statusElement) {
     let eventSource = null;
     let dotCount = 0;
     let dotsInterval;
+    let lastMessage = "";
+    let messageCount = 1;
     
     const logsDiv = document.createElement("div");
     logsDiv.className = "server-logs";
@@ -190,10 +192,22 @@ function setupLogTracker(logContainer, statusElement) {
 
     const addLogMessage = (message) => {
         const timestamp = new Date().toISOString();
-        logMessages.push(`[${timestamp}] ${message}`);
-        if (logMessages.length > MAX_LOGS) {
-            logMessages.shift();
+        
+        // Check if this is a repeated message
+        if (message === lastMessage) {
+            messageCount++;
+            // Update the last message with the count
+            logMessages[logMessages.length - 1] = `[${timestamp}] ${message} [${messageCount}]`;
+        } else {
+            // New message
+            lastMessage = message;
+            messageCount = 1;
+            logMessages.push(`[${timestamp}] ${message}`);
+            if (logMessages.length > MAX_LOGS) {
+                logMessages.shift();
+            }
         }
+        
         logsDiv.innerHTML = logMessages.join("<br>");
         logsDiv.scrollTop = logsDiv.scrollHeight;
     };
@@ -260,7 +274,8 @@ function setupLogTracker(logContainer, statusElement) {
                 retryButton.onclick = () => {
                     errorControls.remove();
                     isError = false;
-                    statusElement.style.color = "#00FF00";
+                    statusElement.style.color = "";  // Reset to default color
+                    statusElement.textContent = "Loading...";  // Reset text
                     startEventSource();
                 };
                 
@@ -431,20 +446,73 @@ async function downloadConfig(url, filename) {
             throw new Error('Not authenticated');
         }
 
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/octet-stream'
-            }
-        });
+        // Show loading indicator
+        const errorElement = document.getElementById('error-message');
+        if (errorElement) {
+            errorElement.textContent = 'Downloading configuration...';
+            errorElement.style.display = 'block';
+            errorElement.className = 'info';
+        }
 
-        if (!response.ok) {
-            throw new Error(`Download failed: ${response.statusText}`);
+        // Add retry logic for potential TLS handshake errors
+        let response;
+        const maxRetries = 3;
+        
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/octet-stream',
+                        'Cache-Control': 'no-cache'
+                    },
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    break; // Success, exit retry loop
+                }
+                
+                // If we got an error response but not a network error, don't retry
+                if (response.status !== 0) {
+                    throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+                }
+                
+                // Wait before retrying
+                console.log(`Download attempt ${attempt + 1} failed, retrying...`);
+                if (errorElement) {
+                    errorElement.textContent = `Download attempt ${attempt + 1} failed, retrying...`;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            } catch (fetchError) {
+                console.error(`Download attempt ${attempt + 1} failed:`, fetchError);
+                
+                // On last attempt, rethrow the error
+                if (attempt === maxRetries - 1) {
+                    throw fetchError;
+                }
+                
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            }
+        }
+
+        if (!response || !response.ok) {
+            throw new Error(`Download failed: ${response ? response.statusText : 'Connection error'}`);
         }
 
         // Get the blob from response
         const blob = await response.blob();
+        
+        if (blob.size === 0) {
+            throw new Error('Downloaded file is empty');
+        }
+        
+        // Clear any error messages
+        if (errorElement) {
+            errorElement.style.display = 'none';
+        }
         
         // Create download link
         const downloadUrl = window.URL.createObjectURL(blob);
@@ -461,7 +529,16 @@ async function downloadConfig(url, filename) {
         window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
         console.error('Download failed:', error);
-        alert('Failed to download configuration. Please try again or contact support.');
+        
+        // Display error in UI
+        const errorElement = document.getElementById('error-message');
+        if (errorElement) {
+            errorElement.textContent = 'Failed to download configuration: ' + error.message;
+            errorElement.style.display = 'block';
+            errorElement.className = 'error';
+        }
+        
+        alert('Failed to download configuration: ' + error.message + '\nPlease try again or contact support.');
     }
 }
 
@@ -757,9 +834,9 @@ async function initializeVPNForm() {
                 elements.result.style.display = 'block';
                 
                 // Display new password information if available
-                if (responseData && responseData.newPassword) {
+                if (responseData && responseData.new_password) {
                     console.log('New password received, displaying in UI');
-                    showPasswordInfo(responseData.newPassword, elements.progress.parentNode);
+                    showPasswordInfo(responseData.new_password, elements.progress.parentNode);
                 } else {
                     console.log('No password received in response');
                 }
