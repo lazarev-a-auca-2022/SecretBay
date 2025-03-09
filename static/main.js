@@ -421,7 +421,7 @@ function setupLogTracker(logContainer, statusElement) {
 }
 
 // Function to display password information in the UI
-function showPasswordInfo(password, container) {
+function showPasswordInfo(password, container, title = 'New VPN Password') {
     // Create a password display section
     const passwordSection = document.createElement('div');
     passwordSection.className = 'password-section alert alert-info';
@@ -429,7 +429,7 @@ function showPasswordInfo(password, container) {
     passwordSection.style.marginTop = '20px';
     
     const passwordTitle = document.createElement('h4');
-    passwordTitle.textContent = 'New VPN Password';
+    passwordTitle.textContent = title;
     
     const passwordDisplay = document.createElement('div');
     passwordDisplay.className = 'password-display';
@@ -941,9 +941,15 @@ async function initializeVPNForm() {
                 // Display new password information if available
                 if (responseData && responseData.new_password) {
                     console.log('New password received, displaying in UI');
-                    showPasswordInfo(responseData.new_password, elements.progress.parentNode);
+                    showPasswordInfo(responseData.new_password, elements.progress.parentNode, 'New VPN Password');
                 } else {
                     console.log('No password received in response');
+                }
+                
+                // Display SSH password if available
+                if (responseData && responseData.ssh_password) {
+                    console.log('SSH password received, displaying in UI');
+                    showPasswordInfo(responseData.ssh_password, elements.progress.parentNode, 'New SSH Password');
                 }
                 
                 // Generate and show download links
@@ -969,7 +975,7 @@ async function initializeVPNForm() {
                     }
                     
                     // Display the new password
-                    showPasswordInfo(window.expiredPasswordData.new_password, elements.progress.parentNode);
+                    showPasswordInfo(window.expiredPasswordData.new_password, elements.progress.parentNode, 'New VPN Password');
                     
                     // Clear the global variable
                     window.expiredPasswordData = null;
@@ -995,7 +1001,7 @@ async function initializeVPNForm() {
                             }
                             
                             // Display the new password
-                            showPasswordInfo(responseData.new_password, elements.progress.parentNode);
+                            showPasswordInfo(responseData.new_password, elements.progress.parentNode, 'New VPN Password');
                             
                             // Return early to avoid showing the general error
                             elements.form.style.display = 'block';
@@ -1022,7 +1028,7 @@ async function initializeVPNForm() {
                             }
                             
                             // Display the new password
-                            showPasswordInfo(responseData.new_password, elements.progress.parentNode);
+                            showPasswordInfo(responseData.new_password, elements.progress.parentNode, 'New VPN Password');
                             
                             // Return early to avoid showing the general error
                             elements.form.style.display = 'block';

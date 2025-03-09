@@ -68,6 +68,7 @@ type SecStat struct {
 type EnhancedVPNSetupResponse struct {
 	VPNConfig               string   `json:"vpn_config"`
 	NewPassword             string   `json:"new_password"`
+	SSHPassword             string   `json:"ssh_password"`
 	Status                  string   `json:"status"`
 	Message                 string   `json:"message"`
 	ServiceRunning          bool     `json:"service_running"`
@@ -627,6 +628,7 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		response := EnhancedVPNSetupResponse{
 			VPNConfig:             vpnConfig,
 			NewPassword:           newPassword,
+			SSHPassword:           sshClient.GetPassword(),
 			Status:                "setup_complete",
 			Message:               "VPN setup completed successfully with all components verified",
 			ServiceRunning:        serviceRunning,
