@@ -238,6 +238,15 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 				NewPassword: newPassword,
 			}
 
+			// Log the new password prominently
+			logger.Log.Printf("======================================")
+			logger.Log.Printf("IMPORTANT: PASSWORD EXPIRED - NEW PASSWORD GENERATED")
+			logger.Log.Printf("SERVER IP: %s", req.ServerIP)
+			logger.Log.Printf("USERNAME: %s", req.Username)
+			logger.Log.Printf("NEW PASSWORD: %s", newPassword)
+			logger.Log.Printf("SAVE THIS PASSWORD IMMEDIATELY")
+			logger.Log.Printf("======================================")
+
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden) // 403 Forbidden is appropriate for expired credentials
 			json.NewEncoder(w).Encode(response)
@@ -323,6 +332,15 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 						Message:     "The password has expired during setup. Please use the password reset API with the provided new password.",
 						NewPassword: newPassword,
 					}
+
+					// Log the new password prominently
+					logger.Log.Printf("======================================")
+					logger.Log.Printf("IMPORTANT: PASSWORD EXPIRED DURING OPENVPN SETUP - NEW PASSWORD GENERATED")
+					logger.Log.Printf("SERVER IP: %s", req.ServerIP)
+					logger.Log.Printf("USERNAME: %s", req.Username)
+					logger.Log.Printf("NEW PASSWORD: %s", newPassword)
+					logger.Log.Printf("SAVE THIS PASSWORD IMMEDIATELY")
+					logger.Log.Printf("======================================")
 
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden) // 403 Forbidden is appropriate for expired credentials
@@ -416,6 +434,15 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 						Message:     "The password has expired during setup. Please use the password reset API with the provided new password.",
 						NewPassword: newPassword,
 					}
+
+					// Log the new password prominently
+					logger.Log.Printf("======================================")
+					logger.Log.Printf("IMPORTANT: PASSWORD EXPIRED DURING STRONGSWAN SETUP - NEW PASSWORD GENERATED")
+					logger.Log.Printf("SERVER IP: %s", req.ServerIP)
+					logger.Log.Printf("USERNAME: %s", req.Username)
+					logger.Log.Printf("NEW PASSWORD: %s", newPassword)
+					logger.Log.Printf("SAVE THIS PASSWORD IMMEDIATELY")
+					logger.Log.Printf("======================================")
 
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden) // 403 Forbidden is appropriate for expired credentials
@@ -698,11 +725,20 @@ func ResetPasswordHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Successfully reset password
 		response := PasswordResetResponse{
-			Status:  "success",
-			Message: "Password has been reset successfully",
+			Status:      "success",
+			Message:     "Password has been reset successfully",
+			NewPassword: req.NewPassword,
 		}
 
+		// Log the password reset success with the new password
+		logger.Log.Printf("======================================")
+		logger.Log.Printf("PASSWORD RESET SUCCESSFUL")
+		logger.Log.Printf("SERVER IP: %s", req.ServerIP)
+		logger.Log.Printf("USERNAME: %s", req.Username)
+		logger.Log.Printf("NEW PASSWORD: %s", req.NewPassword)
+		logger.Log.Printf("======================================")
 		logger.Log.Println("ResetPasswordHandler: Password reset successful")
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}

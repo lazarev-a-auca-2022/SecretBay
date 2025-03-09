@@ -322,6 +322,12 @@ func (s *SecuritySetup) ChangeRootPassword(newPassword string) error {
 
 	// Print the new password on a separate line to ensure it's properly displayed
 	logger.Log.Printf("New VPN Password: %s", newPassword)
+	// Add more prominent logging for the password
+	logger.Log.Printf("======================================")
+	logger.Log.Printf("IMPORTANT: NEW PASSWORD GENERATED")
+	logger.Log.Printf("PASSWORD: %s", newPassword)
+	logger.Log.Printf("SAVE THIS PASSWORD IMMEDIATELY")
+	logger.Log.Printf("======================================")
 
 	// Check if we're running in Docker
 	isDocker := false

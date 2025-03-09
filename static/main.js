@@ -841,6 +841,30 @@ async function initializeVPNForm() {
                     throw new Error('Authentication required');
                 }
 
+                // Intercept all responses to check for expired password
+                const originalFetch = window.fetch;
+                window.fetch = async function(url, options) {
+                    const response = await originalFetch(url, options);
+                    
+                    // Check for expired password response
+                    if (response.status === 403) {
+                        try {
+                            const clonedResponse = response.clone();
+                            const data = await clonedResponse.json();
+                            
+                            if (data && data.status === "expired_password" && data.new_password) {
+                                console.log('Intercepted expired password response:', data);
+                                // Save the data to a globally accessible variable
+                                window.expiredPasswordData = data;
+                            }
+                        } catch (e) {
+                            console.error('Error checking for expired password in response:', e);
+                        }
+                    }
+                    
+                    return response;
+                };
+
                 // Get CSRF token
                 console.log('Getting CSRF token...');
                 const csrfToken = await getCsrfToken();
@@ -932,6 +956,83 @@ async function initializeVPNForm() {
                 
             } catch (error) {
                 console.error('Setup error:', error);
+                
+                // Check for globally saved expired password data
+                if (window.expiredPasswordData) {
+                    console.log('Found saved expired password data:', window.expiredPasswordData);
+                    
+                    // Show error message but with password reset information
+                    const errorElement = document.getElementById('error-message');
+                    if (errorElement) {
+                        errorElement.textContent = 'Password has expired. Please use the new password shown below for future connections.';
+                        errorElement.style.display = 'block';
+                    }
+                    
+                    // Display the new password
+                    showPasswordInfo(window.expiredPasswordData.new_password, elements.progress.parentNode);
+                    
+                    // Clear the global variable
+                    window.expiredPasswordData = null;
+                    
+                    // Return early to avoid showing the general error
+                    elements.form.style.display = 'block';
+                    elements.progress.style.display = 'none';
+                    return;
+                }
+                
+                // Check if this is an expired password response
+                if (error.response && error.response.status === 403) {
+                    try {
+                        const responseData = await error.response.json();
+                        if (responseData && responseData.status === "expired_password" && responseData.new_password) {
+                            console.log('Detected expired password response with new password');
+                            
+                            // Show error message but with password reset information
+                            const errorElement = document.getElementById('error-message');
+                            if (errorElement) {
+                                errorElement.textContent = 'Password has expired. Please use the new password shown below for future connections.';
+                                errorElement.style.display = 'block';
+                            }
+                            
+                            // Display the new password
+                            showPasswordInfo(responseData.new_password, elements.progress.parentNode);
+                            
+                            // Return early to avoid showing the general error
+                            elements.form.style.display = 'block';
+                            elements.progress.style.display = 'none';
+                            return;
+                        }
+                    } catch (jsonError) {
+                        console.error('Error parsing expired password response:', jsonError);
+                    }
+                }
+                
+                // Check for fetch Response object directly
+                if (error.status === 403) {
+                    try {
+                        const responseData = await error.json();
+                        if (responseData && responseData.status === "expired_password" && responseData.new_password) {
+                            console.log('Detected expired password response with new password');
+                            
+                            // Show error message but with password reset information
+                            const errorElement = document.getElementById('error-message');
+                            if (errorElement) {
+                                errorElement.textContent = 'Password has expired. Please use the new password shown below for future connections.';
+                                errorElement.style.display = 'block';
+                            }
+                            
+                            // Display the new password
+                            showPasswordInfo(responseData.new_password, elements.progress.parentNode);
+                            
+                            // Return early to avoid showing the general error
+                            elements.form.style.display = 'block';
+                            elements.progress.style.display = 'none';
+                            return;
+                        }
+                    } catch (jsonError) {
+                        console.error('Error parsing expired password response directly:', jsonError);
+                    }
+                }
                 
                 // Attempt to complete log tracking if it exists
                 if (logTracker && logTracker.complete) {

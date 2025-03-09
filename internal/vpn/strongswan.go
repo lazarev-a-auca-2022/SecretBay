@@ -55,7 +55,7 @@ func (s *StrongSwanSetup) Setup() error {
 
 		// Use shared password generation
 		newPassword, err := generatePassword()
-		if (err != nil) {
+		if err != nil {
 			return fmt.Errorf("failed to generate new password: %v", err)
 		}
 
