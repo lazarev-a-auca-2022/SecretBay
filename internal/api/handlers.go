@@ -7,11 +7,13 @@
 package api
 
 import (
+	"bufio"
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -857,38 +859,81 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				var logs []byte
-				var err error
+		// Handle VPN logs with proper streaming
+		if logType == "vpn" {
+			cmd := exec.Command("bash", "-c", "docker logs --tail 50 -f vpn-server")
 
-				switch logType {
-				case "vpn":
-					// Get OpenVPN server logs directly from the vpn-server container
-					cmd := "docker logs --tail 50 -f vpn-server"
-					logs, err = exec.Command("bash", "-c", cmd).Output()
-				case "setup":
+			// Get pipe to command's stdout
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				logger.Log.Printf("Error creating stdout pipe: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			// Start the command
+			if err := cmd.Start(); err != nil {
+				logger.Log.Printf("Error starting docker logs command: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			// Set up a go routine to properly handle process cleanup
+			go func() {
+				<-done
+				// Kill the process if the client disconnects
+				if cmd.Process != nil {
+					cmd.Process.Kill()
+				}
+				cmd.Wait() // Clean up resources
+			}()
+
+			// Read from stdout pipe in chunks and send to client
+			reader := bufio.NewReader(stdout)
+			buffer := make([]byte, 1024)
+
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					n, err := reader.Read(buffer)
+					if err != nil {
+						if err != io.EOF {
+							logger.Log.Printf("Error reading from docker logs: %v", err)
+						}
+						// Wait a bit before retrying or returning
+						time.Sleep(1 * time.Second)
+						continue
+					}
+
+					if n > 0 {
+						fmt.Fprintf(w, "data: %s\n\n", string(buffer[:n]))
+						flusher.Flush()
+					}
+				}
+			}
+		} else if logType == "setup" {
+			// Handle setup logs (from memory)
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
 					// Get VPN setup logs from logger
 					logMessages, err := logger.GetRecentLogs(50)
-					if err == nil {
-						logs = []byte(strings.Join(logMessages, "\n"))
+					if err == nil && len(logMessages) > 0 {
+						fmt.Fprintf(w, "data: %s\n\n", strings.Join(logMessages, "\n"))
+						flusher.Flush()
 					}
-				default:
-					http.Error(w, "Invalid log type", http.StatusBadRequest)
-					return
 				}
-
-				if err == nil && len(logs) > 0 {
-					fmt.Fprintf(w, "data: %s\n\n", string(logs))
-					flusher.Flush()
-				}
-
-				// Sleep briefly to prevent overwhelming the client
-				time.Sleep(1 * time.Second)
 			}
+		} else {
+			http.Error(w, "Invalid log type", http.StatusBadRequest)
+			return
 		}
 	}
 }
