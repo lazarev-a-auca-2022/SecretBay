@@ -9,6 +9,7 @@ package vpn
 import (
 	"crypto/rand"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -145,10 +146,61 @@ EOF`, s.SSHClient.GetPassword(), newPassword, newPassword)
 
 	// Package installation with enhanced security packages
 	logger.Log.Println("Step 1/6: Updating system and installing StrongSwan packages...")
-	cmds := []string{
-		"sudo apt-get update",
-		"sudo apt-get install -f", // Fix any broken dependencies first
-		"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl",
+
+	// Check if we're running in Docker
+	isDocker := false
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		isDocker = true
+		logger.Log.Println("Running in Docker environment")
+	}
+
+	// Create commands based on package manager and environment
+	var cmds []string
+
+	if isDocker {
+		// In Docker, don't use sudo
+		cmds = []string{
+			// Update package repositories based on available package manager
+			"apt-get update || apk update || yum check-update || dnf check-update || true",
+
+			// Install UFW and StrongSwan packages based on available package manager
+			"if command -v apt-get >/dev/null 2>&1; then " +
+				"apt-get install -f && " +
+				"DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl; " +
+				"elif command -v apk >/dev/null 2>&1; then " +
+				"apk add --no-cache strongswan fail2ban ufw iptables ip6tables openssl bash; " +
+				"rc-update add ufw 2>/dev/null || true; " +
+				"rc-service ufw start 2>/dev/null || true; " +
+				"elif command -v yum >/dev/null 2>&1; then " +
+				"yum install -y strongswan fail2ban ufw openssl; " +
+				"elif command -v dnf >/dev/null 2>&1; then " +
+				"dnf install -y strongswan fail2ban ufw openssl; " +
+				"else " +
+				"echo 'No supported package manager found'; " +
+				"fi",
+		}
+	} else {
+		// Not in Docker, use sudo
+		cmds = []string{
+			// Update package repositories based on available package manager
+			"sudo apt-get update || sudo apk update || sudo yum check-update || sudo dnf check-update || true",
+
+			// Install UFW and StrongSwan packages based on available package manager
+			"if command -v apt-get >/dev/null 2>&1; then " +
+				"sudo apt-get install -f && " +
+				"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y strongswan strongswan-pki libcharon-extra-plugins libcharon-extauth-plugins libstrongswan-extra-plugins fail2ban ufw openssl; " +
+				"elif command -v apk >/dev/null 2>&1; then " +
+				"sudo apk add --no-cache strongswan fail2ban ufw iptables ip6tables openssl bash; " +
+				"sudo rc-update add ufw 2>/dev/null || true; " +
+				"sudo rc-service ufw start 2>/dev/null || true; " +
+				"elif command -v yum >/dev/null 2>&1; then " +
+				"sudo yum install -y strongswan fail2ban ufw openssl; " +
+				"elif command -v dnf >/dev/null 2>&1; then " +
+				"sudo dnf install -y strongswan fail2ban ufw openssl; " +
+				"else " +
+				"echo 'No supported package manager found'; " +
+				"fi",
+		}
 	}
 
 	maxRetries := 3

@@ -69,25 +69,69 @@ func (o *OpenVPNSetup) Setup() error {
 	if isDocker {
 		// In Docker, don't use sudo
 		cmds = []string{
-			"apt-get update",
-			"apt-get install -f", // Fix any broken dependencies first
-			// Install UFW first
-			"DEBIAN_FRONTEND=noninteractive apt-get install -y ufw",
+			"apt-get update || apk update",
+			"apt-get install -f || true", // Fix any broken dependencies first
+			// Try to detect package manager and install UFW appropriately
+			"if command -v apt-get >/dev/null 2>&1; then " +
+				"DEBIAN_FRONTEND=noninteractive apt-get install -y ufw; " +
+				"elif command -v apk >/dev/null 2>&1; then " +
+				"apk add --no-cache ufw iptables ip6tables bash; " +
+				"rc-update add ufw 2>/dev/null || true; " +
+				"rc-service ufw start 2>/dev/null || true; " +
+				"elif command -v yum >/dev/null 2>&1; then " +
+				"yum install -y ufw; " +
+				"elif command -v dnf >/dev/null 2>&1; then " +
+				"dnf install -y ufw; " +
+				"else " +
+				"echo 'No supported package manager found'; " +
+				"fi",
 			// Then verify it's installed before continuing
-			"ufw status || (echo 'UFW not installed properly' && exit 1)",
-			// Then install OpenVPN and other packages
-			"DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban openssl",
+			"command -v ufw >/dev/null 2>&1 || echo 'UFW not installed properly'",
+			// Then install OpenVPN and other packages based on available package manager
+			"if command -v apt-get >/dev/null 2>&1; then " +
+				"DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban openssl; " +
+				"elif command -v apk >/dev/null 2>&1; then " +
+				"apk add --no-cache openvpn easy-rsa fail2ban openssl; " +
+				"elif command -v yum >/dev/null 2>&1; then " +
+				"yum install -y openvpn easy-rsa fail2ban openssl; " +
+				"elif command -v dnf >/dev/null 2>&1; then " +
+				"dnf install -y openvpn easy-rsa fail2ban openssl; " +
+				"else " +
+				"echo 'Could not install required packages'; " +
+				"fi",
 		}
 	} else {
 		cmds = []string{
-			"sudo apt-get update",
-			"sudo apt-get install -f",
-			// Install UFW first
-			"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ufw",
+			"sudo apt-get update || sudo apk update || sudo yum check-update || sudo dnf check-update || true",
+			"sudo apt-get install -f || true",
+			// Try to install UFW with appropriate package manager
+			"if command -v apt-get >/dev/null 2>&1; then " +
+				"sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ufw; " +
+				"elif command -v apk >/dev/null 2>&1; then " +
+				"sudo apk add --no-cache ufw iptables ip6tables bash; " +
+				"sudo rc-update add ufw 2>/dev/null || true; " +
+				"sudo rc-service ufw start 2>/dev/null || true; " +
+				"elif command -v yum >/dev/null 2>&1; then " +
+				"sudo yum install -y ufw; " +
+				"elif command -v dnf >/dev/null 2>&1; then " +
+				"sudo dnf install -y ufw; " +
+				"else " +
+				"echo 'No supported package manager found'; " +
+				"fi",
 			// Then verify it's installed
-			"sudo ufw status || (echo 'UFW not installed properly' && exit 1)",
-			// Then install OpenVPN and other packages
-			"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban openssl",
+			"command -v ufw >/dev/null 2>&1 || echo 'UFW not installed properly'",
+			// Then install OpenVPN and other packages with appropriate package manager
+			"if command -v apt-get >/dev/null 2>&1; then " +
+				"sudo DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y openvpn easy-rsa fail2ban openssl; " +
+				"elif command -v apk >/dev/null 2>&1; then " +
+				"sudo apk add --no-cache openvpn easy-rsa fail2ban openssl; " +
+				"elif command -v yum >/dev/null 2>&1; then " +
+				"sudo yum install -y openvpn easy-rsa fail2ban openssl; " +
+				"elif command -v dnf >/dev/null 2>&1; then " +
+				"sudo dnf install -y openvpn easy-rsa fail2ban openssl; " +
+				"else " +
+				"echo 'Could not install required packages'; " +
+				"fi",
 		}
 	}
 

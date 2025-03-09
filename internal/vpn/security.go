@@ -158,6 +158,7 @@ bantime = 3600
 	if strings.Contains(ufwOutput, "installed") {
 		logger.Log.Println("UFW is installed, configuring firewall")
 
+		// Continue with UFW configuration
 		firewallCmds := []string{
 			"ufw default deny incoming",
 			"ufw default allow outgoing",
@@ -179,27 +180,129 @@ bantime = 3600
 				// Continue as some firewall commands might fail in certain environments
 			}
 		}
-	} else {
-		logger.Log.Println("UFW not installed, skipping firewall configuration")
 
-		// Try to install UFW if not available
-		installUfwCmd := "DEBIAN_FRONTEND=noninteractive apt-get install -y ufw"
-		if !isDocker {
-			installUfwCmd = "sudo " + installUfwCmd
+	} else {
+		logger.Log.Println("UFW not installed, attempting to install it")
+
+		// Detect package manager and install UFW
+		packageManager := ""
+
+		// Try to detect package manager
+		for _, pm := range []string{"apt-get", "apt", "yum", "dnf", "apk"} {
+			checkCmd := fmt.Sprintf("which %s >/dev/null 2>&1 && echo 'found'", pm)
+			if out, _ := s.SSHClient.RunCommand(checkCmd); strings.Contains(out, "found") {
+				packageManager = pm
+				break
+			}
 		}
 
-		if output, err := s.SSHClient.RunCommand(installUfwCmd); err != nil {
-			logger.Log.Printf("Failed to install UFW: %v, output: %s", err, output)
-			logger.Log.Println("Continuing without UFW...")
+		// Installation commands based on package manager
+		var installCommands []string
+		if packageManager == "apt-get" || packageManager == "apt" {
+			installCommands = []string{
+				fmt.Sprintf("%s update", packageManager),
+				fmt.Sprintf("%s install -y -f", packageManager),
+				fmt.Sprintf("DEBIAN_FRONTEND=noninteractive %s install -y ufw", packageManager),
+			}
+		} else if packageManager == "yum" || packageManager == "dnf" {
+			installCommands = []string{
+				fmt.Sprintf("%s check-update || true", packageManager),
+				fmt.Sprintf("%s install -y ufw", packageManager),
+			}
+		} else if packageManager == "apk" {
+			installCommands = []string{
+				"apk update",
+				"apk add --no-cache ufw iptables ip6tables",
+				"apk add --no-cache bash",      // Some UFW scripts require bash
+				"rc-update add ufw",            // Enable UFW on boot if using OpenRC
+				"rc-service ufw start || true", // Try to start UFW service
+			}
 		} else {
+			logger.Log.Println("No supported package manager found, cannot install UFW")
+			logger.Log.Println("Continuing without firewall configuration")
+			return nil // Skip further firewall setup
+		}
+
+		// Add sudo if not in Docker
+		if !isDocker {
+			for i := range installCommands {
+				installCommands[i] = "sudo " + installCommands[i]
+			}
+		}
+
+		// Run installation commands
+		installSuccess := false
+		for _, cmd := range installCommands {
+			logger.Log.Printf("Running command: %s", cmd)
+			if output, err := s.SSHClient.RunCommand(cmd); err != nil {
+				logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
+			} else {
+				logger.Log.Printf("Command succeeded: %s", cmd)
+			}
+			// Sleep briefly between commands to avoid issues
+			time.Sleep(1 * time.Second)
+		}
+
+		// Verify installation was successful
+		verifyCmd := "which ufw >/dev/null 2>&1 && echo 'installed' || echo 'not installed'"
+		if !isDocker {
+			verifyCmd = "sudo " + verifyCmd
+		}
+
+		verifyOutput, _ := s.SSHClient.RunCommand(verifyCmd)
+		if strings.Contains(verifyOutput, "installed") {
 			logger.Log.Println("UFW installed successfully, configuring firewall")
-			// After successful install, try again to configure firewall
+			installSuccess = true
+		} else {
+			logger.Log.Println("UFW installation failed, continuing without firewall")
+
+			// Try to configure basic iptables rules as fallback
+			logger.Log.Println("Attempting to configure basic iptables rules as fallback")
+			iptablesCmd := "which iptables >/dev/null 2>&1 && echo 'found' || echo 'not found'"
+			iptablesOutput, _ := s.SSHClient.RunCommand(iptablesCmd)
+
+			if strings.Contains(iptablesOutput, "found") {
+				iptablesCmds := []string{
+					"iptables -P INPUT DROP",
+					"iptables -P FORWARD DROP",
+					"iptables -P OUTPUT ACCEPT",
+					"iptables -A INPUT -i lo -j ACCEPT",
+					"iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
+					"iptables -A INPUT -p tcp --dport 22 -j ACCEPT",   // SSH
+					"iptables -A INPUT -p udp --dport 1194 -j ACCEPT", // OpenVPN
+					"iptables -A INPUT -p udp --dport 500 -j ACCEPT",  // IKEv2
+					"iptables -A INPUT -p udp --dport 4500 -j ACCEPT", // IKEv2 NAT-T
+					"iptables-save > /etc/iptables/rules.v4 || iptables-save > /etc/iptables.rules || echo 'Could not save iptables rules'",
+				}
+
+				if !isDocker {
+					for i := range iptablesCmds {
+						iptablesCmds[i] = "sudo " + iptablesCmds[i]
+					}
+				}
+
+				for _, cmd := range iptablesCmds {
+					if output, err := s.SSHClient.RunCommand(cmd); err != nil {
+						logger.Log.Printf("iptables fallback warning for command '%s': %v, output: %s", cmd, err, output)
+					}
+				}
+				logger.Log.Println("Basic iptables firewall rules applied as fallback")
+			} else {
+				logger.Log.Println("iptables not found, continuing without firewall configuration")
+			}
+
+			return nil // Skip further UFW firewall setup
+		}
+
+		// Only proceed with configuration if installation succeeded
+		if installSuccess {
+			// After successful install, configure firewall
 			firewallCmds := []string{
 				"ufw default deny incoming",
 				"ufw default allow outgoing",
 				"ufw allow ssh",
-				"ufw allow 1194/udp",
-				"ufw allow 500,4500/udp",
+				"ufw allow 1194/udp",     // OpenVPN
+				"ufw allow 500,4500/udp", // IKEv2/IPsec
 				"ufw --force enable",
 			}
 
