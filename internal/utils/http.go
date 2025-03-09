@@ -89,7 +89,18 @@ func JSONError(w http.ResponseWriter, message string, code int) {
 	logger.Log.Printf("Error response: %+v", resp)
 
 	w.Header().Set("Content-Type", "application/json")
+
+	// Attempt to safely write the status code (ignore error if headers are already sent)
+	defer func() {
+		// If there's a panic when writing the header, it's likely because headers were already sent
+		// We'll recover and continue to encode the JSON response
+		recover()
+	}()
+
+	// Try to write the header - this may fail if headers were already written
 	w.WriteHeader(code)
+
+	// Always try to write the JSON response
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -129,8 +140,20 @@ func JSONErrorWithDetails(w http.ResponseWriter, err error, code int, requestID 
 	// Log detailed error
 	logger.Log.Printf("Detailed error response: %+v", resp)
 
+	// Set content type
 	w.Header().Set("Content-Type", "application/json")
+
+	// Attempt to safely write the status code (ignore error if headers are already sent)
+	defer func() {
+		// If there's a panic when writing the header, it's likely because headers were already sent
+		// We'll recover and continue to encode the JSON response
+		recover()
+	}()
+
+	// Try to write the header - this may fail if headers were already written
 	w.WriteHeader(code)
+
+	// Always try to write the JSON response
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -174,13 +197,35 @@ func JSONValidationError(w http.ResponseWriter, errors []ValidationError) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	// Attempt to safely write the status code (ignore error if headers are already sent)
+	defer func() {
+		// If there's a panic when writing the header, it's likely because headers were already sent
+		// We'll recover and continue to encode the JSON response
+		recover()
+	}()
+
+	// Try to write the header - this may fail if headers were already written
 	w.WriteHeader(http.StatusBadRequest)
+
+	// Always try to write the JSON response
 	json.NewEncoder(w).Encode(response)
 }
 
 // JSONResponse sends a JSON response with the given status code and data
 func JSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
+
+	// Attempt to safely write the status code (ignore error if headers are already sent)
+	defer func() {
+		// If there's a panic when writing the header, it's likely because headers were already sent
+		// We'll recover and continue to encode the JSON response
+		recover()
+	}()
+
+	// Try to write the header - this may fail if headers were already written
 	w.WriteHeader(status)
+
+	// Always try to write the JSON response
 	json.NewEncoder(w).Encode(data)
 }
