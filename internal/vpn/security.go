@@ -182,40 +182,34 @@ bantime = 3600
 	} else {
 		logger.Log.Println("UFW not installed, skipping firewall configuration")
 
-		// Try to install UFW if not available
-		installUfwCmd := "DEBIAN_FRONTEND=noninteractive apt-get install -y ufw"
+		// Only try to install UFW if not in Docker environment
 		if !isDocker {
-			installUfwCmd = "sudo " + installUfwCmd
-		}
+			// Try to install UFW if not available
+			installUfwCmd := "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ufw"
 
-		if output, err := s.SSHClient.RunCommand(installUfwCmd); err != nil {
-			logger.Log.Printf("Failed to install UFW: %v, output: %s", err, output)
-			logger.Log.Println("Continuing without UFW...")
+			if output, err := s.SSHClient.RunCommand(installUfwCmd); err != nil {
+				logger.Log.Printf("Failed to install UFW: %v, output: %s", err, output)
+				logger.Log.Println("Continuing without UFW...")
+			} else {
+				logger.Log.Println("UFW installed successfully, configuring firewall")
+				// After successful install, try again to configure firewall
+				firewallCmds := []string{
+					"sudo ufw default deny incoming",
+					"sudo ufw default allow outgoing",
+					"sudo ufw allow ssh",
+					"sudo ufw allow 1194/udp",     // OpenVPN
+					"sudo ufw allow 500,4500/udp", // IKEv2/IPsec
+					"sudo ufw --force enable",
+				}
+
+				for _, cmd := range firewallCmds {
+					if output, err := s.SSHClient.RunCommand(cmd); err != nil {
+						logger.Log.Printf("Firewall setup warning for command '%s': %v, output: %s", cmd, err, output)
+					}
+				}
+			}
 		} else {
-			logger.Log.Println("UFW installed successfully, configuring firewall")
-			// After successful install, try again to configure firewall
-			firewallCmds := []string{
-				"ufw default deny incoming",
-				"ufw default allow outgoing",
-				"ufw allow ssh",
-				"ufw allow 1194/udp",
-				"ufw allow 500,4500/udp",
-				"ufw --force enable",
-			}
-
-			if !isDocker {
-				for i := range firewallCmds {
-					firewallCmds[i] = "sudo " + firewallCmds[i]
-				}
-			}
-
-			for _, cmd := range firewallCmds {
-				// Adding a small delay between commands
-				time.Sleep(500 * time.Millisecond)
-				if output, err := s.SSHClient.RunCommand(cmd); err != nil {
-					logger.Log.Printf("Firewall setup warning for command '%s': %v, output: %s", cmd, err, output)
-				}
-			}
+			logger.Log.Println("Running in Docker environment, skipping UFW installation and configuration")
 		}
 	}
 
@@ -263,55 +257,31 @@ func (s *SecuritySetup) DisableUnnecessaryServices() error {
 	isDocker := false
 	if _, err := os.Stat("/.dockerenv"); err == nil {
 		isDocker = true
-		logger.Log.Println("Running in Docker environment - skipping some service operations")
+		logger.Log.Println("Running in Docker environment, service management may be limited")
 	}
 
+	// List of services to disable
 	servicesToDisable := []string{
-		"apache2",
-		"nginx",
-		"rpcbind",
-		"telnet",
-		"xinetd",
+		"cups", "cups-browsed", "avahi-daemon", "bluetooth", "whoopsie",
+		"apport", "snapd", "ModemManager", "speech-dispatcher",
 	}
 
-	for _, service := range servicesToDisable {
-		cmds := []string{
-			fmt.Sprintf("systemctl stop %s 2>/dev/null || true", service),
-			fmt.Sprintf("systemctl disable %s 2>/dev/null || true", service),
-		}
+	// Only attempt to disable services if not in Docker
+	if !isDocker {
+		for _, service := range servicesToDisable {
+			disableCmd := fmt.Sprintf("systemctl stop %s 2>/dev/null; systemctl disable %s 2>/dev/null || true", service, service)
+			disableCmd = "sudo " + disableCmd
 
-		if !isDocker {
-			for i := range cmds {
-				cmds[i] = "sudo " + cmds[i]
+			output, err := s.SSHClient.RunCommand(disableCmd)
+			if err != nil {
+				logger.Log.Printf("Warning: Failed to disable service %s: %v, output: %s", service, err, output)
+				// Continue with other services
+			} else {
+				logger.Log.Printf("Successfully disabled service: %s", service)
 			}
 		}
-
-		for _, cmd := range cmds {
-			_, _ = s.SSHClient.RunCommand(cmd) // Ignore errors as services might not exist
-		}
-	}
-
-	// Set up system hardening
-	hardeningCmds := []string{
-		"sysctl -w net.ipv4.tcp_syncookies=1",
-		"sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1",
-		"sysctl -w net.ipv4.conf.all.accept_redirects=0",
-		"sysctl -w net.ipv4.conf.all.send_redirects=0",
-		"sysctl -w net.ipv4.conf.all.accept_source_route=0",
-		"sysctl -w kernel.sysrq=0",
-		"sysctl -p",
-	}
-
-	if !isDocker {
-		for i := range hardeningCmds {
-			hardeningCmds[i] = "sudo " + hardeningCmds[i]
-		}
-	}
-
-	for _, cmd := range hardeningCmds {
-		if _, err := s.SSHClient.RunCommand(cmd); err != nil {
-			logger.Log.Printf("System hardening warning: %v", err)
-		}
+	} else {
+		logger.Log.Println("Skipping service management in Docker environment")
 	}
 
 	return nil

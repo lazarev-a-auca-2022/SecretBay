@@ -544,12 +544,21 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 			logger.Log.Println("SetupVPNHandler: Fail2Ban setup completed successfully")
 		}
 
-		if err := security.DisableUnnecessaryServices(); err != nil {
-			logger.Log.Printf("SetupVPNHandler: DisableUnnecessaryServices failed: %v", err)
-			monitoring.LogError(err)
-			securityRecommendations = append(securityRecommendations, "Unable to disable some unnecessary services. Manually check running services with 'systemctl list-unit-files --state=enabled'.")
+		// Check if we're running in Docker before attempting to disable services
+		isDocker := false
+		if _, err := os.Stat("/.dockerenv"); err == nil {
+			isDocker = true
+			logger.Log.Println("SetupVPNHandler: Running in Docker environment, skipping service management")
+		}
+
+		if !isDocker {
+			if err := security.DisableUnnecessaryServices(); err != nil {
+				logger.Log.Printf("SetupVPNHandler: DisableUnnecessaryServices failed: %v", err)
+				monitoring.LogError(err)
+				securityRecommendations = append(securityRecommendations, "Unable to disable some unnecessary services. Manually check running services with 'systemctl list-unit-files --state=enabled'.")
+			}
 		} else {
-			logger.Log.Println("SetupVPNHandler: Unnecessary services disabled successfully")
+			logger.Log.Println("SetupVPNHandler: Skipping DisableUnnecessaryServices in Docker environment")
 		}
 
 		// Send progress update for password generation
