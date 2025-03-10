@@ -151,33 +151,46 @@ bantime = 3600
 		return fmt.Errorf("failed to configure fail2ban: %v", err)
 	}
 
-	// Check if UFW is installed before trying to use it
-	checkUfwCmd := "which ufw >/dev/null 2>&1 && echo 'installed' || echo 'not installed'"
+	// Check if UFW is installed AND executable before trying to use it
+	// Use command -v which verifies the command is actually executable
+	checkUfwCmd := "command -v ufw > /dev/null 2>&1 && echo 'installed' || echo 'not installed'"
 	ufwOutput, _ := s.SSHClient.RunCommand(checkUfwCmd)
 
 	if strings.Contains(ufwOutput, "installed") {
-		logger.Log.Println("UFW is installed, configuring firewall")
+		logger.Log.Println("UFW is installed, verifying it can be executed")
 
-		firewallCmds := []string{
-			"ufw default deny incoming",
-			"ufw default allow outgoing",
-			"ufw allow ssh",
-			"ufw allow 1194/udp",     // OpenVPN
-			"ufw allow 500,4500/udp", // IKEv2/IPsec
-			"ufw --force enable",
-		}
+		// Double check that ufw command actually works
+		testCmd := "ufw --version > /dev/null 2>&1 && echo 'functional' || echo 'not functional'"
+		testOutput, _ := s.SSHClient.RunCommand(testCmd)
 
-		if !isDocker {
-			for i := range firewallCmds {
-				firewallCmds[i] = "sudo " + firewallCmds[i]
+		if strings.Contains(testOutput, "functional") {
+			logger.Log.Println("UFW is functional, configuring firewall")
+
+			firewallCmds := []string{
+				"ufw default deny incoming",
+				"ufw default allow outgoing",
+				"ufw allow ssh",
+				"ufw allow 1194/udp",     // OpenVPN
+				"ufw allow 500,4500/udp", // IKEv2/IPsec
+				"ufw --force enable",
 			}
-		}
 
-		for _, cmd := range firewallCmds {
-			if output, err := s.SSHClient.RunCommand(cmd); err != nil {
-				logger.Log.Printf("Firewall setup warning for command '%s': %v, output: %s", cmd, err, output)
-				// Continue as some firewall commands might fail in certain environments
+			if !isDocker {
+				for i := range firewallCmds {
+					firewallCmds[i] = "sudo " + firewallCmds[i]
+				}
 			}
+
+			for _, cmd := range firewallCmds {
+				if output, err := s.SSHClient.RunCommand(cmd); err != nil {
+					logger.Log.Printf("Firewall setup warning for command '%s': command failed: %v, output: %s", cmd, err, output)
+					// Continue as some firewall commands might fail in certain environments
+				} else {
+					logger.Log.Printf("Firewall command successful: %s", cmd)
+				}
+			}
+		} else {
+			logger.Log.Println("UFW command found but not functional, skipping firewall configuration")
 		}
 	} else {
 		logger.Log.Println("UFW not installed, skipping firewall configuration")
@@ -205,6 +218,8 @@ bantime = 3600
 				for _, cmd := range firewallCmds {
 					if output, err := s.SSHClient.RunCommand(cmd); err != nil {
 						logger.Log.Printf("Firewall setup warning for command '%s': %v, output: %s", cmd, err, output)
+					} else {
+						logger.Log.Printf("Firewall command successful: %s", cmd)
 					}
 				}
 			}
