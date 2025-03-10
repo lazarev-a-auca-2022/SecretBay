@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"context"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/internal/auth"
@@ -873,10 +875,39 @@ func RegisterRoutes(router *mux.Router, cfg *config.Config, db *sql.DB) {
 // LogsHandler returns an http.HandlerFunc that handles both VPN and setup logs retrieval
 func LogsHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Check auth context
+		// Check auth context first (from JWT middleware)
 		userCtx := r.Context().Value("username")
+
+		// If not authenticated through JWT middleware, check for auth_token parameter
+		// This is a workaround for EventSource which doesn't support custom headers
 		if userCtx == nil {
-			utils.JSONError(w, "Unauthorized", http.StatusUnauthorized)
+			// Check for auth_token in query parameters
+			authToken := r.URL.Query().Get("auth_token")
+			if authToken != "" {
+				// Validate the token
+				claims, err := auth.ValidateJWT(authToken, cfg)
+				if err == nil && claims != nil {
+					// Valid token, create a context with the username
+					ctx := context.WithValue(r.Context(), "username", claims.Username)
+					r = r.WithContext(ctx)
+					userCtx = claims.Username
+					logger.Log.Printf("LogsHandler: Authenticated via auth_token parameter for user %s", claims.Username)
+				} else {
+					logger.Log.Printf("LogsHandler: Invalid auth_token provided: %v", err)
+				}
+			}
+		}
+
+		// Check if authentication was successful
+		if userCtx == nil {
+			logger.Log.Println("LogsHandler: Unauthorized access attempt")
+			// For API requests, return 401
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				utils.JSONError(w, "Unauthorized", http.StatusUnauthorized)
+			} else {
+				// For browser requests, redirect to login
+				http.Redirect(w, r, "/login.html", http.StatusSeeOther)
+			}
 			return
 		}
 

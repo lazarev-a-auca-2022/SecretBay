@@ -219,11 +219,6 @@ function setupLogTracker(logContainer, statusElement) {
         // Add initial status message
         addLogMessage("Starting VPN setup process...");
         
-        const token = localStorage.getItem('jwt');
-        if (!token || !isValidJWT(token)) {
-            throw new Error('Authentication required');
-        }
-
         // Close any existing connection
         if (eventSource) {
             eventSource.close();
@@ -235,116 +230,169 @@ function setupLogTracker(logContainer, statusElement) {
         const RETRY_DELAY = 2000; // 2 seconds
         let retryTimeout = null;
 
-        const attemptConnection = () => {
+        const attemptConnection = async () => {
             // Clear any existing retry timeouts
             if (retryTimeout) {
                 clearTimeout(retryTimeout);
                 retryTimeout = null;
             }
 
-            // Create new EventSource connection
-            eventSource = new EventSource(`${BASE_URL}/api/logs?type=vpn`);
-
-            eventSource.onopen = () => {
-                console.log("Log stream connection established");
-                retryCount = 0; // Reset retry count on successful connection
-                isError = false;
+            try {
+                // Get authenticated logs URL
+                const logsUrl = await accessVPNLogs('vpn');
                 
-                // Update status if it was showing an error
-                if (statusElement.textContent.includes("Error")) {
-                    statusElement.style.color = "";  // Reset to default color
-                    statusElement.textContent = "Connected to log stream...";
-                    
-                    // Remove error controls if they exist
-                    const errorControls = document.querySelector("#errorControls");
-                    if (errorControls) {
-                        errorControls.remove();
-                    }
+                // Create new EventSource connection with the authenticated URL
+                // EventSource doesn't support custom headers directly, so we need to include the token in the URL
+                const token = localStorage.getItem('jwt');
+                const csrfToken = await getCsrfToken();
+                
+                // Create URL with authentication parameters
+                const urlWithAuth = new URL(logsUrl);
+                if (token) {
+                    // Note: Adding auth token to URL is not ideal for security,
+                    // but EventSource doesn't support custom headers
+                    // For a production app, consider using WebSockets or fetch with streaming
+                    urlWithAuth.searchParams.append('auth_token', token);
                 }
-            };
+                
+                eventSource = new EventSource(urlWithAuth.toString());
 
-            eventSource.onmessage = (event) => {
-                const logs = event.data.split('\n');
-                logs.forEach(log => {
-                    if (log.trim()) {
-                        if (log.includes('New VPN Password:')) {
-                            // Extract and display password immediately
-                            const password = log.split('New VPN Password:')[1].trim();
-                            currentCredentials.credential = password;
-                            showPasswordInfo(password, logContainer.parentNode);
+                eventSource.onopen = () => {
+                    console.log("Log stream connection established");
+                    retryCount = 0; // Reset retry count on successful connection
+                    isError = false;
+                    
+                    // Update status if it was showing an error
+                    if (statusElement.textContent.includes("Error")) {
+                        statusElement.style.color = "";  // Reset to default color
+                        statusElement.textContent = "Connected to log stream...";
+                        
+                        // Remove error controls if they exist
+                        const errorControls = document.querySelector("#errorControls");
+                        if (errorControls) {
+                            errorControls.remove();
                         }
-                        addLogMessage(log.trim());
                     }
-                });
-            };
-
-            eventSource.onerror = (error) => {
-                console.warn("EventSource error:", error);
+                };
                 
-                // Close the current connection
-                eventSource.close();
-                
-                // Attempt to reconnect if we haven't exceeded max retries
-                if (retryCount < MAX_RETRIES) {
-                    retryCount++;
-                    
-                    // Update status to show we're trying to reconnect
-                    statusElement.textContent = `Connection lost. Reconnecting (${retryCount}/${MAX_RETRIES})...`;
-                    statusElement.style.color = "#FF9900"; // Orange for warning
-                    
-                    // Set timeout for next retry
-                    retryTimeout = setTimeout(attemptConnection, RETRY_DELAY * retryCount);
-                } else if (!isError) {
-                    // We've exceeded max retries, show the error UI
-                    isError = true;
-                    clearInterval(dotsInterval);
-                    
-                    statusElement.textContent = `Error: Connection lost`;
-                    statusElement.style.color = "#FF0000";
-                    addLogMessage(`Error: Connection to log stream lost`);
-                    
-                    if (!document.querySelector("#errorControls")) {
-                        const container = logContainer.parentElement;
-                        const errorControls = document.createElement("div");
-                        errorControls.id = "errorControls";
-                        errorControls.style.marginTop = "20px";
-                        errorControls.style.display = "flex";
-                        errorControls.style.justifyContent = "center";
-                        errorControls.style.gap = "10px";
-                        
-                        const retryButton = document.createElement("button");
-                        retryButton.textContent = "Retry";
-                        retryButton.className = "btn btn-primary";
-                        retryButton.style.maxWidth = "150px";
-                        retryButton.onclick = () => {
-                            errorControls.remove();
-                            isError = false;
-                            retryCount = 0; // Reset retry count for manual retry
-                            statusElement.style.color = "";  // Reset to default color
-                            statusElement.textContent = "Loading...";  // Reset text
-                            attemptConnection();
-                        };
-                        
-                        const cancelButton = document.createElement("button");
-                        cancelButton.textContent = "Cancel";
-                        cancelButton.className = "btn btn-secondary";
-                        cancelButton.style.maxWidth = "150px";
-                        cancelButton.onclick = () => {
-                            if (eventSource) {
-                                eventSource.close();
-                            }
-                            document.querySelector("#setupProgress").style.display = "none";
-                            document.querySelector("#vpnForm").style.display = "block";
-                            logsDiv.remove();
-                            errorControls.remove();
-                        };
-                        
-                        errorControls.appendChild(retryButton);
-                        errorControls.appendChild(cancelButton);
-                        container.appendChild(errorControls);
+                eventSource.onmessage = (event) => {
+                    if (dotsInterval) {
+                        clearInterval(dotsInterval);
+                        dotsInterval = null;
                     }
+                    
+                    if (statusElement.textContent.includes("Loading")) {
+                        statusElement.textContent = "Processing...";
+                    }
+                    
+                    addLogMessage(event.data);
+                };
+                
+                eventSource.onerror = (error) => {
+                    console.error("EventSource error:", error);
+                    eventSource.close();
+                    
+                    // Try to reconnect if we haven't reached max retries
+                    if (retryCount < MAX_RETRIES && !isError) {
+                        console.log(`Attempting to reconnect (${retryCount + 1}/${MAX_RETRIES})...`);
+                        retryCount++;
+                        retryTimeout = setTimeout(attemptConnection, RETRY_DELAY * retryCount);
+                    } else if (!isError) {
+                        isError = true;
+                        clearInterval(dotsInterval);
+                        
+                        statusElement.textContent = "Error: Connection to log stream lost";
+                        statusElement.style.color = "#FF0000";
+                        addLogMessage("Error: Connection to log stream lost");
+                        
+                        if (!document.querySelector("#errorControls")) {
+                            const container = logContainer.parentElement;
+                            const errorControls = document.createElement("div");
+                            errorControls.id = "errorControls";
+                            errorControls.style.marginTop = "20px";
+                            errorControls.style.display = "flex";
+                            errorControls.style.justifyContent = "center";
+                            errorControls.style.gap = "10px";
+                            
+                            const retryButton = document.createElement("button");
+                            retryButton.textContent = "Retry";
+                            retryButton.className = "btn btn-primary";
+                            retryButton.style.maxWidth = "150px";
+                            retryButton.onclick = () => {
+                                errorControls.remove();
+                                isError = false;
+                                statusElement.style.color = "#00FF00";
+                                document.querySelector("#vpnForm").dispatchEvent(new Event("submit"));
+                            };
+                            
+                            const cancelButton = document.createElement("button");
+                            cancelButton.textContent = "Cancel";
+                            cancelButton.className = "btn btn-secondary";
+                            cancelButton.style.maxWidth = "150px";
+                            cancelButton.onclick = () => {
+                                if (eventSource) {
+                                    eventSource.close();
+                                }
+                                document.querySelector("#setupProgress").style.display = "none";
+                                document.querySelector("#vpnForm").style.display = "block";
+                                logsDiv.remove();
+                                errorControls.remove();
+                            };
+                            
+                            errorControls.appendChild(retryButton);
+                            errorControls.appendChild(cancelButton);
+                            container.appendChild(errorControls);
+                        }
+                    }
+                };
+            } catch (error) {
+                console.error('Failed to connect to log stream:', error);
+                isError = true;
+                clearInterval(dotsInterval);
+                
+                statusElement.textContent = 'Error: Connection to log stream lost';
+                statusElement.style.color = '#FF0000';
+                addLogMessage('Error: Connection to log stream lost');
+                
+                if (!document.querySelector("#errorControls")) {
+                    const container = logContainer.parentElement;
+                    const errorControls = document.createElement("div");
+                    errorControls.id = "errorControls";
+                    errorControls.style.marginTop = "20px";
+                    errorControls.style.display = "flex";
+                    errorControls.style.justifyContent = "center";
+                    errorControls.style.gap = "10px";
+                    
+                    const retryButton = document.createElement("button");
+                    retryButton.textContent = "Retry";
+                    retryButton.className = "btn btn-primary";
+                    retryButton.style.maxWidth = "150px";
+                    retryButton.onclick = () => {
+                        errorControls.remove();
+                        isError = false;
+                        statusElement.style.color = "#00FF00";
+                        document.querySelector("#vpnForm").dispatchEvent(new Event("submit"));
+                    };
+                    
+                    const cancelButton = document.createElement("button");
+                    cancelButton.textContent = "Cancel";
+                    cancelButton.className = "btn btn-secondary";
+                    cancelButton.style.maxWidth = "150px";
+                    cancelButton.onclick = () => {
+                        if (eventSource) {
+                            eventSource.close();
+                        }
+                        document.querySelector("#setupProgress").style.display = "none";
+                        document.querySelector("#vpnForm").style.display = "block";
+                        logsDiv.remove();
+                        errorControls.remove();
+                    };
+                    
+                    errorControls.appendChild(retryButton);
+                    errorControls.appendChild(cancelButton);
+                    container.appendChild(errorControls);
                 }
-            };
+            }
         };
         
         // Start the connection
@@ -661,6 +709,29 @@ async function refreshAuthState() {
         localStorage.removeItem('jwt');
         window.location.replace('/login.html?auth_error=true');
         return false;
+    }
+}
+
+// Function to handle accessing logs with authentication
+async function accessVPNLogs(logType = 'vpn') {
+    try {
+        // First ensure we're authenticated
+        const isAuthenticated = await refreshAuthState();
+        if (!isAuthenticated) {
+            throw new Error('Authentication required');
+        }
+        
+        const token = localStorage.getItem('jwt');
+        const csrfToken = await getCsrfToken();
+        
+        // After authentication is confirmed, redirect to logs page or return the URL
+        return `${BASE_URL}/api/logs?type=${logType}`;
+    } catch (error) {
+        console.error('Failed to access logs:', error);
+        if (window.location.pathname !== '/login.html') {
+            window.location.replace('/login.html?auth_error=true&redirect=logs');
+        }
+        throw error;
     }
 }
 
