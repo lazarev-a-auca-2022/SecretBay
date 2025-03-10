@@ -369,12 +369,37 @@ func (o *OpenVPNSetup) Setup() error {
 	if dhOut, err := o.SSHClient.RunCommand(verifyDhCmd); err != nil {
 		logger.Log.Printf("DH parameter verification failed: %v, output: %s", err, dhOut)
 		// Try to regenerate DH params directly
-		genDhCmd := "openssl dhparam -out /etc/openvpn/certs/dh.pem 2048"
-		if !isDocker {
-			genDhCmd = "sudo " + genDhCmd
-		}
-		if _, err := o.SSHClient.RunCommand(genDhCmd); err != nil {
-			return fmt.Errorf("failed to generate DH parameters: %v", err)
+		if err != nil || !strings.Contains(dhOut, "DH parameters appear to be ok") {
+			logger.Log.Println("DH parameters invalid or missing, generating new ones...")
+			// First ensure the directory exists
+			mkdirCmd := "mkdir -p /etc/openvpn/certs"
+			if !isDocker {
+				mkdirCmd = "sudo " + mkdirCmd
+			}
+			if _, err := o.SSHClient.RunCommand(mkdirCmd); err != nil {
+				return fmt.Errorf("failed to create certs directory: %v", err)
+			}
+
+			// Generate DH parameters directly in the correct location
+			genDhCmd := "openssl dhparam -out /etc/openvpn/certs/dh.pem 2048"
+			if !isDocker {
+				genDhCmd = "sudo " + genDhCmd
+			}
+			if output, err := o.SSHClient.RunCommand(genDhCmd); err != nil {
+				logger.Log.Printf("DH parameter generation failed: %v, output: %s", err, output)
+				return fmt.Errorf("failed to generate DH parameters: %v", err)
+			}
+
+			// Verify the newly generated parameters
+			verifyCmd := "test -f /etc/openvpn/certs/dh.pem && openssl dhparam -check -in /etc/openvpn/certs/dh.pem"
+			if !isDocker {
+				verifyCmd = "sudo " + verifyCmd
+			}
+			if output, err := o.SSHClient.RunCommand(verifyCmd); err != nil {
+				logger.Log.Printf("Final DH parameter verification failed: %v, output: %s", err, output)
+				return fmt.Errorf("final DH parameter verification failed: %v", err)
+			}
+			logger.Log.Println("Successfully generated and verified new DH parameters")
 		}
 	}
 
