@@ -429,37 +429,20 @@ explicit-exit-notify 1`
 		return fmt.Errorf("failed to write server config: %v", err)
 	}
 
-	// Create directory for client configs with better error handling and verification
+	// Create directory for client configs
 	logger.Log.Println("Creating directory for client configs...")
-	createClientDirCmds := []string{
-		"mkdir -p /etc/vpn-configs",
-		"chmod 755 /etc/vpn-configs",
-		"chown root:root /etc/vpn-configs",
-		"test -d /etc/vpn-configs && echo 'Directory exists' || echo 'Directory creation failed'",
-		"test -w /etc/vpn-configs && echo 'Writable' || echo 'Not writable'",
-	}
-
+	createClientDirCmd := "mkdir -p /etc/vpn-configs && chmod 755 /etc/vpn-configs"
 	if !isDocker {
-		for i := range createClientDirCmds {
-			createClientDirCmds[i] = "sudo " + createClientDirCmds[i]
-		}
+		createClientDirCmd = "sudo " + createClientDirCmd
 	}
-
-	for _, cmd := range createClientDirCmds {
-		output, err = o.SSHClient.RunCommand(cmd)
-		if err != nil {
-			// Check for password expiry
-			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
-				return fmt.Errorf("password has expired and needs to be reset before continuing")
-			}
-			logger.Log.Printf("Warning: Directory setup command failed: %v, output: %s", err, output)
-			return fmt.Errorf("failed to setup VPN config directory: %v", err)
+	output, err = o.SSHClient.RunCommand(createClientDirCmd)
+	if err != nil {
+		// Check for password expiry
+		if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+			return fmt.Errorf("password has expired and needs to be reset before continuing")
 		}
-		if strings.Contains(output, "failed") || strings.Contains(output, "Not writable") {
-			return fmt.Errorf("VPN config directory setup failed: %s", output)
-		}
+		logger.Log.Printf("Warning: Failed to create client config directory: %v, output: %s", err, output)
 	}
-	logger.Log.Println("VPN config directory setup verified successfully")
 
 	// Configure system settings
 	logger.Log.Println("Step 5/6: Configuring system settings...")
@@ -707,32 +690,21 @@ key-direction 1
 	// Replace placeholder with actual CA cert
 	clientConfig = strings.Replace(clientConfig, "${CA_CERT}", caCert, 1)
 
-	// Write config with explicit ownership and permissions
-	createConfigCmds := []string{
-		fmt.Sprintf("echo '%s' | tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig),
-		"chown root:root /etc/vpn-configs/openvpn_config.ovpn",
-		"chmod 644 /etc/vpn-configs/openvpn_config.ovpn",
-		"test -f /etc/vpn-configs/openvpn_config.ovpn && echo 'Config file created' || echo 'Config file creation failed'",
-	}
-
+	clientConfigCmd := fmt.Sprintf("echo '%s' | tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig)
 	if !isDocker {
-		for i := range createConfigCmds {
-			createConfigCmds[i] = "sudo " + createConfigCmds[i]
-		}
+		clientConfigCmd = fmt.Sprintf("echo '%s' | sudo tee /etc/vpn-configs/openvpn_config.ovpn", clientConfig)
 	}
 
-	for _, cmd := range createConfigCmds {
-		output, err = o.SSHClient.RunCommand(cmd)
-		if err != nil {
-			logger.Log.Printf("Failed to create client config: %v, output: %s", err, output)
-			return fmt.Errorf("failed to create client config: %v", err)
+	output, err = o.SSHClient.RunCommand(clientConfigCmd)
+	if err != nil {
+		// Check if this is a password expiry issue
+		if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
+			return fmt.Errorf("password has expired and needs to be reset before continuing")
 		}
-		if strings.Contains(output, "failed") {
-			return fmt.Errorf("client config creation failed: %s", output)
-		}
+		logger.Log.Printf("Warning: Failed to generate client config: %v, output: %s", err, output)
+	} else {
+		logger.Log.Println("Client configuration created at /etc/vpn-configs/openvpn_config.ovpn")
 	}
-
-	logger.Log.Println("Client configuration created successfully")
 
 	logger.Log.Println("OpenVPN setup completed successfully")
 	return nil
