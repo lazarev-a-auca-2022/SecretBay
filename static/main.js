@@ -525,16 +525,26 @@ function showPasswordInfo(password, container, title = 'New VPN Password') {
 
 // Function to generate download links instead of directly downloading files
 function generateDownloadLink(baseUrl, filename, credentials) {
+    // Convert vpnType to match exactly what the backend expects
+    let vpnTypeParam = credentials.vpnType;
+    if (vpnTypeParam === 'ios_vpn') {
+        vpnTypeParam = 'ios_vpn';
+    } else {
+        vpnTypeParam = 'openvpn';
+    }
+
+    // Use the standardized parameter names expected by the backend handlers
     const params = new URLSearchParams({
         serverIp: credentials.serverIp,
-        username: credentials.username,
+        username: credentials.username || 'root',
         credential: credentials.credential,
-        vpnType: credentials.vpnType
+        vpnType: vpnTypeParam
     });
     
-    const downloadUrl = `${baseUrl}?${params.toString()}`;
+    // Ensure we're using the correct endpoint path
+    const downloadUrl = `${BASE_URL}/api/config/download/client?${params.toString()}`;
     
-    // Instead of returning a direct URL, return a data URL that will trigger download with proper headers
+    // Return URL that will trigger download function with the proper URL and filename
     return `javascript:downloadConfig('${downloadUrl}', '${filename}')`;
 }
 
