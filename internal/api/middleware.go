@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -94,7 +95,7 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 					w.Header().Set("Access-Control-Allow-Credentials", "true")
 					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 					w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization, X-CSRF-Token")
-					w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition")
+					w.Header().Set("Access-Control-Expose-Headers", "Content-Disposition, Content-Length, Content-Range")
 				}
 
 				if r.Method == "OPTIONS" {
@@ -120,28 +121,12 @@ func JWTAuthenticationMiddleware(cfg *config.Config) func(http.Handler) http.Han
 
 			claims, err := auth.ValidateJWT(tokenStr, cfg)
 			if err != nil {
-				if tokenErr, ok := err.(*auth.TokenError); ok {
-					switch tokenErr.Type {
-					case "Malformed":
-						logger.Log.Printf("Auth failed: Malformed token for %s", r.URL.Path)
-						utils.JSONError(w, "Invalid token format", http.StatusBadRequest)
-					case "InvalidSignature":
-						logger.Log.Printf("Auth failed: Invalid signature for %s", r.URL.Path)
-						utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
-					default:
-						logger.Log.Printf("Auth failed: Invalid token for %s: %v", r.URL.Path, tokenErr)
-						utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
-					}
-				} else {
-					logger.Log.Printf("Auth failed: Invalid token for %s: %v", r.URL.Path, err)
-					utils.JSONError(w, "Invalid token", http.StatusUnauthorized)
-				}
+				logger.Log.Printf("Auth failed: Invalid token for %s: %v", r.URL.Path, err)
+				utils.JSONError(w, "Invalid or expired token", http.StatusUnauthorized)
 				return
 			}
-
-			// Add claims to request context for use in handlers
-			ctx := auth.AddUserClaimsToContext(r.Context(), claims)
-			logger.Log.Printf("Authentication successful for user %s accessing %s", claims.Username, r.URL.Path)
+			// Add claims to request context
+			ctx := context.WithValue(r.Context(), "claims", claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
