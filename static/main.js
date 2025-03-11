@@ -227,7 +227,7 @@ function setupLogTracker(logContainer, statusElement) {
         // Configure connection retry behavior
         let retryCount = 0;
         const MAX_RETRIES = 5;
-        const RETRY_DELAY = 2000; // 2 seconds
+        const RETRY_DELAY = 30000; // 30 seconds
         let retryTimeout = null;
 
         const attemptConnection = async () => {
