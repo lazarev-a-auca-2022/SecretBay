@@ -917,13 +917,8 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
-		// Create a channel to signal client disconnect
-		done := make(chan bool)
-		notify := w.(http.CloseNotifier).CloseNotify()
-		go func() {
-			<-notify
-			done <- true
-		}()
+		// Use request context for cancellation
+		ctx := r.Context()
 
 		// Check log type from query parameter
 		logType := r.URL.Query().Get("type")
@@ -939,26 +934,31 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 
 		// Handle VPN logs with proper streaming
 		if logType == "vpn" {
+			// Send initial event to establish connection
+			fmt.Fprintf(w, "data: %s\n\n", "Connection established")
+
 			cmd := exec.Command("bash", "-c", "docker logs --tail 50 -f vpn-server")
 
 			// Get pipe to command's stdout
 			stdout, err := cmd.StdoutPipe()
 			if err != nil {
 				logger.Log.Printf("Error creating stdout pipe: %v", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				fmt.Fprintf(w, "data: Error creating stdout pipe: %v\n\n", err)
+				flusher.Flush()
 				return
 			}
 
 			// Start the command
 			if err := cmd.Start(); err != nil {
 				logger.Log.Printf("Error starting docker logs command: %v", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				fmt.Fprintf(w, "data: Error starting docker logs command: %v\n\n", err)
+				flusher.Flush()
 				return
 			}
 
 			// Set up a go routine to properly handle process cleanup
 			go func() {
-				<-done
+				<-ctx.Done()
 				// Kill the process if the client disconnects
 				if cmd.Process != nil {
 					cmd.Process.Kill()
@@ -972,7 +972,7 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 
 			for {
 				select {
-				case <-done:
+				case <-ctx.Done():
 					return
 				default:
 					n, err := reader.Read(buffer)
@@ -992,13 +992,16 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 				}
 			}
 		} else if logType == "setup" {
+			// Send initial event to establish connection
+			fmt.Fprintf(w, "data: %s\n\n", "Connection established")
+
 			// Handle setup logs (from memory)
 			ticker := time.NewTicker(1 * time.Second)
 			defer ticker.Stop()
 
 			for {
 				select {
-				case <-done:
+				case <-ctx.Done():
 					return
 				case <-ticker.C:
 					// Get VPN setup logs from logger
@@ -1040,19 +1043,18 @@ func generatePassword() (string, error) {
 
 func DownloadConfigHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		vpnType := vars["type"]
+		// Get VPN type from query parameter instead of URL vars
+		vpnType := r.URL.Query().Get("vpnType")
 
 		// Validate VPN type
-		if vpnType != "openvpn" && vpnType != "ios" {
-			http.Error(w, "Invalid VPN type", http.StatusBadRequest)
-			return
+		if vpnType != "openvpn" && vpnType != "ios_vpn" {
+			vpnType = "openvpn" // Default to OpenVPN if not specified or invalid
 		}
 
 		// Get required query parameters
-		serverIP := r.URL.Query().Get("server_ip")
+		serverIP := r.URL.Query().Get("serverIp")
 		if serverIP == "" {
-			http.Error(w, "Missing server_ip", http.StatusBadRequest)
+			http.Error(w, "Missing serverIp parameter", http.StatusBadRequest)
 			return
 		}
 
@@ -1064,7 +1066,7 @@ func DownloadConfigHandler() http.HandlerFunc {
 		}
 		authCredential := r.URL.Query().Get("credential")
 		if authCredential == "" {
-			http.Error(w, "Missing credential", http.StatusBadRequest)
+			http.Error(w, "Missing credential parameter", http.StatusBadRequest)
 			return
 		}
 
@@ -1108,7 +1110,7 @@ func DownloadConfigHandler() http.HandlerFunc {
 		// Set appropriate filename based on VPN type
 		filename := "openvpn_config.ovpn"
 		contentType := "application/octet-stream"
-		if vpnType == "ios" {
+		if vpnType == "ios_vpn" {
 			filename = "vpn_config.mobileconfig"
 			contentType = "application/x-apple-aspen-config"
 		}
@@ -1118,6 +1120,7 @@ func DownloadConfigHandler() http.HandlerFunc {
 		w.Write([]byte(configContent))
 	}
 }
+
 func LoginHandler(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Println("LoginHandler: Request received")

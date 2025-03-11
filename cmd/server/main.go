@@ -204,8 +204,11 @@ func main() {
 	apiRouter.HandleFunc("/setup", api.SetupVPNHandler(cfg)).Methods("POST")
 	apiRouter.HandleFunc("/vpn/status", api.StatusHandler(cfg)).Methods("GET")
 	apiRouter.HandleFunc("/config/download", api.DownloadConfigHandler()).Methods("GET")
+	apiRouter.HandleFunc("/config/download/client", api.DownloadClientConfigHandler()).Methods("GET")
+	apiRouter.HandleFunc("/config/download/server", api.DownloadServerConfigHandler()).Methods("GET")
 	apiRouter.HandleFunc("/backup", api.BackupHandler(cfg)).Methods("POST")
 	apiRouter.HandleFunc("/restore", api.RestoreHandler(cfg)).Methods("POST")
+	apiRouter.HandleFunc("/logs", api.LogsHandler(cfg)).Methods("GET")
 
 	// Register all routes properly through the handlers.go RegisterRoutes function
 	api.RegisterRoutes(router, cfg, db)

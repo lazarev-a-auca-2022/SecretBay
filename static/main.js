@@ -239,23 +239,13 @@ function setupLogTracker(logContainer, statusElement) {
 
             try {
                 // Get authenticated logs URL
-                const logsUrl = await accessVPNLogs('vpn');
+                const logsUrl = await accessVPNLogs('setup');
                 
                 // Create new EventSource connection with the authenticated URL
                 // EventSource doesn't support custom headers directly, so we need to include the token in the URL
-                const token = localStorage.getItem('jwt');
-                const csrfToken = await getCsrfToken();
+                console.log("Connecting to log stream at:", logsUrl);
                 
-                // Create URL with authentication parameters
-                const urlWithAuth = new URL(logsUrl);
-                if (token) {
-                    // Note: Adding auth token to URL is not ideal for security,
-                    // but EventSource doesn't support custom headers
-                    // For a production app, consider using WebSockets or fetch with streaming
-                    urlWithAuth.searchParams.append('auth_token', token);
-                }
-                
-                eventSource = new EventSource(urlWithAuth.toString());
+                eventSource = new EventSource(logsUrl);
 
                 eventSource.onopen = () => {
                     console.log("Log stream connection established");
@@ -297,7 +287,7 @@ function setupLogTracker(logContainer, statusElement) {
                         console.log(`Attempting to reconnect (${retryCount + 1}/${MAX_RETRIES})...`);
                         retryCount++;
                         retryTimeout = setTimeout(attemptConnection, RETRY_DELAY * retryCount);
-                    } else if (!isError) {
+                    } else {
                         isError = true;
                         clearInterval(dotsInterval);
                         
@@ -542,7 +532,7 @@ function generateDownloadLink(baseUrl, filename, credentials) {
     });
     
     // Ensure we're using the correct endpoint path
-    const downloadUrl = `${BASE_URL}/api/config/download/client?${params.toString()}`;
+    const downloadUrl = `${baseUrl}?${params.toString()}`;
     
     // Return URL that will trigger download function with the proper URL and filename
     return `javascript:downloadConfig('${downloadUrl}', '${filename}')`;
@@ -567,8 +557,10 @@ async function downloadConfig(url, filename) {
         let response;
         const maxRetries = 3;
         
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
+                console.log(`Download attempt ${attempt} for ${url}`);
+                
                 response = await fetch(url, {
                     method: 'GET',
                     headers: {
@@ -583,27 +575,28 @@ async function downloadConfig(url, filename) {
                     break; // Success, exit retry loop
                 }
                 
-                // If we got an error response but not a network error, don't retry
-                if (response.status !== 0) {
-                    throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+                console.log(`Download attempt ${attempt} failed: Error: HTTP error: ${response.status}`);
+                if (errorElement) {
+                    errorElement.textContent = `Download attempt ${attempt} failed: Error: HTTP error: ${response.status}`;
+                }
+                
+                // If we got an error response but not a network error, don't retry on the last attempt
+                if (response.status !== 0 && attempt === maxRetries) {
+                    throw new Error(`HTTP error: ${response.status}`);
                 }
                 
                 // Wait before retrying
-                console.log(`Download attempt ${attempt + 1} failed, retrying...`);
-                if (errorElement) {
-                    errorElement.textContent = `Download attempt ${attempt + 1} failed, retrying...`;
-                }
-                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             } catch (fetchError) {
-                console.error(`Download attempt ${attempt + 1} failed:`, fetchError);
+                console.error(`Download attempt ${attempt} failed:`, fetchError);
                 
                 // On last attempt, rethrow the error
-                if (attempt === maxRetries - 1) {
+                if (attempt === maxRetries) {
                     throw fetchError;
                 }
                 
                 // Wait before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
         }
 
@@ -731,11 +724,20 @@ async function accessVPNLogs(logType = 'vpn') {
             throw new Error('Authentication required');
         }
         
+        // Get the token and CSRF token
         const token = localStorage.getItem('jwt');
-        const csrfToken = await getCsrfToken();
         
-        // After authentication is confirmed, redirect to logs page or return the URL
-        return `${BASE_URL}/api/logs?type=${logType}`;
+        // After authentication is confirmed, return the URL with auth_token parameter
+        // This is needed because EventSource doesn't support custom headers
+        const logsUrl = new URL(`${BASE_URL}/api/logs`);
+        logsUrl.searchParams.append('type', logType);
+        
+        // Add auth token as query parameter for EventSource
+        if (token) {
+            logsUrl.searchParams.append('auth_token', token);
+        }
+        
+        return logsUrl.toString();
     } catch (error) {
         console.error('Failed to access logs:', error);
         if (window.location.pathname !== '/login.html') {
@@ -829,15 +831,18 @@ async function initializeVPNForm() {
                 serverLink.setAttribute('download', serverFilename);
                 
                 elements.downloadLinks.appendChild(clientLink);
-                elements.downloadLinks.appendChild(document.createElement('br'));
                 elements.downloadLinks.appendChild(serverLink);
-                
-                // Show the container
                 elements.downloadLinks.style.display = 'block';
+                
+                console.log('Download links created successfully');
             } catch (error) {
                 console.error('Error creating download links:', error);
-                elements.error.textContent = 'Failed to generate download links: ' + error.message;
-                elements.error.style.display = 'block';
+                const errorElement = document.getElementById('error-message');
+                if (errorElement) {
+                    errorElement.textContent = 'Error creating download links: ' + error.message;
+                    errorElement.style.display = 'block';
+                    errorElement.className = 'error';
+                }
             }
         };
 
