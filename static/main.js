@@ -1035,15 +1035,21 @@ async function initializeVPNForm() {
                     logTracker.complete();
                 }
                 
-                // Show success message and create download links
+                // Show success message
                 elements.result.textContent = 'VPN setup completed successfully!';
                 elements.result.className = 'success';
                 elements.result.style.display = 'block';
                 
+                // Create a container for passwords and download links
+                const resultsContainer = document.createElement('div');
+                resultsContainer.className = 'setup-results';
+                resultsContainer.style.marginTop = '20px';
+                elements.result.parentNode.insertBefore(resultsContainer, elements.result.nextSibling);
+                
                 // Display new password information if available
                 if (responseData && responseData.new_password) {
                     console.log('New password received, displaying in UI');
-                    showPasswordInfo(responseData.new_password, elements.progress.parentNode, 'New VPN Password');
+                    showPasswordInfo(responseData.new_password, resultsContainer, 'New VPN Password');
                 } else {
                     console.log('No password received in response');
                 }
@@ -1051,7 +1057,7 @@ async function initializeVPNForm() {
                 // Display SSH password if available
                 if (responseData && responseData.ssh_password) {
                     console.log('SSH password received, displaying in UI');
-                    showPasswordInfo(responseData.ssh_password, elements.progress.parentNode, 'New SSH Password');
+                    showPasswordInfo(responseData.ssh_password, resultsContainer, 'New SSH Password');
                 }
                 
                 // Generate and show download links
