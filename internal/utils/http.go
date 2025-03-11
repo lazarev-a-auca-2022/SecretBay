@@ -88,19 +88,16 @@ func JSONError(w http.ResponseWriter, message string, code int) {
 	// Log detailed error
 	logger.Log.Printf("Error response: %+v", resp)
 
+	// Set content type and write headers only if they haven't been written yet
 	w.Header().Set("Content-Type", "application/json")
 
-	// Attempt to safely write the status code (ignore error if headers are already sent)
-	defer func() {
-		// If there's a panic when writing the header, it's likely because headers were already sent
-		// We'll recover and continue to encode the JSON response
-		recover()
-	}()
+	// Use custom header to track if status has been written
+	if w.Header().Get("X-Status-Written") == "" {
+		w.Header().Set("X-Status-Written", "true")
+		w.WriteHeader(code)
+	}
 
-	// Try to write the header - this may fail if headers were already written
-	w.WriteHeader(code)
-
-	// Always try to write the JSON response
+	// Write JSON response
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -140,20 +137,16 @@ func JSONErrorWithDetails(w http.ResponseWriter, err error, code int, requestID 
 	// Log detailed error
 	logger.Log.Printf("Detailed error response: %+v", resp)
 
-	// Set content type
+	// Set content type and write headers only if they haven't been written yet
 	w.Header().Set("Content-Type", "application/json")
 
-	// Attempt to safely write the status code (ignore error if headers are already sent)
-	defer func() {
-		// If there's a panic when writing the header, it's likely because headers were already sent
-		// We'll recover and continue to encode the JSON response
-		recover()
-	}()
+	// Use a custom header to track if we've written the status
+	if w.Header().Get("X-Status-Written") == "" {
+		w.Header().Set("X-Status-Written", "true")
+		w.WriteHeader(code)
+	}
 
-	// Try to write the header - this may fail if headers were already written
-	w.WriteHeader(code)
-
-	// Always try to write the JSON response
+	// Write JSON response
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -198,17 +191,12 @@ func JSONValidationError(w http.ResponseWriter, errors []ValidationError) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// Attempt to safely write the status code (ignore error if headers are already sent)
-	defer func() {
-		// If there's a panic when writing the header, it's likely because headers were already sent
-		// We'll recover and continue to encode the JSON response
-		recover()
-	}()
+	// Use custom header to track if status has been written
+	if w.Header().Get("X-Status-Written") == "" {
+		w.Header().Set("X-Status-Written", "true")
+		w.WriteHeader(http.StatusBadRequest)
+	}
 
-	// Try to write the header - this may fail if headers were already written
-	w.WriteHeader(http.StatusBadRequest)
-
-	// Always try to write the JSON response
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -216,16 +204,11 @@ func JSONValidationError(w http.ResponseWriter, errors []ValidationError) {
 func JSONResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Attempt to safely write the status code (ignore error if headers are already sent)
-	defer func() {
-		// If there's a panic when writing the header, it's likely because headers were already sent
-		// We'll recover and continue to encode the JSON response
-		recover()
-	}()
+	// Use custom header to track if status has been written
+	if w.Header().Get("X-Status-Written") == "" {
+		w.Header().Set("X-Status-Written", "true")
+		w.WriteHeader(status)
+	}
 
-	// Try to write the header - this may fail if headers were already written
-	w.WriteHeader(status)
-
-	// Always try to write the JSON response
 	json.NewEncoder(w).Encode(data)
 }

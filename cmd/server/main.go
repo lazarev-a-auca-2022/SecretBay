@@ -222,7 +222,7 @@ func main() {
 			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
 			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 		},
-		PreferServerCipherSuites: true,
+		PreferServerCipherSuites: false, // Let clients choose their preferred cipher
 		NextProtos:               []string{"h2", "http/1.1"},
 		SessionTicketsDisabled:   false,
 		Renegotiation:            tls.RenegotiateNever,
@@ -247,15 +247,16 @@ func main() {
 		serverPort = "9999" // default port if not set
 	}
 
+	// Configure HTTP server with larger buffer sizes
 	srv := &http.Server{
 		Addr:              ":" + serverPort,
 		Handler:           router,
 		TLSConfig:         tlsConfig,
-		ReadTimeout:       30 * time.Second,  // Increased from 15
-		WriteTimeout:      30 * time.Second,  // Increased from 15
-		IdleTimeout:       300 * time.Second, // Increased from 120
-		ReadHeaderTimeout: 10 * time.Second,  // Added explicit header timeout
-		MaxHeaderBytes:    1 << 20,           // Added max header size (1MB)
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB
 	}
 
 	// Enable TCP keep-alive
