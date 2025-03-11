@@ -190,14 +190,17 @@ func (o *OpenVPNSetup) Setup() error {
 		"cd ~/easy-rsa && ./easyrsa --batch build-ca nopass",
 		"cd ~/easy-rsa && ./easyrsa --batch gen-req server nopass",
 		"cd ~/easy-rsa && ./easyrsa --batch sign-req server server",
-		// Generate DH parameters directly with PEM output
-		"openssl dhparam -outform PEM -out ~/easy-rsa/dh.pem 2048",
+		// Use faster DH parameter generation
+		"openssl dhparam -2 -outform PEM -out ~/easy-rsa/dh.pem 2048",
 	}
 
+	var output string
+	var err error
 	for i, cmd := range certCmds {
 		logger.Log.Printf("Certificate generation %d/%d: %s", i+1, len(certCmds), cmd)
-		output, err := o.SSHClient.RunCommand(cmd)
+		output, err = o.SSHClient.RunCommand(cmd)
 		if err != nil {
+			// Check for password expiry
 			if strings.Contains(output, "Your password has expired") || strings.Contains(output, "Password change required") {
 				logger.Log.Printf("Password expired during certificate generation: %s", output)
 				return fmt.Errorf("password has expired and needs to be reset before continuing")
@@ -205,24 +208,15 @@ func (o *OpenVPNSetup) Setup() error {
 			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, output, err)
 			return fmt.Errorf("certificate generation failed: %v", err)
 		}
-		// Ensure certificate generation completes before moving on
-		time.Sleep(1 * time.Second)
+		// Force immediate flush of logs and add delay between commands
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	// Verify certificate files exist before copying
-	verifyCmd := "ls -la ~/easy-rsa/pki/"
-	output, err := o.SSHClient.RunCommand(verifyCmd)
-	if err != nil {
-		logger.Log.Printf("Failed to verify PKI directory contents: %v", err)
-		return fmt.Errorf("PKI directory verification failed: %v", err)
-	}
-	logger.Log.Printf("PKI directory contents: %s", output)
-
-	// Verify the existence of required files before proceeding
+	// Verify required files exist
 	requiredFiles := []string{
-		"~/easy-rsa/pki/ca.crt",
-		"~/easy-rsa/pki/issued/server.crt",
+		"~/easy-rsa/ca.crt",
 		"~/easy-rsa/pki/private/server.key",
+		"~/easy-rsa/pki/issued/server.crt",
 		"~/easy-rsa/dh.pem",
 	}
 
