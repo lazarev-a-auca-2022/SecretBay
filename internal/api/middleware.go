@@ -19,31 +19,26 @@ var csrfTokens sync.Map
 
 // isValidOrigin checks if the given origin is allowed by CORS policy
 func isValidOrigin(origin string) bool {
-	// List of allowed origins - modify as needed for your application
-	allowedOrigins := []string{
-		"http://localhost:8080",
-		"https://localhost:8443",
-		"https://secretbay.local",
+	// List of allowed domains - modify as needed for your application
+	allowedDomains := []string{
+		"localhost",
+		"secretbay.local",
+		"secretbay.me",
 	}
 
-	for _, allowed := range allowedOrigins {
-		if allowed == origin {
+	// Parse the origin URL
+	originParts := strings.Split(origin, "://")
+	if len(originParts) != 2 {
+		return false
+	}
+
+	// Get the domain part (ignore port if present)
+	domain := strings.Split(originParts[1], ":")[0]
+
+	// Check if domain matches any allowed domain
+	for _, allowed := range allowedDomains {
+		if domain == allowed {
 			return true
-		}
-	}
-
-	// Check if origin is from the same domain but different port/protocol
-	for _, allowed := range allowedOrigins {
-		parts := strings.Split(allowed, "://")
-		if len(parts) == 2 {
-			domain := strings.Split(parts[1], ":")[0]
-			originParts := strings.Split(origin, "://")
-			if len(originParts) == 2 {
-				originDomain := strings.Split(originParts[1], ":")[0]
-				if domain == originDomain {
-					return true
-				}
-			}
 		}
 	}
 

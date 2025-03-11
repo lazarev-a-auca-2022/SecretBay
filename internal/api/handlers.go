@@ -894,6 +894,9 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 					logger.Log.Printf("LogsHandler: Authenticated via auth_token parameter for user %s", claims.Username)
 				} else {
 					logger.Log.Printf("LogsHandler: Invalid auth_token provided: %v", err)
+					// Return 401 for invalid token instead of redirecting
+					utils.JSONError(w, "Invalid or expired token", http.StatusUnauthorized)
+					return
 				}
 			}
 		}
@@ -901,24 +904,27 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 		// Check if authentication was successful
 		if userCtx == nil {
 			logger.Log.Println("LogsHandler: Unauthorized access attempt")
-			// For API requests, return 401
-			if strings.HasPrefix(r.URL.Path, "/api/") {
-				utils.JSONError(w, "Unauthorized", http.StatusUnauthorized)
-			} else {
-				// For browser requests, redirect to login
-				http.Redirect(w, r, "/login.html", http.StatusSeeOther)
-			}
+			// Always return 401 for API endpoints
+			utils.JSONError(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// Set headers for SSE
+		// Set headers for SSE - MUST be set before any writes to response
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
-		// Use request context for cancellation
-		ctx := r.Context()
+		// Get flusher capability
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+			return
+		}
+
+		// Send initial event to establish connection
+		fmt.Fprintf(w, "data: %s\n\n", "Connection established")
+		flusher.Flush()
 
 		// Check log type from query parameter
 		logType := r.URL.Query().Get("type")
@@ -926,11 +932,8 @@ func LogsHandler(cfg *config.Config) http.HandlerFunc {
 			logType = "vpn" // Default to VPN logs if not specified
 		}
 
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
-			return
-		}
+		// Use request context for cancellation
+		ctx := r.Context()
 
 		// Handle VPN logs with proper streaming
 		if logType == "vpn" {

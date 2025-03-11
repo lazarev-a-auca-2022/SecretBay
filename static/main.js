@@ -242,7 +242,6 @@ function setupLogTracker(logContainer, statusElement) {
                 const logsUrl = await accessVPNLogs('setup');
                 
                 // Create new EventSource connection with the authenticated URL
-                // EventSource doesn't support custom headers directly, so we need to include the token in the URL
                 console.log("Connecting to log stream at:", logsUrl);
                 
                 eventSource = new EventSource(logsUrl);
@@ -282,6 +281,22 @@ function setupLogTracker(logContainer, statusElement) {
                     console.error("EventSource error:", error);
                     eventSource.close();
                     
+                    // Check if the error is due to authentication
+                    if (error.target.readyState === EventSource.CLOSED) {
+                        const response = error.target.response;
+                        if (response && response.status === 401) {
+                            isError = true;
+                            clearInterval(dotsInterval);
+                            statusElement.textContent = "Authentication failed. Please log in again.";
+                            statusElement.style.color = "#FF0000";
+                            addLogMessage("Error: Authentication failed");
+                            
+                            // Redirect to login page
+                            window.location.href = '/login.html?auth_error=true&redirect=' + encodeURIComponent(window.location.pathname);
+                            return;
+                        }
+                    }
+                    
                     // Try to reconnect if we haven't reached max retries
                     if (retryCount < MAX_RETRIES && !isError) {
                         console.log(`Attempting to reconnect (${retryCount + 1}/${MAX_RETRIES})...`);
@@ -311,8 +326,9 @@ function setupLogTracker(logContainer, statusElement) {
                             retryButton.onclick = () => {
                                 errorControls.remove();
                                 isError = false;
+                                retryCount = 0;
                                 statusElement.style.color = "#00FF00";
-                                document.querySelector("#vpnForm").dispatchEvent(new Event("submit"));
+                                attemptConnection();
                             };
                             
                             const cancelButton = document.createElement("button");
