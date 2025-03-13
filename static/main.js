@@ -923,6 +923,137 @@ async function initializeVPNForm() {
     }
 }
 
+// Function to fetch and display VPN configuration
+async function displayConfig(serverIp, username, credential, vpnType) {
+    try {
+        const token = localStorage.getItem('jwt');
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        // Show loading message
+        const errorElement = document.getElementById('error-message');
+        if (errorElement) {
+            errorElement.textContent = 'Fetching configuration...';
+            errorElement.style.display = 'block';
+            errorElement.className = 'info';
+        }
+
+        // Build the URL with query parameters
+        const params = new URLSearchParams({
+            serverIp: serverIp,
+            username: username || 'root',
+            credential: credential,
+            vpnType: vpnType || 'openvpn'
+        });
+        
+        const url = `${BASE_URL}/api/config/download/client?${params.toString()}`;
+        
+        // Fetch the configuration
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'text/plain',
+                'Cache-Control': 'no-cache'
+            },
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        // Get the configuration text
+        const configText = await response.text();
+
+        // Create or get the configuration display container
+        let configContainer = document.getElementById('config-display');
+        if (!configContainer) {
+            configContainer = document.createElement('div');
+            configContainer.id = 'config-display';
+            configContainer.className = 'config-container';
+            document.getElementById('downloadLinks').appendChild(configContainer);
+        }
+
+        // Create the pre element for the configuration
+        const pre = document.createElement('pre');
+        pre.className = 'config-text';
+        pre.textContent = configText;
+
+        // Create copy button
+        const copyButton = document.createElement('button');
+        copyButton.className = 'copy-button';
+        copyButton.innerHTML = '<i class="fa fa-copy"></i> Copy Configuration';
+        copyButton.onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(configText);
+                copyButton.innerHTML = '<i class="fa fa-check"></i> Copied!';
+                setTimeout(() => {
+                    copyButton.innerHTML = '<i class="fa fa-copy"></i> Copy Configuration';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                copyButton.innerHTML = '<i class="fa fa-times"></i> Failed to copy';
+            }
+        };
+
+        // Clear previous content and add new elements
+        configContainer.innerHTML = '';
+        configContainer.appendChild(copyButton);
+        configContainer.appendChild(pre);
+
+        // Hide loading message
+        if (errorElement) {
+            errorElement.style.display = 'none';
+        }
+
+        // Show the container
+        document.getElementById('downloadLinks').style.display = 'block';
+
+    } catch (error) {
+        console.error('Error fetching configuration:', error);
+        const errorElement = document.getElementById('error-message');
+        if (errorElement) {
+            errorElement.textContent = `Failed to fetch configuration: ${error.message}`;
+            errorElement.style.display = 'block';
+            errorElement.className = 'error';
+        }
+    }
+}
+
+// Replace the old download functions with the new display function
+function createDownloadLinks(credentials) {
+    try {
+        // Clear existing content
+        const downloadLinks = document.getElementById('downloadLinks');
+        downloadLinks.innerHTML = '';
+        
+        // Create button to show configuration
+        const showConfigButton = document.createElement('button');
+        showConfigButton.className = 'show-config-button';
+        showConfigButton.innerHTML = '<i class="fa fa-eye"></i> Show OpenVPN Configuration';
+        showConfigButton.onclick = () => displayConfig(
+            credentials.serverIp,
+            credentials.username,
+            credentials.credential,
+            credentials.vpnType
+        );
+        
+        downloadLinks.appendChild(showConfigButton);
+        downloadLinks.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error creating config display:', error);
+        const errorElement = document.getElementById('error-message');
+        if (errorElement) {
+            errorElement.textContent = `Error creating config display: ${error.message}`;
+            errorElement.style.display = 'block';
+            errorElement.className = 'error';
+        }
+    }
+}
+
 async function init() {
     try {
         // Check if we're on the VPN setup page before trying to initialize the form
