@@ -1022,12 +1022,22 @@ async function displayConfig(serverIp, username, credential, vpnType) {
     }
 }
 
-// Replace the old download functions with the new display function
+// Function to create download links
 function createDownloadLinks(credentials) {
     try {
         // Clear existing content
         const downloadLinks = document.getElementById('downloadLinks');
+        if (!downloadLinks) {
+            console.error('Download links container not found');
+            return;
+        }
         downloadLinks.innerHTML = '';
+        
+        // Hide the old download buttons container if it exists
+        const oldDownloads = document.getElementById('downloads');
+        if (oldDownloads) {
+            oldDownloads.style.display = 'none';
+        }
         
         // Create button to show configuration
         const showConfigButton = document.createElement('button');
