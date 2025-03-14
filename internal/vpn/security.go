@@ -184,47 +184,82 @@ bantime = 3600
 			for _, cmd := range firewallCmds {
 				if output, err := s.SSHClient.RunCommand(cmd); err != nil {
 					logger.Log.Printf("Firewall setup warning for command '%s': command failed: %v, output: %s", cmd, err, output)
-					// Continue as some firewall commands might fail in certain environments
+					// If UFW fails, try setting up iptables directly
+					if isDocker {
+						logger.Log.Println("UFW failed in Docker environment, switching to iptables")
+						iptablesCmds := []string{
+							"iptables -P INPUT DROP",
+							"iptables -P FORWARD ACCEPT",
+							"iptables -P OUTPUT ACCEPT",
+							"iptables -A INPUT -i lo -j ACCEPT",
+							"iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+							"iptables -A INPUT -p tcp --dport 22 -j ACCEPT",
+							"iptables -A INPUT -p udp --dport 1194 -j ACCEPT",
+							"iptables -A INPUT -p udp --dport 500 -j ACCEPT",
+							"iptables -A INPUT -p udp --dport 4500 -j ACCEPT",
+							"iptables-save > /etc/iptables/rules.v4 || true",
+						}
+
+						for _, iptCmd := range iptablesCmds {
+							if iptOut, iptErr := s.SSHClient.RunCommand(iptCmd); iptErr != nil {
+								logger.Log.Printf("iptables command failed: %s, error: %v, output: %s", iptCmd, iptErr, iptOut)
+							} else {
+								logger.Log.Printf("iptables command successful: %s", iptCmd)
+							}
+						}
+					}
 				} else {
 					logger.Log.Printf("Firewall command successful: %s", cmd)
 				}
 			}
 		} else {
-			logger.Log.Println("UFW command found but not functional, skipping firewall configuration")
-		}
-	} else {
-		logger.Log.Println("UFW not installed, skipping firewall configuration")
-
-		// Only try to install UFW if not in Docker environment
-		if !isDocker {
-			// Try to install UFW if not available
-			installUfwCmd := "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ufw"
-
-			if output, err := s.SSHClient.RunCommand(installUfwCmd); err != nil {
-				logger.Log.Printf("Failed to install UFW: %v, output: %s", err, output)
-				logger.Log.Println("Continuing without UFW...")
-			} else {
-				logger.Log.Println("UFW installed successfully, configuring firewall")
-				// After successful install, try again to configure firewall
-				firewallCmds := []string{
-					"sudo ufw default deny incoming",
-					"sudo ufw default allow outgoing",
-					"sudo ufw allow ssh",
-					"sudo ufw allow 1194/udp",     // OpenVPN
-					"sudo ufw allow 500,4500/udp", // IKEv2/IPsec
-					"sudo ufw --force enable",
+			logger.Log.Println("UFW command found but not functional, using iptables instead")
+			if isDocker {
+				iptablesCmds := []string{
+					"iptables -P INPUT DROP",
+					"iptables -P FORWARD ACCEPT",
+					"iptables -P OUTPUT ACCEPT",
+					"iptables -A INPUT -i lo -j ACCEPT",
+					"iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+					"iptables -A INPUT -p tcp --dport 22 -j ACCEPT",
+					"iptables -A INPUT -p udp --dport 1194 -j ACCEPT",
+					"iptables -A INPUT -p udp --dport 500 -j ACCEPT",
+					"iptables -A INPUT -p udp --dport 4500 -j ACCEPT",
+					"iptables-save > /etc/iptables/rules.v4 || true",
 				}
 
-				for _, cmd := range firewallCmds {
+				for _, cmd := range iptablesCmds {
 					if output, err := s.SSHClient.RunCommand(cmd); err != nil {
-						logger.Log.Printf("Firewall setup warning for command '%s': %v, output: %s", cmd, err, output)
+						logger.Log.Printf("iptables command failed: %s, error: %v, output: %s", cmd, err, output)
 					} else {
-						logger.Log.Printf("Firewall command successful: %s", cmd)
+						logger.Log.Printf("iptables command successful: %s", cmd)
 					}
 				}
 			}
-		} else {
-			logger.Log.Println("Running in Docker environment, skipping UFW installation and configuration")
+		}
+	} else {
+		logger.Log.Println("UFW not installed, using iptables for firewall configuration")
+		if isDocker {
+			iptablesCmds := []string{
+				"iptables -P INPUT DROP",
+				"iptables -P FORWARD ACCEPT",
+				"iptables -P OUTPUT ACCEPT",
+				"iptables -A INPUT -i lo -j ACCEPT",
+				"iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT",
+				"iptables -A INPUT -p tcp --dport 22 -j ACCEPT",
+				"iptables -A INPUT -p udp --dport 1194 -j ACCEPT",
+				"iptables -A INPUT -p udp --dport 500 -j ACCEPT",
+				"iptables -A INPUT -p udp --dport 4500 -j ACCEPT",
+				"iptables-save > /etc/iptables/rules.v4 || true",
+			}
+
+			for _, cmd := range iptablesCmds {
+				if output, err := s.SSHClient.RunCommand(cmd); err != nil {
+					logger.Log.Printf("iptables command failed: %s, error: %v, output: %s", cmd, err, output)
+				} else {
+					logger.Log.Printf("iptables command successful: %s", cmd)
+				}
+			}
 		}
 	}
 
