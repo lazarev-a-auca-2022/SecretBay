@@ -526,6 +526,15 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 
 		logger.Log.Printf("SetupVPNHandler: Config file %s verified successfully", vpnConfig)
 
+		// Read the actual config file content
+		configFileContent, err := sshClient.RunCommand(fmt.Sprintf("cat %s", vpnConfig))
+		if err != nil {
+			logger.Log.Printf("SetupVPNHandler: Failed to read config content: %v", err)
+			configFileContent = "Error reading configuration file"
+		} else {
+			logger.Log.Printf("SetupVPNHandler: Successfully read config content, size: %d bytes", len(configFileContent))
+		}
+
 		// Send progress update for security setup
 		if ok {
 			json.NewEncoder(w).Encode(map[string]string{
@@ -633,11 +642,11 @@ func SetupVPNHandler(cfg *config.Config) http.HandlerFunc {
 		} else {
 			downloadEndpoint += "ios_vpn"
 		}
-		downloadEndpoint += fmt.Sprintf("&serverIp=%s", req.ServerIP)
+		downloadEndpoint += fmt.Sprintf("&serverIp=%s&username=%s&credential=%s", req.ServerIP, req.Username, req.AuthCredential)
 
 		// Create enhanced response with detailed status
 		response := EnhancedVPNSetupResponse{
-			VPNConfig:             vpnConfig,
+			VPNConfig:             configFileContent, // Include actual config content instead of just file path
 			NewPassword:           newPassword,
 			SSHPassword:           sshClient.GetPassword(),
 			Status:                "setup_complete",
@@ -1424,6 +1433,8 @@ func DownloadClientConfigHandler() http.HandlerFunc {
 			vpnType = "openvpn" // Default to OpenVPN if not specified
 		}
 
+		logger.Log.Printf("DownloadClientConfigHandler: Received request for %s config from %s", vpnType, serverIP)
+
 		// Initialize SSH client with the provided credentials
 		sshClient, err := sshclient.NewSSHClient(serverIP, username, "password", credential)
 		if err != nil {
@@ -1449,7 +1460,8 @@ func DownloadClientConfigHandler() http.HandlerFunc {
 			return
 		}
 
-		if out != "exists\n" {
+		if strings.TrimSpace(out) != "exists" {
+			logger.Log.Printf("DownloadClientConfigHandler: Config file not found at path %s", configPath)
 			http.Error(w, "No VPN client configuration found on the remote host", http.StatusNotFound)
 			return
 		}
@@ -1462,19 +1474,27 @@ func DownloadClientConfigHandler() http.HandlerFunc {
 			return
 		}
 
+		// Log successful config retrieval
+		logger.Log.Printf("DownloadClientConfigHandler: Successfully retrieved %s config file, size: %d bytes", vpnType, len(configContent))
+
 		// Set appropriate filename and content type
 		filename := "client.ovpn"
 		contentType := "application/octet-stream"
-
 		if vpnType == "ios_vpn" {
 			filename = "vpn_config.mobileconfig"
 			contentType = "application/x-apple-aspen-config"
 		}
 
-		// Send the file
+		// Set proper headers with correct Content-Length
 		w.Header().Set("Content-Type", contentType)
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
-		w.Write([]byte(configContent))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(configContent)))
+		w.WriteHeader(http.StatusOK)
+
+		// Write the config content
+		if _, err := w.Write([]byte(configContent)); err != nil {
+			logger.Log.Printf("DownloadClientConfigHandler: Error writing response: %v", err)
+		}
 	}
 }
 
