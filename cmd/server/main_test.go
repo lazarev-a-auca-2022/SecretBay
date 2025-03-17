@@ -26,6 +26,9 @@ import (
 	"github.com/lazarev-a-auca-2022/vpn-setup-server/pkg/models"
 )
 
+// Define contextKey type near the top of the file after the imports
+type contextKey string
+
 // BaseConfigPath is the base path for configuration files
 var BaseConfigPath = "configs"
 

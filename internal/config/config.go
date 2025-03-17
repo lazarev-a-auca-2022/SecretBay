@@ -34,6 +34,18 @@ type Config struct {
 
 	// AuthEnabled controls whether authentication is required
 	AuthEnabled bool
+
+	// TLSCert is the path to the TLS certificate file
+	TLSCert string
+
+	// TLSKey is the path to the TLS key file
+	TLSKey string
+
+	// MetricsPath is the path to store metrics data
+	MetricsPath string
+
+	// LogsPath is the path to store logs
+	LogsPath string
 }
 
 // ServerConfig holds HTTP server specific configuration

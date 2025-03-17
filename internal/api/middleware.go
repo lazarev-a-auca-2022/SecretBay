@@ -362,6 +362,18 @@ func SetupRoutes(router *mux.Router, cfg *config.Config) {
 func SetupMiddleware(router *mux.Router, cfg *config.Config) {
 	router.Use(MonitoringMiddleware)
 	router.Use(SecurityHeadersMiddleware)
-	router.Use(RateLimitMiddleware(NewRateLimiter(time.Minute, 100)))
+	// Increase rate limit to 300 requests per minute and exclude download endpoints
+	rateMiddleware := RateLimitMiddleware(NewRateLimiter(time.Minute, 300))
+	router.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip rate limiting for download endpoints to prevent streaming issues
+			if strings.Contains(r.URL.Path, "/download") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Apply rate limiting for other endpoints
+			rateMiddleware(next).ServeHTTP(w, r)
+		})
+	})
 	// CSRF middleware is now applied only to protected routes
 }

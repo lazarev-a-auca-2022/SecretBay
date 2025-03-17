@@ -1433,7 +1433,8 @@ func DownloadClientConfigHandler() http.HandlerFunc {
 			vpnType = "openvpn" // Default to OpenVPN if not specified
 		}
 
-		logger.Log.Printf("DownloadClientConfigHandler: Received request for %s config from %s", vpnType, serverIP)
+		logger.Log.Printf("DownloadClientConfigHandler: Received request for %s config from %s for user %s",
+			vpnType, serverIP, username)
 
 		// Initialize SSH client with the provided credentials
 		sshClient, err := sshclient.NewSSHClient(serverIP, username, "password", credential)
@@ -1444,38 +1445,91 @@ func DownloadClientConfigHandler() http.HandlerFunc {
 		}
 		defer sshClient.Close()
 
-		// Define config file path based on VPN type
-		var configPath string
+		// Define possible config file paths
+		var configPaths []string
 		if vpnType == "openvpn" {
-			configPath = "/etc/vpn-configs/openvpn_config.ovpn"
+			configPaths = []string{
+				"/etc/vpn-configs/openvpn_config.ovpn",
+				"/etc/openvpn/client/client.ovpn",
+				"/root/client.ovpn",
+				"/root/openvpn_config.ovpn",
+			}
 		} else {
-			configPath = "/etc/vpn-configs/ios_vpn.mobileconfig"
+			configPaths = []string{
+				"/etc/vpn-configs/ios_vpn.mobileconfig",
+				"/etc/ipsec.d/ios_vpn.mobileconfig",
+				"/root/ios_vpn.mobileconfig",
+				"/root/vpn_config.mobileconfig",
+			}
 		}
 
-		// Check whether VPN config file exists
-		out, err := sshClient.RunCommand(fmt.Sprintf("test -f %s && echo exists || echo notfound", configPath))
-		if err != nil {
-			logger.Log.Printf("DownloadClientConfigHandler: Error checking VPN client config: %v", err)
-			http.Error(w, fmt.Sprintf("Error checking VPN client config: %v", err), http.StatusInternalServerError)
+		// Try each path until we find one that exists
+		var configPath string
+		var configContent string
+		var foundConfig bool
+
+		for _, path := range configPaths {
+			logger.Log.Printf("DownloadClientConfigHandler: Checking for config at %s", path)
+			out, err := sshClient.RunCommand(fmt.Sprintf("test -f %s && echo exists || echo notfound", path))
+			if err != nil {
+				logger.Log.Printf("DownloadClientConfigHandler: Error checking VPN client config at %s: %v", path, err)
+				continue
+			}
+
+			if strings.TrimSpace(out) == "exists" {
+				// Found a config file, try to read it
+				configContent, err = sshClient.RunCommand(fmt.Sprintf("cat %s", path))
+				if err != nil {
+					logger.Log.Printf("DownloadClientConfigHandler: Failed to read client config file at %s: %v", path, err)
+					continue
+				}
+
+				if len(configContent) > 0 {
+					configPath = path
+					foundConfig = true
+					logger.Log.Printf("DownloadClientConfigHandler: Successfully found and read config at %s, size: %d bytes",
+						configPath, len(configContent))
+					break
+				}
+			}
+		}
+
+		// If we didn't find a valid config, try to generate one
+		if !foundConfig {
+			logger.Log.Printf("DownloadClientConfigHandler: No existing config found, attempting to generate...")
+
+			if vpnType == "openvpn" {
+				// Try to generate OpenVPN client config
+				genCmd := "mkdir -p /etc/vpn-configs && " +
+					"cp /etc/openvpn/client/client.ovpn /etc/vpn-configs/openvpn_config.ovpn 2>/dev/null || " +
+					"echo '# Failed to generate OpenVPN config'"
+				out, err := sshClient.RunCommand(genCmd)
+				if err == nil && !strings.Contains(out, "Failed to generate") {
+					configPath = "/etc/vpn-configs/openvpn_config.ovpn"
+					configContent, _ = sshClient.RunCommand("cat " + configPath)
+					foundConfig = len(configContent) > 0
+				}
+			} else {
+				// Try to generate StrongSwan/iOS VPN config
+				genCmd := "mkdir -p /etc/vpn-configs && " +
+					"cp /etc/ipsec.d/ios_vpn.mobileconfig /etc/vpn-configs/ios_vpn.mobileconfig 2>/dev/null || " +
+					"echo '<?xml version=\"1.0\"?>' > /etc/vpn-configs/ios_vpn.mobileconfig && " +
+					"echo '<error>Failed to find iOS VPN config</error>' >> /etc/vpn-configs/ios_vpn.mobileconfig"
+				sshClient.RunCommand(genCmd)
+				configPath = "/etc/vpn-configs/ios_vpn.mobileconfig"
+				configContent, _ = sshClient.RunCommand("cat " + configPath)
+				foundConfig = len(configContent) > 0 && !strings.Contains(configContent, "<error>")
+			}
+		}
+
+		if !foundConfig || len(configContent) == 0 {
+			logger.Log.Printf("DownloadClientConfigHandler: Could not find or generate valid config file for %s", vpnType)
+			http.Error(w, "No VPN client configuration found or could be generated on the remote host", http.StatusNotFound)
 			return
 		}
 
-		if strings.TrimSpace(out) != "exists" {
-			logger.Log.Printf("DownloadClientConfigHandler: Config file not found at path %s", configPath)
-			http.Error(w, "No VPN client configuration found on the remote host", http.StatusNotFound)
-			return
-		}
-
-		// Read the configuration file
-		configContent, err := sshClient.RunCommand(fmt.Sprintf("cat %s", configPath))
-		if err != nil {
-			logger.Log.Printf("DownloadClientConfigHandler: Failed to read client config file: %v", err)
-			http.Error(w, fmt.Sprintf("Failed to read client config file: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		// Log successful config retrieval
-		logger.Log.Printf("DownloadClientConfigHandler: Successfully retrieved %s config file, size: %d bytes", vpnType, len(configContent))
+		logger.Log.Printf("DownloadClientConfigHandler: Successfully retrieved %s config file from %s, size: %d bytes",
+			vpnType, configPath, len(configContent))
 
 		// Set appropriate filename and content type
 		filename := "client.ovpn"
