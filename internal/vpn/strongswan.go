@@ -212,7 +212,7 @@ EOF`, s.SSHClient.GetPassword(), newPassword, newPassword)
     charondebug="ike 2, knl 2, cfg 2"
     uniqueids=no
 
-conn %default
+conn %%default
     compress=no
     type=tunnel
     keyexchange=ikev2
@@ -226,13 +226,13 @@ conn %default
     ike=aes256gcm16-prfsha384-ecp384!
     esp=aes256gcm16-ecp384!
     
-    left=%any
+    left=%%any
     leftid=%s
     leftcert=server.cert.pem
     leftsendcert=always
     leftsubnet=0.0.0.0/0
     
-    right=%any
+    right=%%any
     rightid=%%any
     rightauth=eap-mschapv2
     rightsourceip=10.10.10.0/24
@@ -319,7 +319,7 @@ conn ikev2-vpn
 		logger.Log.Printf("Service step %d/%d: %s", i+1, len(serviceCmds), cmd)
 		out, err := s.SSHClient.RunCommand(cmd)
 		if err != nil {
-			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", out, err)
+			logger.Log.Printf("Command failed: %s, Output: %s, Error: %v", cmd, out, err)
 			return fmt.Errorf("service configuration failed: %v", err)
 		}
 		// Force immediate flush of logs
