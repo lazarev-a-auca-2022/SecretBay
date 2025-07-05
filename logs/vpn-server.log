@@ -1,0 +1,9 @@
+2025/07/05 04:25:53 main.go:73: Starting SecretBay VPN Server...
+2025/07/05 04:25:53 main.go:74: Version: 2.1.0
+2025/07/05 04:25:53 main.go:75: Build date: 2023-03-15
+2025/07/05 04:25:53 main.go:78: Config file: .env
+2025/07/05 04:25:53 main.go:79: Logs path: ./logs
+2025/07/05 04:25:53 main.go:80: Metrics path: ./metrics
+2025/07/05 04:25:53 main.go:81: Debug mode: false
+2025/07/05 04:25:53 main.go:85: Loading configuration from .env
+2025/07/05 04:25:53 main.go:97: Error loading configuration: failed to initialize database: error pinging database: dial tcp [::1]:5432: connect: connection refused
